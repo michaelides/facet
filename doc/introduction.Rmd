@@ -1,0 +1,515 @@
+---
+title: "Using facet for Generalizability Theory"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using facet for Generalizability Theory}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction to facet
+
+The **facet** package provides comprehensive tools for conducting Generalizability Theory (G-theory) analyses using variance component models. It supports three estimation backends: frequentist (lme4), Bayesian (brms), and method of moments (mom/ANOVA-based). The package provides a unified interface for univariate and multivariate designs, with full support for G-studies, D-studies, and coefficient calculations with uncertainty quantification.
+
+**Note**: The `tidy()` and `glance()` methods require the broom package to be loaded. The examples below use `library(broom)` to ensure these functions are available.
+
+## Overview
+
+Generalizability Theory provides a framework for quantifying the reliability of measurements across multiple sources of error. The key concepts are:
+
+- **G-studies**: Estimate variance components associated with different facets of measurement (e.g., items, raters, occasions)
+- **D-studies**: Compute generalizability (G) and dependability (D/Phi) coefficients for different measurement designs
+
+The facet package supports multiple backends:
+
+- **lme4**: For frequentist estimation using linear mixed effects models (default for univariate models)
+- **brms**: For Bayesian estimation using Stan (required for multivariate models)
+- **mom**: For method of moments (ANOVA-based) estimation. Works best with balanced designs and provides confidence intervals using asymptotic approximations.
+
+## Installation
+
+```r
+# Install from GitHub
+# install.packages("devtools")
+devtools::install_github("yourusername/facet")
+```
+
+## Basic G-Study
+
+A G-study estimates the variance components for each facet in your measurement design. The formula syntax follows **lme4** conventions, specifying random effects with `(1 | facet)`.
+
+In this example, we use the `brennan` dataset, which contains scores for 10 persons across 3 tasks and 12 raters in a fully crossed design ($p \times t \times r$).
+
+```{r}
+library(facet)
+library(dplyr)
+library(tidyr)
+library(broom)
+
+# Load Brennan dataset
+data(brennan)
+
+# Conduct G-study with default (lme4) backend
+# We specify a person-by-task design.
+g <- gstudy(Score ~ (1 | Person) + (1 | Task), 
+            data = brennan)
+
+# View variance components
+print(g)
+```
+
+The output shows the estimated variance components for each facet:
+
+- **person**: Variance attributable to differences between persons (universe score variance)
+- **rater**: Variance attributable to differences between raters
+- **Residual**: Remaining variance (person × rater interaction + error)
+
+### Viewing Results
+
+Use `summary()` for a more detailed view, with options to display estimates on variance or SD scale:
+
+```{r}
+# Summary with variance estimates (default)
+summary(g)
+
+# Summary with standard deviation estimates
+summary(g, scale = "sd")
+```
+
+Extract the variance components as a tibble using `tidy()`:
+
+```{r}
+tidy(g)
+```
+
+Use `glance()` for a one-row summary of the G-study:
+
+```{r}
+glance(g)
+```
+
+## G-Study with Confidence Intervals
+
+For the **lme4** backend, you can request confidence intervals using the `ci_method` parameter:
+
+- `"none"` (default): No confidence intervals
+- `"profile"`: Profile likelihood confidence intervals (more accurate, slower)
+- `"boot"`: Parametric bootstrap confidence intervals (most accurate, slowest)
+
+```{r}
+# G-study with profile likelihood confidence intervals
+g_profile <- gstudy(
+  Score ~ (1 | Person) + (1 | Task),
+  data = brennan,
+  ci_method = "profile"
+)
+
+summary(g_profile)
+```
+
+For bootstrap confidence intervals, you can specify the bootstrap type and number of simulations:
+
+```{r}
+# G-study with bootstrap confidence intervals
+# Using fewer iterations for speed in this example
+g_boot <- gstudy(
+  Score ~ (1 | Person) + (1 | Task),
+  data = brennan,
+  ci_method = "boot",
+  nsim = 50,  # Number of bootstrap samples
+  boot.type = "perc"  # Percentile bootstrap
+)
+
+summary(g_boot)
+```
+
+## Method of Moments Backend
+
+The method of moments (MOM) backend uses ANOVA-based variance component estimation. This approach works best with balanced designs and provides confidence intervals using asymptotic approximations.
+
+```{r}
+# Method of moments G-study
+g_mom <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
+          (1 | Person:Task),
+  data = brennan,
+  backend = "mom"
+)
+
+# Summary shows confidence intervals
+summary(g_mom)
+```
+
+The MOM backend automatically handles complex designs and nested data correctly if specified in the formula.
+
+```{r}
+# Example with nested data (Method of Moments)
+# Using rajaratnam dataset: items nested within subtests
+data(rajaratnam)
+
+g_nested <- gstudy(
+  Score ~ (1 | Person) + (1 | Subtest) + (1 | Item:Subtest) + (1 | Person:Subtest),
+  data = rajaratnam,
+  backend = "mom"
+)
+
+print(g_nested)
+```
+
+## Bayesian Estimation with brms
+
+For Bayesian estimation, use the **brms** backend. This provides:
+
+- Posterior distributions for variance components
+- Credible intervals (highest posterior density intervals)
+- Full Bayesian inference including convergence diagnostics
+
+```{r, eval=FALSE}
+# Bayesian G-study with brms
+# Note: Requires brms and Stan to be installed
+g_bayes <- gstudy(
+  Score ~ (1 | Person) + (1 | Task),
+  data = brennan,
+  backend = "brms"
+)
+
+print(g_bayes)
+summary(g_bayes)
+```
+
+The **brms** backend provides additional diagnostic information like Rhat (Gelman-Rubin diagnostic) and Effective Sample Size (ESS) values.
+
+## D-Study
+
+A D-study uses the G-study results to compute reliability coefficients for different measurement designs. The key coefficients are:
+
+- **G coefficient**: Generalizability coefficient for *relative* decisions (comparing individuals' rankings)
+- **D coefficient**: Dependability ($\Phi$) coefficient for *absolute* decisions (comparing to a standard)
+
+### Basic D-Study
+
+```{r}
+# Conduct D-study with 3 tasks and 4 raters
+# (using our previously fitted lme4 g-study 'g')
+d <- dstudy(g, n = list(Task = 3, Rater = 4))
+
+print(d)
+summary(d)
+```
+
+### Exploring Different Sample Sizes
+
+You can explore multiple sample size combinations using a sweep:
+
+```{r}
+# Explore different numbers of tasks and raters
+d_sweep <- dstudy(g, n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)))
+
+# View coefficients for each design
+# Using tidy() to get a nice data frame of coefficients
+library(broom)
+tidy(d_sweep)
+```
+
+## Specifying Object of Measurement
+
+By default, the first facet in the formula is considered the object of measurement (typically "Person"). You can specify this explicitly or modify the universe/error structure:
+
+```{r}
+# D-study with custom universe specification
+# The object of measurement is Person
+d_custom <- dstudy(g, n = list(Task = 3, Rater = 4), 
+                   universe = c("Person", "Person:Task"))
+```
+
+The `universe` parameter accepts multiple formats:
+
+- Character string: `"Person"`
+- Character vector: `c("Person", "Person:Task")`
+- Formula: `~ Person + Person:Task`
+
+Note: The object of measurement (first facet from the G-study) is always included in the universe. If you specify a universe without including the object, a warning is issued and the object is added automatically.
+
+The universe score variance is calculated as follows:
+- The object component is **not scaled**.
+- Non-object universe components are scaled by their corresponding sample sizes.
+- For example, if the object is "Person" and universe includes "Person:Task", then:
+  - $\sigma^2(\text{Universe}) = \sigma^2(P) + \sigma^2(PT) / n_t$
+
+## Advanced D-Study: Custom Error Specification
+
+You can customize which variance components contribute to the error term using the `error` parameter:
+
+```{r}
+# D-study with custom error specification
+# Using only interaction terms as error sources
+d_error <- dstudy(
+  g,
+  n = list(Task = 3, Rater = 4),
+  error = c("Person:Task", "Person:Rater")
+)
+
+summary(d_error)
+```
+
+## D-Study with Aggregation
+
+When aggregating over a facet (e.g., taking the mean across multiple raters), use the `aggregation` parameter to correctly scale the variance components:
+
+```{r}
+# D-study with aggregation over raters
+# This models the case where we average scores across Tasks or Raters
+d_agg <- dstudy(
+  g,
+  n = list(Task = 3, Rater = 4),
+  aggregation = "Rater",
+  residual_is = "Person:Task:Rater"
+)
+
+summary(d_agg)
+```
+
+The `residual_is` parameter specifies which facets make up the residual variance component (important for proper scaling when aggregating).
+
+## Posterior-Based D-Study Coefficients
+
+For Bayesian G-studies, you can compute D-study coefficients using the full posterior distributions:
+
+```{r, eval=FALSE}
+# D-study with posterior estimation (requires brms backend)
+# Note: This uses full posterior to compute coefficients with uncertainty
+d_post <- dstudy(
+  g_bayes,
+  n = list(rater = 3),
+  estimation = "posterior"
+)
+
+print(d_post)
+
+# Access posterior distributions
+names(d_post$posterior)
+```
+
+If you request posterior estimation but the G-study was not fit with brms, the function will automatically refit:
+
+```{r, eval=FALSE}
+# D-study with posterior from lme4 gstudy
+d_post2 <- dstudy(
+  g,
+  n = list(rater = 3),
+  estimation = "posterior"
+)
+```
+
+## Visualization
+
+The **facet** package provides built-in plotting methods using **ggplot2**.
+
+### G-Study Plots
+
+```{r}
+# Bar plot of variance components (proportions)
+plot(g, type = "proportion")
+```
+
+```{r}
+# Bar plot on variance scale
+plot(g, type = "variance")
+```
+
+### D-Study Plots
+
+```{r}
+# Bar plot of G and D coefficients
+plot(d, type = "coefficients")
+```
+
+```{r}
+# Sweep plot (for sample size exploration)
+plot(d_sweep, type = "sweep")
+```
+
+### Caterpillar Plots for Random Effects
+
+Create caterpillar plots (dot plots with error bars) to display random effects and their uncertainty using `plot_ranef()`:
+
+```{r}
+# Plot all random effects
+plot_ranef(g)
+
+# Plot a specific facet
+plot_ranef(g, which = "Person")
+```
+
+## Working with Results
+
+### Extract Variance Components
+
+```{r}
+# Get variance components as data frame
+vc <- tidy(g)
+vc
+```
+
+### Filter and Manipulate
+
+```{r}
+# Filter specific components
+vc %>%
+  filter(component != "Residual") %>%
+  mutate(pct_total = var / sum(var) * 100)
+```
+
+### Access Model Objects
+
+The underlying model object can be accessed from a gstudy object:
+
+```{r}
+# Access the fitted model
+model <- g$model
+print(summary(model))
+```
+
+**Note**: The `VarCorr()` and `ranef()` functions work with the underlying model when lme4 is loaded:
+
+```{r, eval=FALSE}
+# Extract variance-covariance matrices (requires loading lme4)
+library(lme4)
+vc_obj <- VarCorr(g)
+print(vc_obj)
+
+# Extract random effects (BLUPs/conditional modes)
+re <- ranef(g)
+print(re)
+```
+
+For brms models:
+
+```{r, eval=FALSE}
+# Extract random effects from Bayesian model
+re_bayes <- ranef(g_bayes)
+print(re_bayes)
+
+# Parameter pairs plot
+# pairs(g_bayes)
+```
+
+### Extract Posterior Draws
+
+For brms backend, extract posterior draws for custom analyses:
+
+```{r, eval=FALSE}
+# Extract posterior draws
+draws <- brms::as_draws_matrix(g_bayes$model)
+```
+
+## Multivariate Analysis
+
+For multivariate designs (multiple outcome variables), use the **brms** backend syntax with `mvbind()`.
+
+```{r, eval=FALSE}
+# Create multivariate data by spreading the tasks
+brennan_wide <- brennan %>%
+  pivot_wider(names_from = Task, values_from = Score, names_prefix = "Task")
+
+# Multivariate G-study (automatically uses brms)
+g_mv <- gstudy(
+  mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
+  data = brennan_wide
+)
+
+summary(g_mv)
+
+# D-study for multivariate models
+d_mv <- dstudy(g_mv, n = list(Rater = 4))
+print(d_mv)
+```
+
+## Three-Facet Designs
+
+A common design in performance assessment includes person, task, and rater (already demonstrated with our G-study `g`):
+
+```{r}
+# G-study with three facets (see Basic G-Study section)
+# D-study: what if we used 5 tasks rated by 2 raters?
+d_3f <- dstudy(
+  g,
+  n = list(Task = 5, Rater = 2)
+)
+
+summary(d_3f)
+```
+
+## Complete Example
+
+Here's a complete workflow demonstrating multiple features using the `brennan` dataset:
+
+```{r}
+library(facet)
+library(dplyr)
+
+# 1. Load data
+data(brennan)
+
+# 2. Conduct G-study with profile confidence intervals
+g <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+          (1 | Person:Task),
+  data = brennan,
+  ci_method = "profile"
+)
+
+# 3. View results
+summary(g)
+
+# 4. Conduct D-study with specific design (e.g., 5 tasks, 3 raters)
+d <- dstudy(g, n = list(Task = 5, Rater = 3))
+
+# 5. View coefficients
+summary(d)
+
+# 6. Explore alternative designs (Sample Size Sweep)
+d_alt <- dstudy(g, n = list(Task = c(2, 5, 10), Rater = c(1, 2, 5)))
+
+# 7. Plot sweep results
+plot(d_alt, type = "sweep")
+
+# 8. Extract and analyze variance components
+tidy(g) %>%
+  filter(component != "Residual") %>%
+  arrange(desc(var))
+```
+
+## Utility Functions
+
+### Predicates
+
+Check object types:
+
+```{r}
+is.gstudy(g)
+is.dstudy(d)
+```
+
+### Scale Parameter
+
+Control display scale in print and summary methods:
+
+```{r}
+# Display on SD scale
+print(g, scale = "sd")
+summary(g, scale = "sd")
+```
+
+## References
+
+- Brennan, R. L. (2001). *Generalizability theory*. Springer.
+- Shavelson, R. J., & Webb, N. M. (1991). *Generalizability theory: A primer*. Sage Publications.
+- Webb, N. M., Shavelson, R. J., & Haertel, E. H. (2006). 6 Reliability Coefficients and Generalizability Theory. *Handbook of statistics*, 26, 81-124.

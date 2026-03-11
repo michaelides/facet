@@ -1,4 +1,8 @@
-/doc/
+# /doc/
 /Meta/
 /.worktrees/
 *.Rproj
+.Rproj*
+/plans
+/docs
+/ai_plans
