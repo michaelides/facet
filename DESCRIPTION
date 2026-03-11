@@ -1,0 +1,39 @@
+Package: facet
+Title: facet: Univeriate and Multivariate Generalizability Theory with frequentist and Bayesian methods
+Version: 0.0.2
+Authors@R: c(
+    person("George", "Michaelides", email = "g.michaelides@uea.ac.uk", role = c("aut", "cre")),
+    person("George", "Michaelides", email = "g.michaelides@uea.ac.uk", role = c("aut")),
+    person("Duncan", "Jackson", email = "duncan.jackson@kcl.ac.uk", role = "aut")
+  )
+Description: Conduct generalizability theory analyses using variance component
+    models estimated with various methods (including ANOVA method of momnets, REML with lme4, and NUTES with brms. Provides functions for G-studies 
+    (estimating variance components) and D-studies (computing generalizability 
+    and dependability coefficients).
+License: MIT + file LICENSE
+Depends: R (>= 4.0.0)
+Imports:
+  lme4,
+  brms,
+  posterior,
+  reformulas,
+  tibble,
+  dplyr,
+  tidyr,
+  rlang,
+  stats,
+  methods,
+  magrittr,
+  purrr
+Suggests: 
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    covr,
+    ggplot2
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
