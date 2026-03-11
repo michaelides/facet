@@ -13,7 +13,6 @@ Modern Generalizability Theory with Variance Component Models
 
 - **Multiple backends**: Frequentist approaches using **mom** (Method of Moments/ANOVA) and **lme4** (Restricted Maximum Likelihood); Bayesian approachs using **brms** (NUTS / Hamiltonian Monte Carlo)
 - **Univariate and multivariate analyses** using `mvbind()`
-- **Automatic backend selection** based on your design
 - **Built-in datasets**: Includes classic G-theory datasets like `brennan` and `rajaratnam`
 - **Rich Visualization**: Built-in support for variance plots, D-study sweeps, and random effects caterpillar plots
 
