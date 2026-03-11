@@ -11,7 +11,7 @@ Modern Generalizability Theory with Variance Component Models
 
 **facet** provides a comprehensive framework for conducting Generalizability Theory (G-theory) analyses using variance component models. It provides a bridge between classical test theory and standard linear mixed-effects models, offering:
 
-- **Multiple backends**: **lme4** (frequentist), **brms** (Bayesian), and **mom** (Method of Moments)
+- **Multiple backends**: Frequentist approaches using **mom** (Method of Moments/ANOVA) and **lme4** (Restricted Maximum Likelihood); Bayesian approachs using **brms** (NUTS / Hamiltonian Monte Carlo)
 - **Univariate and multivariate analyses** using `mvbind()`
 - **Automatic backend selection** based on your design
 - **Built-in datasets**: Includes classic G-theory datasets like `brennan` and `rajaratnam`
