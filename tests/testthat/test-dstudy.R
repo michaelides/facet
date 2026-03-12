@@ -1261,3 +1261,18 @@ test_that("dstudy CI uses custom probs", {
   width_90 <- result_90$coefficients$g_UL - result_90$coefficients$g_LL
   expect_true(width_90 < width_95)
 })
+
+test_that("dstudy sweep with ci produces CI columns", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  result <- dstudy(g, n = list(rater = c(2, 3)), ci = "g")
+  expect_true(result$is_sweep)
+  expect_true("g_LL" %in% names(result$coefficients))
+  expect_true("g_UL" %in% names(result$coefficients))
+  expect_equal(nrow(result$coefficients), 2)
+})
