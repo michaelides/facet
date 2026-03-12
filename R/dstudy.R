@@ -122,8 +122,9 @@
 #' d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
 #' }
 dstudy <- function(gstudy_obj, n = list(), universe = NULL,
-error = NULL, aggregation = NULL, residual_is = NULL,
-estimation = NULL, cut_score = NULL, ...) {
+                  error = NULL, aggregation = NULL, residual_is = NULL,
+                  estimation = NULL, cut_score = NULL, ci = NULL,
+                  probs = c(0.025, 0.975), ...) {
   # 1. Validate input
   if (!inherits(gstudy_obj, "gstudy") && !inherits(gstudy_obj, "mgstudy")) {
     stop("'gstudy_obj' must be an object of class 'gstudy' or 'mgstudy'", call. = FALSE)

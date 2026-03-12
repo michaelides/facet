@@ -1145,3 +1145,30 @@ d <- dstudy(g)
   # Scaled g should be larger (better reliability with scaling)
   expect_true(scaled_row$g > unscaled_row$g)
 })
+
+# =============================================================================
+# Credible interval tests
+# =============================================================================
+
+test_that("dstudy accepts ci parameter", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  expect_no_error(dstudy(g, n = list(rater = 3), ci = "g"))
+  expect_no_error(dstudy(g, n = list(rater = 3), ci = c("g", "phi")))
+})
+
+test_that("dstudy accepts probs parameter", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  expect_no_error(dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.05, 0.95)))
+})
