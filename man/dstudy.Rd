@@ -13,6 +13,8 @@ dstudy(
   residual_is = NULL,
   estimation = NULL,
   cut_score = NULL,
+  ci = NULL,
+  probs = c(0.025, 0.975),
   ...
 )
 }
@@ -76,6 +78,15 @@ decisions. When provided, calculates phi-cut coefficient (phi_cut) in addition t
 phi coefficient. For multivariate models, can be a single value applied to all dimensions.
 Default is NULL (no phi-cut calculation).}
 
+\item{ci}{Character vector specifying which coefficients to compute credible intervals for.
+Options: "g", "phi", "phi-cut". Can specify multiple: \code{ci = c("g", "phi")}.
+Credible intervals are only available when using the brms backend.
+Default is NULL (no credible intervals computed).}
+
+\item{probs}{Numeric vector of length 2 specifying the quantiles for credible interval
+calculation. Default is \code{c(0.025, 0.975)} for a 95\% credible interval.
+Works like the \code{quantile()} function. Only used when \code{ci} is specified.}
+
 \item{...}{Additional arguments (currently unused).}
 }
 \value{
@@ -102,6 +113,8 @@ An object of class "dstudy" containing:
 \item{posterior}{List of posterior distributions (only when estimation = "posterior")}
 \item{cut_score}{The cutoff score used for phi-cut calculation (if provided)}
 \item{mu_y}{The grand mean(s) used for phi-cut calculation (if cut_score provided)}
+\item{ci}{The credible interval specification (if provided)}
+\item{probs}{The probability levels used for credible interval calculation (if ci provided)}
 }
 \description{
 Compute generalizability and dependability coefficients based on the
@@ -151,6 +164,14 @@ d_agg <- dstudy(g, n = list(Task = 3, Rater = 4),
 g_brms <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater),
                  data = brennan, backend = "brms")
 d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
+
+# D-study with credible intervals (requires brms backend)
+d_ci <- dstudy(g_brms, n = list(Task = 3, Rater = 4), ci = c("g", "phi"))
+print(d_ci)
+
+# Custom probability levels (90\% credible interval)
+d_ci_90 <- dstudy(g_brms, n = list(Task = 3, Rater = 4),
+                  ci = "g", probs = c(0.05, 0.95))
 }
 }
 \seealso{
