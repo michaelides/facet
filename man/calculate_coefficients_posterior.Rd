@@ -15,7 +15,9 @@ calculate_coefficients_posterior(
   is_sweep = FALSE,
   n_grid = NULL,
   n_provided = FALSE,
-  use_scaled = TRUE
+  use_scaled = TRUE,
+  cut_score = NULL,
+  mu_y = NULL
 )
 }
 \arguments{
@@ -36,6 +38,10 @@ Note: If the same facet is specified in both \code{object} and \code{aggregation
 \item{is_sweep}{Logical indicating if this is a sweep over multiple sample sizes.}
 
 \item{n_grid}{If is_sweep, a data frame with all combinations of sample sizes.}
+
+\item{cut_score}{Optional cut score for phi-cut calculation.}
+
+\item{mu_y}{Optional grand mean for phi-cut calculation.}
 }
 \value{
 A list with:

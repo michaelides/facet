@@ -45,6 +45,10 @@
 #' as mean(SD)^2 rather than mean(SD^2).
 #' When estimation = "posterior" is requested with non-brms backend,
 #' a warning is issued and the gstudy model is refit with backend = "brms".
+#' @param cut_score Optional numeric value specifying a cutoff score for criterion-referenced
+#' decisions. When provided, calculates phi-cut coefficient (phi_cut) in addition to standard
+#' phi coefficient. For multivariate models, can be a single value applied to all dimensions.
+#' Default is NULL (no phi-cut calculation).
 #' @param ... Additional arguments (currently unused).
 #'
 #' @return An object of class "dstudy" containing:
@@ -68,6 +72,8 @@
 #' \item{residual_composition}{The facets that make up the residual (from parse_residual_facets)}
 #' \item{estimation}{The estimation method used ("simple" or "posterior")}
 #' \item{posterior}{List of posterior distributions (only when estimation = "posterior")}
+#' \item{cut_score}{The cutoff score used for phi-cut calculation (if provided)}
+#' \item{mu_y}{The grand mean(s) used for phi-cut calculation (if cut_score provided)}
 #'
 #' @seealso [gstudy()] for conducting G-studies
 #'
@@ -117,7 +123,7 @@
 #' }
 dstudy <- function(gstudy_obj, n = list(), universe = NULL,
 error = NULL, aggregation = NULL, residual_is = NULL,
-estimation = NULL, ...) {
+estimation = NULL, cut_score = NULL, ...) {
   # 1. Validate input
   if (!inherits(gstudy_obj, "gstudy") && !inherits(gstudy_obj, "mgstudy")) {
     stop("'gstudy_obj' must be an object of class 'gstudy' or 'mgstudy'", call. = FALSE)
@@ -163,6 +169,12 @@ backend = "brms"
       call. = FALSE
     )
     estimation <- "posterior"
+  }
+
+  # 1.8. Extract grand mean for phi-cut calculation if cut_score provided
+  mu_y <- NULL
+  if (!is.null(cut_score)) {
+    mu_y <- extract_grand_mean(gstudy_obj)
   }
 
 # 2. Get variance components from G-study
@@ -309,7 +321,9 @@ residual_is = residual_is_effective,
 is_sweep = TRUE,
 n_grid = n_grid,
 n_provided = n_provided,
-use_scaled = FALSE
+use_scaled = FALSE,
+cut_score = cut_score,
+mu_y = mu_y
 )
 unscaled_coefs <- posterior_results_unscaled$coefficients
 unscaled_coefs$estimate <- "unscaled"
@@ -326,7 +340,9 @@ residual_is = residual_is_effective,
 is_sweep = TRUE,
 n_grid = n_grid,
 n_provided = n_provided,
-use_scaled = TRUE
+use_scaled = TRUE,
+cut_score = cut_score,
+mu_y = mu_y
 )
 scaled_coefs <- posterior_results_scaled$coefficients
 scaled_coefs$estimate <- "scaled"
@@ -358,7 +374,9 @@ residual_is = residual_is_effective,
 is_sweep = TRUE,
 n_grid = n_grid,
 n_provided = n_provided,
-use_scaled = TRUE
+use_scaled = TRUE,
+cut_score = cut_score,
+mu_y = mu_y
 )
 coefficients <- posterior_results$coefficients
 posterior <- posterior_results$posterior
@@ -378,7 +396,9 @@ aggregation = aggregation,
 residual_is = residual_is_effective,
 is_sweep = FALSE,
 n_provided = n_provided,
-use_scaled = FALSE
+use_scaled = FALSE,
+cut_score = cut_score,
+mu_y = mu_y
 )
 unscaled_coefs <- posterior_results_unscaled$coefficients
 unscaled_coefs$estimate <- "unscaled"
@@ -394,7 +414,9 @@ aggregation = aggregation,
 residual_is = residual_is_effective,
 is_sweep = FALSE,
 n_provided = n_provided,
-use_scaled = TRUE
+use_scaled = TRUE,
+cut_score = cut_score,
+mu_y = mu_y
 )
 scaled_coefs <- posterior_results_scaled$coefficients
 scaled_coefs$estimate <- "scaled"
@@ -402,10 +424,10 @@ scaled_coefs$estimate <- "scaled"
 has_dim <- "dim" %in% names(unscaled_coefs)
 if (has_dim) {
 coef_cols <- c("estimate", "dim", "uni", "sigma2_delta", "sigma2_delta_abs",
-"g", "phi", "sem_rel", "sem_abs")
+"g", "phi", "phi_cut", "sem_rel", "sem_abs")
 } else {
 coef_cols <- c("estimate", "uni", "sigma2_delta", "sigma2_delta_abs",
-"g", "phi", "sem_rel", "sem_abs")
+"g", "phi", "phi_cut", "sem_rel", "sem_abs")
 }
 coef_cols <- intersect(coef_cols, names(unscaled_coefs))
 
@@ -427,7 +449,9 @@ aggregation = aggregation,
 residual_is = residual_is_effective,
 is_sweep = FALSE,
 n_provided = n_provided,
-use_scaled = TRUE
+use_scaled = TRUE,
+cut_score = cut_score,
+mu_y = mu_y
 )
 coefficients <- posterior_results$coefficients
 posterior <- posterior_results$posterior
@@ -457,11 +481,11 @@ posterior <- posterior_results$posterior
         # Scaled: divide variance components by sample sizes of non-object facets
         vc_scaled <- calculate_divided_variance(vc, n_current, object, residual_is_effective)
 scaled_coefs <- calculate_divided_coefficients(vc_scaled, object, error,
-aggregation, residual_is_effective, universe_spec)
+aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
 # Unscaled: use original variance components directly
 unscaled_coefs <- calculate_coefficients(vc, n_current, object, error,
-aggregation, residual_is_effective, universe_spec)
+aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
         # Add estimate type and combine
         unscaled_coefs$estimate <- "unscaled"
@@ -480,7 +504,7 @@ aggregation, residual_is_effective, universe_spec)
 
         # Calculate coefficients (scaled only, no estimate column)
 scaled_coefs <- calculate_coefficients(d_vc, n_current, object, error,
-aggregation, residual_is_effective, universe_spec)
+aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
         cbind(data.frame(n_current, stringsAsFactors = FALSE), scaled_coefs)
       }
@@ -500,12 +524,12 @@ aggregation, residual_is_effective, universe_spec)
       # Scaled: divide variance components by sample sizes of non-object facets
       vc_scaled <- calculate_divided_variance(vc, n, object, residual_is_effective)
 scaled_coefs <- calculate_divided_coefficients(vc_scaled, object, error,
-aggregation, residual_is_effective, universe_spec)
+aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
 # Unscaled: use original variance components directly
 # Pass n = NULL so that universe components are NOT scaled
 unscaled_coefs <- calculate_coefficients(vc, n = NULL, object, error,
-aggregation, residual_is_effective, universe_spec)
+aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
       # Combine into long format
       unscaled_coefs$estimate <- "unscaled"
@@ -514,10 +538,10 @@ aggregation, residual_is_effective, universe_spec)
       has_dim <- "dim" %in% names(scaled_coefs)
       if (has_dim) {
         coef_cols <- c("estimate", "dim", "uni", "sigma2_delta", "sigma2_delta_abs",
-                       "g", "phi", "sem_rel", "sem_abs")
+                       "g", "phi", "phi_cut", "sem_rel", "sem_abs")
       } else {
         coef_cols <- c("estimate", "uni", "sigma2_delta", "sigma2_delta_abs",
-                       "g", "phi", "sem_rel", "sem_abs")
+                       "g", "phi", "phi_cut", "sem_rel", "sem_abs")
       }
       coef_cols <- intersect(coef_cols, names(scaled_coefs))
 
@@ -534,26 +558,28 @@ aggregation, residual_is_effective, universe_spec)
 
       # Calculate coefficients (scaled only, no estimate column)
 coefficients <- calculate_coefficients(d_vc, n, object, error,
-aggregation, residual_is_effective, universe_spec)
+aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 }
 }
 
 # 13. Create dstudy object
 result <- list(
-gstudy = gstudy_obj,
-variance_components = d_vc,
-coefficients = coefficients,
-n = n,
-object = object,
-universe = universe_spec,
-error = error,
-aggregation = aggregation,
-residual_is = residual_is,
-residual_composition = residual_composition,
-is_sweep = is_sweep,
-estimation = estimation,
-posterior = if (estimation == "posterior") posterior else NULL,
-is_multivariate = is_multivariate
+  gstudy = gstudy_obj,
+  variance_components = d_vc,
+  coefficients = coefficients,
+  n = n,
+  object = object,
+  universe = universe_spec,
+  error = error,
+  aggregation = aggregation,
+  residual_is = residual_is,
+  residual_composition = residual_composition,
+  is_sweep = is_sweep,
+  estimation = estimation,
+  posterior = if (estimation == "posterior") posterior else NULL,
+  is_multivariate = is_multivariate,
+  cut_score = cut_score,
+  mu_y = mu_y
 )
 
   class(result) <- "dstudy"

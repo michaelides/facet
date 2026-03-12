@@ -627,12 +627,13 @@ calculate_divided_variance <- function(vc, n, object, residual_is = NULL) {
 #'
 #' @keywords internal
 calculate_divided_coefficients <- function(vc_divided, object, error = NULL,
-aggregation = NULL, residual_is = NULL, universe = NULL) {
+aggregation = NULL, residual_is = NULL, universe = NULL,
+cut_score = NULL, mu_y = NULL) {
 vc_for_calc <- vc_divided %>%
 mutate(var = var_divided) %>%
 select(-var_divided)
 
-calculate_coefficients(vc_for_calc, n = NULL, object, error, aggregation, residual_is, universe)
+calculate_coefficients(vc_for_calc, n = NULL, object, error, aggregation, residual_is, universe, cut_score, mu_y)
 }
 
 #' Calculate G and D Coefficients
@@ -699,7 +700,8 @@ calculate_coefficients(vc_for_calc, n = NULL, object, error, aggregation, residu
 #'
 #' @keywords internal
 calculate_coefficients <- function(vc, n = NULL, object = NULL, error = NULL,
-aggregation = NULL, residual_is = NULL, universe = NULL) {
+aggregation = NULL, residual_is = NULL, universe = NULL,
+cut_score = NULL, mu_y = NULL) {
 if (is.null(object) && is.null(error)) {
 default_object <- vc$component[1]
 warning(
@@ -804,18 +806,31 @@ g <- uni / (uni + sigma2_delta)
 
 phi <- uni / (uni + sigma2_delta_abs)
 
+phi_cut <- NA_real_
+if (!is.null(cut_score) && !is.null(mu_y)) {
+  mu_y_val <- if (is.list(mu_y)) mu_y[[d]] else mu_y
+  if (!is.null(mu_y_val) && !is.na(mu_y_val)) {
+    adjustment <- (mu_y_val - cut_score)^2
+    phi_cut <- (uni + adjustment) / (uni + sigma2_delta_abs + adjustment)
+  }
+}
+
 sem_rel <- sqrt(sigma2_delta)
 sem_abs <- sqrt(sigma2_delta_abs)
 
 result_df <- data.frame(
-uni = uni,
-sigma2_delta = sigma2_delta,
-sigma2_delta_abs = sigma2_delta_abs,
-g = g,
-phi = phi,
-sem_rel = sem_rel,
-sem_abs = sem_abs
+  uni = uni,
+  sigma2_delta = sigma2_delta,
+  sigma2_delta_abs = sigma2_delta_abs,
+  g = g,
+  phi = phi,
+  sem_rel = sem_rel,
+  sem_abs = sem_abs
 )
+
+if (!is.null(cut_score)) {
+  result_df$phi_cut <- phi_cut
+}
 
 if (has_dim) {
 result_df$dim <- d
@@ -996,6 +1011,8 @@ compute_sem <- function(error_variance) {
 #' @param residual_is Character string specifying residual composition.
 #' @param is_sweep Logical indicating if this is a sweep over multiple sample sizes.
 #' @param n_grid If is_sweep, a data frame with all combinations of sample sizes.
+#' @param cut_score Optional cut score for phi-cut calculation.
+#' @param mu_y Optional grand mean for phi-cut calculation.
 #'
 #' @return A list with:
 #'   \item{coefficients}{Data frame with coefficient means (and sweep combinations if applicable)}
@@ -1005,7 +1022,8 @@ compute_sem <- function(error_variance) {
 calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, universe = NULL, error = NULL,
 aggregation = NULL, residual_is = NULL,
 is_sweep = FALSE, n_grid = NULL,
-n_provided = FALSE, use_scaled = TRUE) {
+n_provided = FALSE, use_scaled = TRUE,
+cut_score = NULL, mu_y = NULL) {
 if (!requireNamespace("brms", quietly = TRUE)) {
 stop("Package 'brms' is required for posterior estimation.", call. = FALSE)
 }
@@ -1087,7 +1105,9 @@ agg_facets = agg_facets,
 residual_is = residual_is,
 gstudy_obj = gstudy_obj,
 n_provided = n_provided,
-use_scaled = use_scaled
+use_scaled = use_scaled,
+cut_score = cut_score,
+mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y
 )
 dim_results[[d]] <- combo_result$summary
 dim_posteriors[[d]] <- combo_result$distributions
@@ -1113,7 +1133,9 @@ agg_facets = agg_facets,
 residual_is = residual_is,
 gstudy_obj = gstudy_obj,
 n_provided = n_provided,
-use_scaled = use_scaled
+use_scaled = use_scaled,
+cut_score = cut_score,
+mu_y = mu_y
 )
 
         results[[i]] <- cbind(
@@ -1150,7 +1172,9 @@ agg_facets = agg_facets,
 residual_is = residual_is,
 gstudy_obj = gstudy_obj,
 n_provided = n_provided,
-use_scaled = use_scaled
+use_scaled = use_scaled,
+cut_score = cut_score,
+mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y
 )
 dim_results[[d]] <- cbind(result$summary, dim = d)
 dim_posteriors[[d]] <- result$distributions
@@ -1173,7 +1197,9 @@ agg_facets = agg_facets,
 residual_is = residual_is,
 gstudy_obj = gstudy_obj,
 n_provided = n_provided,
-use_scaled = use_scaled
+use_scaled = use_scaled,
+cut_score = cut_score,
+mu_y = mu_y
 )
 
       return(list(
@@ -1280,13 +1306,16 @@ extract_variance_draws <- function(gstudy_obj, draws) {
 #' @param use_scaled Logical indicating whether to use scaled variance draws.
 #'   When FALSE, uses original variance draws and does not scale universe components.
 #'   When TRUE, uses scaled variance draws and scales non-object universe components.
+#' @param cut_score Optional cut score for phi-cut calculation.
+#' @param mu_y Optional grand mean for phi-cut calculation.
 #'
 #' @return List with 'summary' (data frame of means) and 'distributions' (list of vectors).
 #'
 #' @keywords internal
 calculate_single_posterior <- function(vc_draws, n, object_spec, universe_spec,
 error_spec, agg_facets, residual_is, gstudy_obj,
-n_provided = FALSE, use_scaled = TRUE) {
+n_provided = FALSE, use_scaled = TRUE,
+cut_score = NULL, mu_y = NULL) {
 n_draws <- length(vc_draws[[1]])
 
 # Default universe to object if not specified
@@ -1335,37 +1364,55 @@ error_spec, agg_facets, residual_is)
 # Calculate coefficients
 g <- uni / (uni + sigma2_delta)
 phi <- uni / (uni + sigma2_delta_abs)
+
+phi_cut <- NA_real_
+if (!is.null(cut_score) && !is.null(mu_y)) {
+  adjustment <- (mu_y - cut_score)^2
+  phi_cut <- (uni + adjustment) / (uni + sigma2_delta_abs + adjustment)
+}
+
 sem_rel <- sqrt(sigma2_delta)
 sem_abs <- sqrt(sigma2_delta_abs)
 
 # Handle infinite/NaN cases
 g[is.nan(g) | is.infinite(g)] <- NA
 phi[is.nan(phi) | is.infinite(phi)] <- NA
+if (!all(is.na(phi_cut))) {
+  phi_cut[is.nan(phi_cut) | is.infinite(phi_cut)] <- NA
+}
 
 # Return summary (means) and distributions
 summary_df <- data.frame(
-uni = mean(uni, na.rm = TRUE),
-sigma2_delta = mean(sigma2_delta, na.rm = TRUE),
-sigma2_delta_abs = mean(sigma2_delta_abs, na.rm = TRUE),
-g = mean(g, na.rm = TRUE),
-phi = mean(phi, na.rm = TRUE),
-sem_rel = mean(sem_rel, na.rm = TRUE),
-sem_abs = mean(sem_abs, na.rm = TRUE)
+  uni = mean(uni, na.rm = TRUE),
+  sigma2_delta = mean(sigma2_delta, na.rm = TRUE),
+  sigma2_delta_abs = mean(sigma2_delta_abs, na.rm = TRUE),
+  g = mean(g, na.rm = TRUE),
+  phi = mean(phi, na.rm = TRUE),
+  sem_rel = mean(sem_rel, na.rm = TRUE),
+  sem_abs = mean(sem_abs, na.rm = TRUE)
 )
+
+if (!is.null(cut_score)) {
+  summary_df$phi_cut <- mean(phi_cut, na.rm = TRUE)
+}
 
 distributions <- list(
-uni = uni,
-sigma2_delta = sigma2_delta,
-sigma2_delta_abs = sigma2_delta_abs,
-g = g,
-phi = phi,
-sem_rel = sem_rel,
-sem_abs = sem_abs
+  uni = uni,
+  sigma2_delta = sigma2_delta,
+  sigma2_delta_abs = sigma2_delta_abs,
+  g = g,
+  phi = phi,
+  sem_rel = sem_rel,
+  sem_abs = sem_abs
 )
 
+if (!is.null(cut_score)) {
+  distributions$phi_cut <- phi_cut
+}
+
 list(
-summary = summary_df,
-distributions = distributions
+  summary = summary_df,
+  distributions = distributions
 )
 }
 
@@ -1559,4 +1606,65 @@ next
   }
 
   result
+}
+
+#' @export
+extract_grand_mean <- function(gstudy_obj) {
+  UseMethod("extract_grand_mean")
+}
+
+#' @export
+extract_grand_mean.gstudy <- function(gstudy_obj) {
+  model <- gstudy_obj$model
+  backend <- gstudy_obj$backend
+
+  if (backend == "lme4") {
+    fe <- lme4::fixef(model)
+    if ("(Intercept)" %in% names(fe)) {
+      return("(Intercept)" = fe["(Intercept)"])
+    } else if ("Intercept" %in% names(fe)) {
+      return(Intercept = fe["Intercept"])
+    }
+  } else if (backend == "brms") {
+    fe <- brms::fixef(model)
+    if ("Intercept" %in% rownames(fe)) {
+      return(Intercept = fe["Intercept", "Estimate"])
+    }
+  } else if (backend == "mom") {
+    response <- gstudy_obj$response
+    if (!is.null(response) && response %in% names(gstudy_obj$data)) {
+      return(Intercept = mean(gstudy_obj$data[[response]], na.rm = TRUE))
+    }
+  }
+
+  stop("Could not extract grand mean from model", call. = FALSE)
+}
+
+#' @export
+extract_grand_mean.mgstudy <- function(gstudy_obj) {
+  model <- gstudy_obj$model
+  dimensions <- gstudy_obj$dimensions
+  backend <- gstudy_obj$backend
+
+  mu_y <- list()
+
+  if (backend == "brms") {
+    fe <- brms::fixef(model)
+    for (d in dimensions) {
+      param_name <- paste0(d, "_Intercept")
+      if (param_name %in% rownames(fe)) {
+        mu_y[[d]] <- fe[param_name, "Estimate"]
+      } else {
+        mu_y[[d]] <- mean(gstudy_obj$data[[d]], na.rm = TRUE)
+      }
+    }
+  } else if (backend == "mom") {
+    for (d in dimensions) {
+      mu_y[[d]] <- mean(gstudy_obj$data[[d]], na.rm = TRUE)
+    }
+  } else {
+    stop("Multivariate models require brms or mom backend", call. = FALSE)
+  }
+
+  return(mu_y)
 }

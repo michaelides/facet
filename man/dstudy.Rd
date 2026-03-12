@@ -12,6 +12,7 @@ dstudy(
   aggregation = NULL,
   residual_is = NULL,
   estimation = NULL,
+  cut_score = NULL,
   ...
 )
 }
@@ -70,6 +71,11 @@ When estimation = "posterior" is requested with non-brms backend,
 a warning is issued and the gstudy model is refit with backend = "brms".
 }}
 
+\item{cut_score}{Optional numeric value specifying a cutoff score for criterion-referenced
+decisions. When provided, calculates phi-cut coefficient (phi_cut) in addition to standard
+phi coefficient. For multivariate models, can be a single value applied to all dimensions.
+Default is NULL (no phi-cut calculation).}
+
 \item{...}{Additional arguments (currently unused).}
 }
 \value{
@@ -94,6 +100,8 @@ An object of class "dstudy" containing:
 \item{residual_composition}{The facets that make up the residual (from parse_residual_facets)}
 \item{estimation}{The estimation method used ("simple" or "posterior")}
 \item{posterior}{List of posterior distributions (only when estimation = "posterior")}
+\item{cut_score}{The cutoff score used for phi-cut calculation (if provided)}
+\item{mu_y}{The grand mean(s) used for phi-cut calculation (if cut_score provided)}
 }
 \description{
 Compute generalizability and dependability coefficients based on the

@@ -14,7 +14,9 @@ calculate_single_posterior(
   residual_is,
   gstudy_obj,
   n_provided = FALSE,
-  use_scaled = TRUE
+  use_scaled = TRUE,
+  cut_score = NULL,
+  mu_y = NULL
 )
 }
 \arguments{
@@ -39,6 +41,10 @@ calculate_single_posterior(
 \item{use_scaled}{Logical indicating whether to use scaled variance draws.
 When FALSE, uses original variance draws and does not scale universe components.
 When TRUE, uses scaled variance draws and scales non-object universe components.}
+
+\item{cut_score}{Optional cut score for phi-cut calculation.}
+
+\item{mu_y}{Optional grand mean for phi-cut calculation.}
 }
 \value{
 List with 'summary' (data frame of means) and 'distributions' (list of vectors).

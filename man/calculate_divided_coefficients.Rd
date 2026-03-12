@@ -10,7 +10,9 @@ calculate_divided_coefficients(
   error = NULL,
   aggregation = NULL,
   residual_is = NULL,
-  universe = NULL
+  universe = NULL,
+  cut_score = NULL,
+  mu_y = NULL
 )
 }
 \arguments{
