@@ -1106,7 +1106,9 @@ gstudy_obj = gstudy_obj,
 n_provided = n_provided,
 use_scaled = use_scaled,
 cut_score = cut_score,
-mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y
+mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y,
+ci = ci,
+probs = probs
 )
 dim_results[[d]] <- combo_result$summary
 dim_posteriors[[d]] <- combo_result$distributions
@@ -1134,7 +1136,9 @@ gstudy_obj = gstudy_obj,
 n_provided = n_provided,
 use_scaled = use_scaled,
 cut_score = cut_score,
-mu_y = mu_y
+mu_y = mu_y,
+ci = ci,
+probs = probs
 )
 
         results[[i]] <- cbind(
@@ -1173,7 +1177,9 @@ gstudy_obj = gstudy_obj,
 n_provided = n_provided,
 use_scaled = use_scaled,
 cut_score = cut_score,
-mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y
+mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y,
+ci = ci,
+probs = probs
 )
 dim_results[[d]] <- cbind(result$summary, dim = d)
 dim_posteriors[[d]] <- result$distributions
@@ -1198,7 +1204,9 @@ gstudy_obj = gstudy_obj,
 n_provided = n_provided,
 use_scaled = use_scaled,
 cut_score = cut_score,
-mu_y = mu_y
+mu_y = mu_y,
+ci = ci,
+probs = probs
 )
 
       return(list(
@@ -1312,9 +1320,10 @@ extract_variance_draws <- function(gstudy_obj, draws) {
 #'
 #' @keywords internal
 calculate_single_posterior <- function(vc_draws, n, object_spec, universe_spec,
-error_spec, agg_facets, residual_is, gstudy_obj,
-n_provided = FALSE, use_scaled = TRUE,
-cut_score = NULL, mu_y = NULL) {
+                                        error_spec, agg_facets, residual_is, gstudy_obj,
+                                        n_provided = FALSE, use_scaled = TRUE,
+                                        cut_score = NULL, mu_y = NULL,
+                                        ci = NULL, probs = c(0.025, 0.975)) {
 n_draws <- length(vc_draws[[1]])
 
 # Default universe to object if not specified
@@ -1377,22 +1386,41 @@ sem_abs <- sqrt(sigma2_delta_abs)
 g[is.nan(g) | is.infinite(g)] <- NA
 phi[is.nan(phi) | is.infinite(phi)] <- NA
 if (!all(is.na(phi_cut))) {
-  phi_cut[is.nan(phi_cut) | is.infinite(phi_cut)] <- NA
+phi_cut[is.nan(phi_cut) | is.infinite(phi_cut)] <- NA
 }
 
-# Return summary (means) and distributions
+ci_cols <- list()
+if (!is.null(ci)) {
+if ("g" %in% ci) {
+ci_cols$g_LL <- quantile(g, probs[1], na.rm = TRUE)
+ci_cols$g_UL <- quantile(g, probs[2], na.rm = TRUE)
+}
+if ("phi" %in% ci) {
+ci_cols$phi_LL <- quantile(phi, probs[1], na.rm = TRUE)
+ci_cols$phi_UL <- quantile(phi, probs[2], na.rm = TRUE)
+}
+if ("phi-cut" %in% ci && !is.null(cut_score)) {
+ci_cols$phi_cut_LL <- quantile(phi_cut, probs[1], na.rm = TRUE)
+ci_cols$phi_cut_UL <- quantile(phi_cut, probs[2], na.rm = TRUE)
+}
+}
+
 summary_df <- data.frame(
-  uni = mean(uni, na.rm = TRUE),
-  sigma2_delta = mean(sigma2_delta, na.rm = TRUE),
-  sigma2_delta_abs = mean(sigma2_delta_abs, na.rm = TRUE),
-  g = mean(g, na.rm = TRUE),
-  phi = mean(phi, na.rm = TRUE),
-  sem_rel = mean(sem_rel, na.rm = TRUE),
-  sem_abs = mean(sem_abs, na.rm = TRUE)
+uni = mean(uni, na.rm = TRUE),
+sigma2_delta = mean(sigma2_delta, na.rm = TRUE),
+sigma2_delta_abs = mean(sigma2_delta_abs, na.rm = TRUE),
+g = mean(g, na.rm = TRUE),
+phi = mean(phi, na.rm = TRUE),
+sem_rel = mean(sem_rel, na.rm = TRUE),
+sem_abs = mean(sem_abs, na.rm = TRUE)
 )
 
 if (!is.null(cut_score)) {
-  summary_df$phi_cut <- mean(phi_cut, na.rm = TRUE)
+summary_df$phi_cut <- mean(phi_cut, na.rm = TRUE)
+}
+
+if (length(ci_cols) > 0) {
+summary_df <- cbind(summary_df, as.data.frame(ci_cols))
 }
 
 distributions <- list(

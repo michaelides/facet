@@ -1172,3 +1172,92 @@ test_that("dstudy accepts probs parameter", {
   g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
   expect_no_error(dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.05, 0.95)))
 })
+
+test_that("dstudy warns when ci requested with non-brms backend", {
+  skip_if_not_installed("lme4")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "lme4")
+  expect_warning(
+    dstudy(g, n = list(rater = 3), ci = "g"),
+    "Credible intervals for 'mom' and 'lme4' backends are not yet implemented"
+  )
+})
+
+test_that("dstudy validates ci parameter values", {
+  skip_if_not_installed("lme4")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "lme4")
+  expect_error(
+    dstudy(g, n = list(rater = 3), ci = "invalid"),
+    "'arg' should be one of"
+  )
+})
+
+test_that("dstudy validates probs parameter", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  expect_error(
+    dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.1)),
+    "'probs' must have exactly 2 elements"
+  )
+  expect_error(
+    dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.9, 0.1)),
+    "'probs' must be in increasing order"
+  )
+})
+
+test_that("dstudy with brms backend produces CI columns", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  result <- dstudy(g, n = list(rater = 3), ci = c("g", "phi"))
+  expect_true("g_LL" %in% names(result$coefficients))
+  expect_true("g_UL" %in% names(result$coefficients))
+  expect_true("phi_LL" %in% names(result$coefficients))
+  expect_true("phi_UL" %in% names(result$coefficients))
+})
+
+test_that("dstudy CI values are in correct order (LL < UL)", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  result <- dstudy(g, n = list(rater = 3), ci = c("g", "phi"))
+  expect_true(result$coefficients$g_LL < result$coefficients$g_UL)
+  expect_true(result$coefficients$phi_LL < result$coefficients$phi_UL)
+})
+
+test_that("dstudy CI uses custom probs", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  result_95 <- dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.025, 0.975))
+  result_90 <- dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.05, 0.95))
+  width_95 <- result_95$coefficients$g_UL - result_95$coefficients$g_LL
+  width_90 <- result_90$coefficients$g_UL - result_90$coefficients$g_LL
+  expect_true(width_90 < width_95)
+})
