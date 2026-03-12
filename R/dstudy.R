@@ -178,7 +178,33 @@ backend = "brms"
     mu_y <- extract_grand_mean(gstudy_obj)
   }
 
-# 2. Get variance components from G-study
+  # 1.9. Validate ci parameter
+  if (!is.null(ci)) {
+    ci <- match.arg(ci, c("g", "phi", "phi-cut"), several.ok = TRUE)
+    if (gstudy_obj$backend != "brms") {
+      warning(
+        "Credible intervals for 'mom' and 'lme4' backends are not yet implemented. ",
+        "Consider using backend = 'brms' for uncertainty quantification.",
+        call. = FALSE
+      )
+      ci <- NULL
+    }
+  }
+
+  # 1.10. Validate probs parameter
+  if (!is.null(ci)) {
+    if (length(probs) != 2) {
+      stop("'probs' must have exactly 2 elements", call. = FALSE)
+    }
+    if (probs[1] >= probs[2]) {
+      stop("'probs' must be in increasing order", call. = FALSE)
+    }
+    if (any(probs < 0) || any(probs > 1)) {
+      stop("'probs' must be between 0 and 1", call. = FALSE)
+    }
+  }
+
+  # 2. Get variance components from G-study
 vc <- gstudy_obj$variance_components
 
 # 3. Get object of measurement (always first component from G-study)
