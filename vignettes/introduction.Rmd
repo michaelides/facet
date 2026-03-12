@@ -218,6 +218,90 @@ library(broom)
 tidy(d_sweep)
 ```
 
+## Phi-Cut Coefficient for Criterion-Referenced Decisions
+
+The standard **phi coefficient** is used for *absolute* decisions, where we compare scores to a fixed standard or cutoff. However, sometimes you want to assess reliability for *criterion-referenced decisions* - for example, selecting participants who score above a certain threshold.
+
+The **phi-cut coefficient** extends phi by incorporating a specific cut-score. The formula is:
+
+$$\phi_{cut} = \frac{\sigma^2_U + (\mu_Y - c)^2}{\sigma^2_U + \sigma^2_{\Delta} + (\mu_Y - c)^2}$$
+
+Where:
+- $\sigma^2_U$ = universe score variance
+- $\sigma^2_{\Delta}$ = absolute error variance  
+- $\mu_Y$ = grand mean (overall average score)
+- $c$ = cut-score
+
+This is useful for questions like: "What is the dependability of selecting participants who score above 7 on a 0-10 scale?"
+
+### Using cut_score in D-Study
+
+```{r}
+# D-study with a cut-score of 7 (on a 0-10 scale)
+# First, let's check the grand mean from our G-study
+mu_y <- extract_grand_mean(g)
+cat("Grand mean:", mu_y, "\n")
+
+# Now conduct D-study with cut_score = 7
+d_cut <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 7)
+
+print(d_cut)
+```
+
+The output now includes a `phi_cut` column showing the dependability coefficient for decisions based on the cut-score.
+
+### Comparing Phi and Phi-Cut
+
+You can see the difference between standard phi and phi-cut:
+
+```{r}
+# Compare coefficients with and without cut-score
+d_standard <- dstudy(g, n = list(Task = 3, Rater = 4))
+
+# Standard phi (no cut-score)
+cat("Standard phi:", d_standard$coefficients$phi, "\n")
+
+# Phi-cut with cut-score of 7
+cat("Phi-cut (c=7):", d_cut$coefficients$phi_cut, "\n")
+
+# Phi-cut with different cut-scores
+d_cut_5 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 5)
+d_cut_9 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 9)
+
+cat("Phi-cut (c=5):", d_cut_5$coefficients$phi_cut, "\n")
+cat("Phi-cut (c=9):", d_cut_9$coefficients$phi_cut, "\n")
+```
+
+Notice how the phi-cut coefficient varies depending on where the cut-score is relative to the grand mean. When the cut-score is closer to the extremes (far from the mean), phi-cut tends to be higher because there's less ambiguity in classification.
+
+### Sweep with Cut-Score
+
+You can also explore sample sizes while using a cut-score:
+
+```{r}
+# Sweep with cut-score
+d_sweep_cut <- dstudy(
+  g, 
+  n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)),
+  cut_score = 7
+)
+
+# View results
+tidy(d_sweep_cut)
+```
+
+This allows you to answer questions like: "How many tasks and raters do we need to reliably select the top 30% of participants?"
+
+### Accessing the Grand Mean
+
+The grand mean ($\mu_Y$) used in the phi-cut calculation is automatically extracted from the G-study model and stored in the D-study result:
+
+```{r}
+# Access the grand mean used
+d_cut$mu_y
+d_cut$cut_score
+```
+
 ## Specifying Object of Measurement
 
 By default, the first facet in the formula is considered the object of measurement (typically "Person"). You can specify this explicitly or modify the universe/error structure:
@@ -259,7 +343,7 @@ d_error <- dstudy(
 summary(d_error)
 ```
 
-## D-Study with Aggregation
+## Specifying Object of Measurement
 
 When aggregating over a facet (e.g., taking the mean across multiple raters), use the `aggregation` parameter to correctly scale the variance components:
 
