@@ -1019,11 +1019,10 @@ compute_sem <- function(error_variance) {
 #'   \item{posterior}{List of posterior distribution vectors (or list of lists for sweep)}
 #'
 #' @keywords internal
-calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, universe = NULL, error = NULL,
-aggregation = NULL, residual_is = NULL,
-is_sweep = FALSE, n_grid = NULL,
-n_provided = FALSE, use_scaled = TRUE,
-cut_score = NULL, mu_y = NULL) {
+calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, universe = NULL, error = NULL, 
+                                              aggregation = NULL, residual_is = NULL,
+                                              is_sweep = FALSE, n_grid = NULL, n_provided = FALSE, use_scaled = TRUE,
+                                              cut_score = NULL, mu_y = NULL, ci = NULL, probs = c(0.025, 0.975)) {
 if (!requireNamespace("brms", quietly = TRUE)) {
 stop("Package 'brms' is required for posterior estimation.", call. = FALSE)
 }

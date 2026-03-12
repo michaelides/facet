@@ -338,39 +338,43 @@ n_grid <- expand.grid(n, stringsAsFactors = FALSE)
 if (!n_provided) {
 # Calculate unscaled estimates using posterior
 posterior_results_unscaled <- calculate_coefficients_posterior(
-gstudy_obj = gstudy_obj,
-n = n,
-object = object,
-universe = universe_spec,
-error = error,
-aggregation = aggregation,
-residual_is = residual_is_effective,
-is_sweep = TRUE,
-n_grid = n_grid,
-n_provided = n_provided,
-use_scaled = FALSE,
-cut_score = cut_score,
-mu_y = mu_y
-)
-unscaled_coefs <- posterior_results_unscaled$coefficients
-unscaled_coefs$estimate <- "unscaled"
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = TRUE,
+      n_grid = n_grid,
+      n_provided = n_provided,
+      use_scaled = FALSE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs
+    )
+    unscaled_coefs <- posterior_results_unscaled$coefficients
+    unscaled_coefs$estimate <- "unscaled"
 
-# Calculate scaled estimates using posterior
-posterior_results_scaled <- calculate_coefficients_posterior(
-gstudy_obj = gstudy_obj,
-n = n,
-object = object,
-universe = universe_spec,
-error = error,
-aggregation = aggregation,
-residual_is = residual_is_effective,
-is_sweep = TRUE,
-n_grid = n_grid,
-n_provided = n_provided,
-use_scaled = TRUE,
-cut_score = cut_score,
-mu_y = mu_y
-)
+    # Calculate scaled estimates using posterior
+    posterior_results_scaled <- calculate_coefficients_posterior(
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = TRUE,
+      n_grid = n_grid,
+      n_provided = n_provided,
+      use_scaled = TRUE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs
+    )
 scaled_coefs <- posterior_results_scaled$coefficients
 scaled_coefs$estimate <- "scaled"
 
@@ -391,62 +395,68 @@ posterior <- posterior_results_scaled$posterior
 } else {
 # When n is provided, only return scaled estimates (no estimate column)
 posterior_results <- calculate_coefficients_posterior(
-gstudy_obj = gstudy_obj,
-n = n,
-object = object,
-universe = universe_spec,
-error = error,
-aggregation = aggregation,
-residual_is = residual_is_effective,
-is_sweep = TRUE,
-n_grid = n_grid,
-n_provided = n_provided,
-use_scaled = TRUE,
-cut_score = cut_score,
-mu_y = mu_y
-)
-coefficients <- posterior_results$coefficients
-posterior <- posterior_results$posterior
-}
-} else {
-# Single sample size
-# Only calculate both unscaled and scaled estimates when n was not provided by user
-if (!n_provided) {
-# Calculate unscaled estimates using posterior
-posterior_results_unscaled <- calculate_coefficients_posterior(
-gstudy_obj = gstudy_obj,
-n = n,
-object = object,
-universe = universe_spec,
-error = error,
-aggregation = aggregation,
-residual_is = residual_is_effective,
-is_sweep = FALSE,
-n_provided = n_provided,
-use_scaled = FALSE,
-cut_score = cut_score,
-mu_y = mu_y
-)
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = TRUE,
+      n_grid = n_grid,
+      n_provided = n_provided,
+      use_scaled = TRUE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs
+    )
+    coefficients <- posterior_results$coefficients
+    posterior <- posterior_results$posterior
+  }
+  } else {
+    # Single sample size
+    # Only calculate both unscaled and scaled estimates when n was not provided by user
+    if (!n_provided) {
+      # Calculate unscaled estimates using posterior
+      posterior_results_unscaled <- calculate_coefficients_posterior(
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = FALSE,
+      n_provided = n_provided,
+      use_scaled = FALSE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs
+    )
 unscaled_coefs <- posterior_results_unscaled$coefficients
 unscaled_coefs$estimate <- "unscaled"
 
 # Calculate scaled estimates using posterior
 posterior_results_scaled <- calculate_coefficients_posterior(
-gstudy_obj = gstudy_obj,
-n = n,
-object = object,
-universe = universe_spec,
-error = error,
-aggregation = aggregation,
-residual_is = residual_is_effective,
-is_sweep = FALSE,
-n_provided = n_provided,
-use_scaled = TRUE,
-cut_score = cut_score,
-mu_y = mu_y
-)
-scaled_coefs <- posterior_results_scaled$coefficients
-scaled_coefs$estimate <- "scaled"
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = FALSE,
+      n_provided = n_provided,
+      use_scaled = TRUE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs
+    )
+    scaled_coefs <- posterior_results_scaled$coefficients
+    scaled_coefs$estimate <- "scaled"
 
 has_dim <- "dim" %in% names(unscaled_coefs)
 if (has_dim) {
@@ -465,23 +475,25 @@ scaled_coefs[, coef_cols, drop = FALSE]
 
 posterior <- posterior_results_scaled$posterior
 } else {
-# When n is provided, only return scaled estimates (no estimate column)
-posterior_results <- calculate_coefficients_posterior(
-gstudy_obj = gstudy_obj,
-n = n,
-object = object,
-universe = universe_spec,
-error = error,
-aggregation = aggregation,
-residual_is = residual_is_effective,
-is_sweep = FALSE,
-n_provided = n_provided,
-use_scaled = TRUE,
-cut_score = cut_score,
-mu_y = mu_y
-)
-coefficients <- posterior_results$coefficients
-posterior <- posterior_results$posterior
+    # When n is provided, only return scaled estimates (no estimate column)
+    posterior_results <- calculate_coefficients_posterior(
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = FALSE,
+      n_provided = n_provided,
+      use_scaled = TRUE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs
+    )
+    coefficients <- posterior_results$coefficients
+    posterior <- posterior_results$posterior
 }
  }
 
