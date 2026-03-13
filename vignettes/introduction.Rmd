@@ -392,61 +392,6 @@ d_post2 <- dstudy(
 )
 ```
 
-## Credible Intervals for D-Study Coefficients
-
-When using the brms backend, you can compute credible intervals for the generalizability (G) and dependability (Phi) coefficients:
-
-```{r, eval=FALSE}
-# D-study with 95% credible intervals
-d_ci <- dstudy(
-  g_bayes,
-  n = list(Task = 3, Rater = 4),
-  ci = c("g", "phi")
-)
-
-print(d_ci)
-```
-
-The output includes lower limit (LL) and upper limit (UL) columns:
-- `g_LL`, `g_UL`: 95% credible interval for the G coefficient
-- `phi_LL`, `phi_UL`: 95% credible interval for the Phi coefficient
-
-### Custom Probability Levels
-
-Use the `probs` argument for different quantiles:
-
-```{r, eval=FALSE}
-# 90% credible interval
-d_ci_90 <- dstudy(
-  g_bayes,
-  n = list(Task = 3, Rater = 4),
-  ci = "g",
-  probs = c(0.05, 0.95)
-)
-```
-
-### Phi-Cut Coefficient Intervals
-
-When `cut_score` is specified, request intervals for phi-cut:
-
-```{r, eval=FALSE}
-d_cut_ci <- dstudy(
-  g_bayes,
-  n = list(Task = 3, Rater = 4),
-  cut_score = 7,
-  ci = c("g", "phi", "phi-cut")
-)
-```
-
-**Note**: Credible intervals are only available for the brms backend. If you request `ci` with mom or lme4 backends, a warning is issued and no intervals are computed:
-
-```{r, eval=FALSE}
-# This will produce a warning
-g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task), data = brennan)
-d <- dstudy(g_lme4, n = list(Task = 3), ci = "g")
-# Warning: Credible intervals for 'mom' and 'lme4' backends are not yet implemented.
-```
-
 ## Visualization
 
 The **facet** package provides built-in plotting methods using **ggplot2**.
@@ -544,73 +489,9 @@ print(re_bayes)
 
 For brms backend, extract posterior draws for custom analyses:
 
-```{r eval=FALSE}
+```{r, eval=FALSE}
 # Extract posterior draws
 draws <- brms::as_draws_matrix(g_bayes$model)
-```
-
-## Extracting Latent Scores
-
-The `latent()` function extracts latent scores (universe score estimates) for the object of measurement based on random effects from a G-study. These scores represent the estimated "true" scores for each observation, accounting for the variance components specified in the universe.
-
-### Basic Usage
-
-By default, latent scores are computed using only the object of measurement's random effect:
-
-```{r}
-# Extract latent scores from a G-study
-# Using the default universe (Person only)
-latent_scores <- latent(g)
-
-head(latent_scores)
-```
-
-The output contains:
-- A column for the object of measurement (Person)
-- A `latent` column with the estimated universe scores
-
-### Custom Universe Specification
-
-You can expand the universe to include interaction terms. This creates separate latent scores for each level of the interacting facet:
-
-```{r}
-# Include Person:Task interaction in the universe
-latent_with_interaction <- latent(g, universe = c("Person", "Person:Task"))
-
-head(latent_with_interaction)
-```
-
-When interaction terms are included, the output includes separate columns for each level of the non-object facet (e.g., `latent_Task1`, `latent_Task2`, etc.).
-
-### Using Formula Syntax
-
-The `universe` parameter also accepts formula syntax:
-
-```{r}
-# Using formula syntax
-latent_formula <- latent(g, universe = ~ Person + Person:Task)
-
-head(latent_formula)
-```
-
-### Multivariate Models
-
-For multivariate G-studies (using mgstudy), latent scores are computed separately for each dimension:
-
-```{r, eval=FALSE}
-# Create multivariate data
-brennan_wide <- brennan %>%
-  pivot_wider(names_from = Task, values_from = Score, names_prefix = "Task")
-
-# Multivariate G-study
-g_mv <- gstudy(
-  mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide
-)
-
-# Extract latent scores for each dimension
-latent_mv <- latent(g_mv)
-head(latent_mv)
 ```
 
 ## Multivariate Analysis

@@ -283,6 +283,7 @@ call. = FALSE
 n_provided <- length(n) > 0
 if (length(n) == 0) {
   n <- extract_sample_sizes(gstudy_obj)
+  n_provided <- TRUE  # n was extracted, so treat as provided
   message(
     "No sample sizes provided in 'n'. Using G-study sample sizes: ",
     paste(names(n), n, sep = " = ", collapse = ", ")
@@ -476,13 +477,13 @@ posterior_results_scaled <- calculate_coefficients_posterior(
     scaled_coefs$estimate <- "scaled"
 
 has_dim <- "dim" %in% names(unscaled_coefs)
-if (has_dim) {
+# Dynamically include all coefficient columns (including CI columns like g_LL, g_UL, etc.)
+n_cols_pattern <- "^n_"
 coef_cols <- c("estimate", "dim", "uni", "sigma2_delta", "sigma2_delta_abs",
 "g", "phi", "phi_cut", "sem_rel", "sem_abs")
-} else {
-coef_cols <- c("estimate", "uni", "sigma2_delta", "sigma2_delta_abs",
-"g", "phi", "phi_cut", "sem_rel", "sem_abs")
-}
+# Add any CI columns that might be present
+ci_cols <- grep("_LL|_UL$", names(unscaled_coefs), value = TRUE)
+coef_cols <- c(coef_cols, ci_cols)
 coef_cols <- intersect(coef_cols, names(unscaled_coefs))
 
 coefficients <- tibble::as_tibble(rbind(
