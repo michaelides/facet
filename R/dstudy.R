@@ -208,18 +208,32 @@ backend = "brms"
     }
   }
 
-  # 1.10. Validate probs parameter
-  if (!is.null(ci)) {
-    if (length(probs) != 2) {
-      stop("'probs' must have exactly 2 elements", call. = FALSE)
-    }
-    if (probs[1] >= probs[2]) {
-      stop("'probs' must be in increasing order", call. = FALSE)
-    }
-    if (any(probs < 0) || any(probs > 1)) {
-      stop("'probs' must be between 0 and 1", call. = FALSE)
+# 1.10. Validate probs parameter
+if (!is.null(ci)) {
+  if (length(probs) != 2) {
+    stop("'probs' must have exactly 2 elements", call. = FALSE)
+  }
+  if (probs[1] >= probs[2]) {
+    stop("'probs' must be in increasing order", call. = FALSE)
+  }
+  if (any(probs < 0) || any(probs > 1)) {
+    stop("'probs' must be between 0 and 1", call. = FALSE)
+  }
+  
+  # 1.11. Warn if phi-cut CI requested but no cut_score provided
+  if ("phi-cut" %in% ci && is.null(cut_score)) {
+    warning(
+      "Credible intervals for 'phi-cut' require a 'cut_score' to be specified. ",
+      "The phi-cut coefficient is used for criterion-referenced (absolute) decisions. ",
+      "Specify cut_score to compute phi-cut credible intervals.",
+      call. = FALSE
+    )
+    ci <- setdiff(ci, "phi-cut")
+    if (length(ci) == 0) {
+      ci <- NULL
     }
   }
+}
 
   # 2. Get variance components from G-study
 vc <- gstudy_obj$variance_components
