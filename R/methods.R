@@ -141,21 +141,37 @@ print_correlations <- function(correlations, digits = 3, format = c("long", "mat
 #' @param digits Number of digits to display.
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
 #' @param cor_format Format for displaying correlations: "long" (default) or "matrix".
+#' @param vc_format Format for displaying variance components: "dimension" (default) or "facet".
+#'   When "facet", variance components are grouped by facet with inline correlations.
 #' @param ... Additional arguments (ignored).
 #' @return Invisibly returns x.
 #' @export
 #' @rdname print.mgstudy
-print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"), cor_format = c("long", "matrix"), ...) {
+print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
+                           cor_format = c("long", "matrix"),
+                           vc_format = c("dimension", "facet"), ...) {
   scale <- match.arg(scale)
   cor_format <- match.arg(cor_format)
+  vc_format <- match.arg(vc_format)
 
-  cat("Multivariate Generalizability Study (MG-Study)\n")
-  cat("=============================================\n\n")
+  if (isTRUE(x$long_format_multivariate)) {
+    cat("Multivariate Generalizability Study (MG-Study)\n")
+    cat("(Long-Format - Unbalanced)\n")
+    cat("=============================================\n\n")
 
-  cat("Backend:", x$backend, "\n")
-  cat("Formula:", deparse(x$formula), "\n")
-  cat("Number of observations:", x$n_obs, "\n")
-  cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n\n")
+    cat("Backend:", x$backend, "\n")
+    cat("Dimension Variable:", x$dimension_var, "\n")
+    cat("Number of observations:", x$n_obs, "\n")
+    cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n\n")
+  } else {
+    cat("Multivariate Generalizability Study (MG-Study)\n")
+    cat("=============================================\n\n")
+
+    cat("Backend:", x$backend, "\n")
+    cat("Formula:", deparse(x$formula), "\n")
+    cat("Number of observations:", x$n_obs, "\n")
+    cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n\n")
+  }
 
   cat("Object of measurement:", x$object, "\n")
   cat("Facets:", paste(x$facets, collapse = ", "), "\n")
@@ -196,17 +212,51 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"), cor_format
     }
   }
 
-  cat("Variance Components (by dimension):\n")
-  for (dim in x$dimensions) {
-    cat(sprintf("\nDimension: %s\n", dim))
-    vc_dim <- x$variance_components[x$variance_components$dim == dim, ]
-    vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
-    print(vc_summary, row.names = FALSE, ...)
-  }
-
-  if (!is.null(x$correlations)) {
-    cat("\n")
-    print_correlations(x$correlations, digits = digits, format = cor_format)
+  if (vc_format == "dimension") {
+    cat("Variance Components (by dimension):\n")
+    for (dim in x$dimensions) {
+      cat(sprintf("\nDimension: %s\n", dim))
+      vc_dim <- x$variance_components[x$variance_components$dim == dim, ]
+      vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
+      print(vc_summary, row.names = FALSE, ...)
+    }
+    
+    if (!is.null(x$correlations)) {
+      cat("\n")
+      print_correlations(x$correlations, digits = digits, format = cor_format)
+    }
+  } else {
+    cat("Variance Components (by facet):\n")
+    unique_components <- unique(x$variance_components$component)
+    
+    for (comp in unique_components) {
+      cat(sprintf("\nFacet: %s\n", comp))
+      vc_comp <- x$variance_components[x$variance_components$component == comp, ]
+      vc_summary <- summarize_vc(vc_comp, digits = digits, scale = scale)
+      print(vc_summary, row.names = FALSE, ...)
+      
+      if (!is.null(x$correlations$random_effect_cor) &&
+          !is.null(x$correlations$random_effect_cor[[comp]])) {
+        cat(sprintf("Correlations (%s):\n", comp))
+        cor_summary <- summarize_cor(x$correlations$random_effect_cor[[comp]], digits)
+        print(cor_summary, row.names = FALSE)
+        cat("\n")
+      }
+    }
+    
+    if (!is.null(x$correlations$residual_cor) &&
+        nrow(x$correlations$residual_cor) > 0) {
+      cat("\nResidual Correlations:\n")
+      if (cor_format == "matrix") {
+        if (!is.null(x$correlations$residual_cor_matrix)) {
+          cor_mat <- round(x$correlations$residual_cor_matrix, digits)
+          print(cor_mat, quote = FALSE)
+        }
+      } else {
+        cor_summary <- summarize_cor(x$correlations$residual_cor, digits)
+        print(cor_summary, row.names = FALSE)
+      }
+    }
   }
 
   invisible(x)
@@ -492,13 +542,18 @@ cat("\nTotal variance:", sum(object$variance_components$var, na.rm = TRUE), "\n"
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
 #' @param digits Number of digits to display (default 3).
 #' @param cor_format Format for displaying correlations: "long" (default) or "matrix".
+#' @param vc_format Format for displaying variance components: "dimension" (default) or "facet".
+#'   When "facet", variance components are grouped by facet with inline correlations.
 #' @param ... Additional arguments (ignored).
 #' @return Invisibly returns object.
 #' @export
 #' @rdname summary.mgstudy
-summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3, cor_format = c("long", "matrix"), ...) {
+summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
+                             cor_format = c("long", "matrix"),
+                             vc_format = c("dimension", "facet"), ...) {
   scale <- match.arg(scale)
   cor_format <- match.arg(cor_format)
+  vc_format <- match.arg(vc_format)
 
   cat("=== Multivariate G-Study Summary ===\n\n")
 
@@ -548,17 +603,51 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3, cor
     }
   }
 
-  cat("Variance Components (by dimension):\n")
-  for (dim in object$dimensions) {
-    cat(sprintf("\nDimension: %s\n", dim))
-    vc_dim <- object$variance_components[object$variance_components$dim == dim, ]
-    vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
-    print(vc_summary, row.names = FALSE, ...)
-  }
-
-  if (!is.null(object$correlations)) {
-    cat("\n")
-    print_correlations(object$correlations, digits = digits, format = cor_format)
+  if (vc_format == "dimension") {
+    cat("Variance Components (by dimension):\n")
+    for (dim in object$dimensions) {
+      cat(sprintf("\nDimension: %s\n", dim))
+      vc_dim <- object$variance_components[object$variance_components$dim == dim, ]
+      vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
+      print(vc_summary, row.names = FALSE, ...)
+    }
+    
+    if (!is.null(object$correlations)) {
+      cat("\n")
+      print_correlations(object$correlations, digits = digits, format = cor_format)
+    }
+  } else {
+    cat("Variance Components (by facet):\n")
+    unique_components <- unique(object$variance_components$component)
+    
+    for (comp in unique_components) {
+      cat(sprintf("\nFacet: %s\n", comp))
+      vc_comp <- object$variance_components[object$variance_components$component == comp, ]
+      vc_summary <- summarize_vc(vc_comp, digits = digits, scale = scale)
+      print(vc_summary, row.names = FALSE, ...)
+      
+      if (!is.null(object$correlations$random_effect_cor) &&
+          !is.null(object$correlations$random_effect_cor[[comp]])) {
+        cat(sprintf("Correlations (%s):\n", comp))
+        cor_summary <- summarize_cor(object$correlations$random_effect_cor[[comp]], digits)
+        print(cor_summary, row.names = FALSE)
+        cat("\n")
+      }
+    }
+    
+    if (!is.null(object$correlations$residual_cor) &&
+        nrow(object$correlations$residual_cor) > 0) {
+      cat("\nResidual Correlations:\n")
+      if (cor_format == "matrix") {
+        if (!is.null(object$correlations$residual_cor_matrix)) {
+          cor_mat <- round(object$correlations$residual_cor_matrix, digits)
+          print(cor_mat, quote = FALSE)
+        }
+      } else {
+        cor_summary <- summarize_cor(object$correlations$residual_cor, digits)
+        print(cor_summary, row.names = FALSE)
+      }
+    }
   }
 
   invisible(object)
