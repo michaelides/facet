@@ -966,3 +966,258 @@ extract_correlations_brms <- function(model) {
 extract_vc.brmsfit <- function(model, ...) {
   extract_vc_brms(model, ...)
 }
+
+#' Extract Variance Components from brms Long-Format Model
+#'
+#' Extracts variance components for long-format multivariate models
+#' where dimensions are defined by a dimension variable.
+#'
+#' @param model A brmsfit object.
+#' @param conf_level Credible interval level (default 0.95).
+#' @param formula The original formula.
+#' @param dimension_var Name of the dimension variable.
+#' @param data The original data.
+#'
+#' @return A tibble with variance components per dimension.
+#'
+#' @keywords internal
+extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL, dimension_var = NULL, data = NULL) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop("Package 'brms' is required.", call. = FALSE)
+  }
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    stop("Package 'posterior' is required.", call. = FALSE)
+  }
+
+  draws <- brms::as_draws_matrix(model)
+  model_summary <- summary(model)
+  random_summary <- model_summary$random
+  spec_pars <- model_summary$spec_pars
+
+  # Get dimension levels from data
+  dimension_levels <- unique(data[[dimension_var]])
+  dimension_levels <- sort(as.character(dimension_levels))
+
+  # Detect if sigma uses log link
+  is_log_link <- detect_sigma_log_link(model)
+
+  # Get facet names from formula
+  vc <- brms::VarCorr(model)
+  facet_names <- names(vc)
+  facet_names <- facet_names[facet_names != "residual__"]
+
+  # Normalize facet names (replace __ with :)
+  normalize_group_name <- function(name) {
+    gsub("__", ":", name)
+  }
+
+  results <- list()
+
+  for (dim in dimension_levels) {
+    # Extract random effect variances for this dimension
+    for (facet in facet_names) {
+      normalized_facet <- normalize_group_name(facet)
+      type <- if (grepl(":", normalized_facet)) "interaction" else "main"
+
+      result <- extract_single_variance_from_draws_long_format(
+        draws = draws,
+        grp = facet,
+        resp = dim,
+        type = type,
+        random_summary = random_summary,
+        spec_pars = spec_pars,
+        is_mv = TRUE,
+        is_log_link = FALSE
+      )
+
+      if (!is.null(result)) {
+        result$component <- normalized_facet
+        results[[length(results) + 1]] <- result
+      }
+    }
+
+    # Extract residual (sigma) variance for this dimension
+    result <- extract_single_variance_from_draws_long_format(
+      draws = draws,
+      grp = "residual__",
+      resp = dim,
+      type = "residual",
+      random_summary = random_summary,
+      spec_pars = spec_pars,
+      is_mv = TRUE,
+      is_log_link = is_log_link
+    )
+
+    if (!is.null(result)) {
+      results[[length(results) + 1]] <- result
+    }
+  }
+
+  # Combine results
+  vc_df <- do.call(rbind, results)
+  vc_tibble <- tibble::as_tibble(vc_df)
+
+  # Calculate percentages
+  vc_tibble <- vc_tibble %>%
+    dplyr::group_by(dim) %>%
+    dplyr::mutate(pct = (var / sum(var, na.rm = TRUE)) * 100) %>%
+    dplyr::ungroup()
+
+  vc_tibble
+}
+
+#' Detect if Sigma Uses Log Link in brms Model
+#'
+#' Checks whether the sigma parameters in a brms model use a log link
+#' (indicated by 'b_sigma_' prefix in parameter names).
+#'
+#' @param model A brmsfit object.
+#' @return Logical; TRUE if sigma uses log link, FALSE otherwise.
+#'
+#' @keywords internal
+detect_sigma_log_link <- function(model) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    return(FALSE)
+  }
+
+  draws <- brms::as_draws_matrix(model)
+  param_names <- colnames(draws)
+
+  has_b_sigma <- any(grepl("^b_sigma_", param_names))
+  has_sigma <- any(grepl("^sigma_", param_names))
+
+  has_b_sigma && !has_sigma
+}
+
+#' Extract Single Variance Component from Long-Format brms Model
+#'
+#' Helper function to extract a single variance component from posterior draws
+#' for long-format multivariate models.
+#'
+#' @param draws Posterior draws matrix.
+#' @param grp Group name (facet name or "residual__").
+#' @param resp Response dimension name.
+#' @param type Component type: "main", "interaction", or "residual".
+#' @param random_summary Random effects summary from brms.
+#' @param spec_pars Special parameters summary from brms.
+#' @param is_mv Whether this is a multivariate model.
+#' @param is_log_link Whether sigma uses log link.
+#'
+#' @return A data.frame with variance component estimates.
+#'
+#' @keywords internal
+extract_single_variance_from_draws_long_format <- function(draws, grp, resp, type,
+                                                            random_summary, spec_pars, is_mv,
+                                                            is_log_link = FALSE) {
+  if (grp == "residual__") {
+    if (is_log_link) {
+      param_name <- paste0("b_sigma_", resp)
+    } else {
+      param_name <- paste0("sigma_", resp)
+    }
+    component <- "Residual"
+  } else {
+    param_name <- paste0("sd_", grp, "__", resp, "_Intercept")
+    component <- grp
+  }
+
+  if (!param_name %in% colnames(draws)) {
+    param_candidates <- character()
+
+    if (grp != "residual__") {
+      grp_double_underscore <- gsub(":", "__", grp)
+      param_candidates <- c(
+        paste0("sd_", grp_double_underscore, "__", resp, "_Intercept"),
+        paste0("sd_", grp, "__", resp, "_Intercept")
+      )
+      param_candidates <- unique(param_candidates)
+    } else {
+      if (is_log_link) {
+        param_candidates <- c(
+          paste0("b_sigma_", resp),
+          paste0("sigma_", resp)
+        )
+      } else {
+        param_candidates <- paste0("sigma_", resp)
+      }
+    }
+
+    found <- FALSE
+    for (cand in param_candidates) {
+      if (cand %in% colnames(draws)) {
+        param_name <- cand
+        found <- TRUE
+        break
+      }
+    }
+
+    if (!found) {
+      base_name <- if (grp == "residual__") {
+        if (is_log_link) paste0("b_sigma_", resp) else paste0("sigma_", resp)
+      } else {
+        paste0("sd_", gsub(":", "__", grp), "__", resp)
+      }
+      matching_params <- grep(paste0("^", base_name), colnames(draws), value = TRUE)
+      if (length(matching_params) > 0) {
+        param_name <- matching_params[1]
+      } else {
+        return(NULL)
+      }
+    }
+  }
+
+  draws_values <- posterior::extract_variable(draws, param_name)
+
+  if (grp == "residual__" && is_log_link) {
+    sd_draws <- exp(draws_values)
+  } else {
+    sd_draws <- draws_values
+  }
+
+  var_draws <- sd_draws^2
+
+  estimate <- mean(var_draws)
+  lower <- as.numeric(quantile(var_draws, 0.025))
+  upper <- as.numeric(quantile(var_draws, 0.975))
+  se <- sd(var_draws)
+  sd_mean <- mean(sd_draws)
+
+  rhat_val <- NA_real_
+  bulk_ess_val <- NA_real_
+  tail_ess_val <- NA_real_
+
+  if (grp == "residual__") {
+    if (!is.null(spec_pars)) {
+      sigma_name <- paste0("sigma_", resp)
+      if (sigma_name %in% rownames(spec_pars)) {
+        rhat_val <- spec_pars[sigma_name, "Rhat"]
+        bulk_ess_val <- spec_pars[sigma_name, "Bulk_ESS"]
+        tail_ess_val <- spec_pars[sigma_name, "Tail_ESS"]
+      }
+    }
+  } else {
+    if (!is.null(random_summary) && grp %in% names(random_summary)) {
+      grp_rand <- random_summary[[grp]]
+      if (param_name %in% rownames(grp_rand)) {
+        rhat_val <- grp_rand[param_name, "Rhat"]
+        bulk_ess_val <- grp_rand[param_name, "Bulk_ESS"]
+        tail_ess_val <- grp_rand[param_name, "Tail_ESS"]
+      }
+    }
+  }
+
+  data.frame(
+    component = component,
+    dim = resp,
+    type = type,
+    var = estimate,
+    error = se,
+    lower = lower,
+    upper = upper,
+    sd = sd_mean,
+    Rhat = rhat_val,
+    Bulk_ESS = bulk_ess_val,
+    Tail_ESS = tail_ess_val,
+    stringsAsFactors = FALSE
+  )
+}
