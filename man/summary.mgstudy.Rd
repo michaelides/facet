@@ -9,6 +9,7 @@
   scale = c("variance", "sd"),
   digits = 3,
   cor_format = c("long", "matrix"),
+  vc_format = c("dimension", "facet"),
   ...
 )
 }
@@ -20,6 +21,9 @@
 \item{digits}{Number of digits to display (default 3).}
 
 \item{cor_format}{Format for displaying correlations: "long" (default) or "matrix".}
+
+\item{vc_format}{Format for displaying variance components: "dimension" (default) or "facet".
+When "facet", variance components are grouped by facet with inline correlations.}
 
 \item{...}{Additional arguments (ignored).}
 }

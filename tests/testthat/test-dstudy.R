@@ -1276,3 +1276,57 @@ test_that("dstudy sweep with ci produces CI columns", {
   expect_true("g_UL" %in% names(result$coefficients))
   expect_equal(nrow(result$coefficients), 2)
 })
+
+test_that("dstudy stores ci and probs in result", {
+  skip_if_not_installed("brms")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  result <- dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.05, 0.95))
+  expect_equal(result$ci, "g")
+  expect_equal(result$probs, c(0.05, 0.95))
+})
+
+test_that("dstudy stores NULL ci when not specified", {
+  skip_if_not_installed("lme4")
+  test_data <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  result <- dstudy(g, n = list(rater = 3))
+  expect_null(result$ci)
+})
+
+# =============================================================================
+# Long-format multivariate tests
+# =============================================================================
+
+test_that("dstudy handles long_format_multivariate per-dimension sample sizes", {
+  mock_g <- list(
+    backend = "brms",
+    long_format_multivariate = TRUE,
+    dimension_var = "Subtest",
+    dimensions = c("A", "B"),
+    variance_components = tibble::tibble(
+      component = c("Person", "Residual", "Person", "Residual"),
+      dim = c("A", "A", "B", "B"),
+      type = c("main", "residual", "main", "residual"),
+      var = c(0.5, 0.3, 0.4, 0.35)
+    ),
+    sample_size_info_per_dim = list(
+      A = list(main = c(Person = 10)),
+      B = list(main = c(Person = 8))
+    ),
+    object = "Person",
+    facets = c("Person"),
+    is_multivariate = TRUE
+  )
+  class(mock_g) <- "mgstudy"
+
+  expect_true(is.mgstudy(mock_g))
+})

@@ -16,7 +16,9 @@ calculate_single_posterior(
   n_provided = FALSE,
   use_scaled = TRUE,
   cut_score = NULL,
-  mu_y = NULL
+  mu_y = NULL,
+  ci = NULL,
+  probs = c(0.025, 0.975)
 )
 }
 \arguments{

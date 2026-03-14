@@ -149,7 +149,10 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
 
   is_multivariate <- inherits(gstudy_obj, "mgstudy")
 
-  # 1.5. Set default estimation based on backend
+# 1.1. Check for estimation issues and warn
+  check_estimation_issues(gstudy_obj)
+
+# 1.5. Set default estimation based on backend
   # For brms backend, always use posterior draws-based estimation
   # For lme4/mom backends, use simple estimation
   if (is.null(estimation)) {
