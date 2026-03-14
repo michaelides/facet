@@ -353,13 +353,58 @@ test_that("gstudy with nested effects shows footnote", {
   )
 
   g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater),
-              data = nested_data)
+    data = nested_data)
 
   output <- capture.output(print(g))
-  
+
   # Should show nested details section
   expect_true(any(grepl("Nested details", output)))
-  
+
   # Should show Task per Rater
   expect_true(any(grepl("Task per Rater", output)))
+})
+
+test_that("calculate_sample_size_info_per_dimension works correctly", {
+  test_data <- data.frame(
+    Score = rnorm(60),
+    Person = factor(rep(1:10, 6)),
+    Subtest = factor(rep(c("A", "B", "C"), each = 20)),
+    Item = factor(rep(1:4, 15))
+  )
+  formula <- Score ~ (1|Person) + (1|Item)
+  result <- calculate_sample_size_info_per_dimension(formula, test_data, "Subtest")
+
+  expect_true(is.list(result))
+  expect_true("A" %in% names(result))
+  expect_true("B" %in% names(result))
+  expect_true("C" %in% names(result))
+  # Each dimension should have sample_size_info structure
+  expect_true("main" %in% names(result[["A"]]))
+  expect_true("residual" %in% names(result[["A"]]))
+})
+
+test_that("calculate_sample_size_tibble_per_dim creates dim column", {
+  # Create mock sample_size_info_per_dim
+  ssi_per_dim <- list(
+    A = list(
+      main = c(Person = 10, Item = 4),
+      interactions = integer(0),
+      residual = list(facets = "Person:Item", n = 40),
+      nested = NULL
+    ),
+    B = list(
+      main = c(Person = 8, Item = 4),
+      interactions = integer(0),
+      residual = list(facets = "Person:Item", n = 32),
+      nested = NULL
+    )
+  )
+
+  result <- calculate_sample_size_tibble_per_dim(ssi_per_dim)
+
+  expect_true("dim" %in% names(result))
+  expect_true("effect" %in% names(result))
+  expect_true("type" %in% names(result))
+  expect_true("n" %in% names(result))
+  expect_equal(sort(unique(result$dim)), c("A", "B"))
 })

@@ -497,44 +497,44 @@ calculate_single_sample_size_tibble <- function(sample_size_info) {
 #' @param nested_info List of nested effect information from calculate_nested_sample_sizes().
 #'
 #' @return Character vector of formatted footnote lines, one per nested effect.
-#'   Returns character(0) if nested_info is NULL or empty.
+#' Returns character(0) if nested_info is NULL or empty.
 #'
 #' @keywords internal
 format_nested_footnote <- function(nested_info) {
   if (is.null(nested_info) || length(nested_info) == 0) {
     return(character(0))
   }
-  
+
   lines <- character(0)
-  
+
   for (key in names(nested_info)) {
     info <- nested_info[[key]]
-    
+
     nested_facet <- info$nested_facet
     nesting_facet <- info$nesting_facet
     n_groups <- info$n_groups
     mean_per_group <- info$mean_per_group
     harmonic_mean <- info$harmonic_mean_per_group
-    
+
     # Capitalize first letter of facet names for display
-    nested_cap <- paste0(toupper(substring(nested_facet, 1, 1)), 
-                         substring(nested_facet, 2))
-    nesting_cap <- paste0(toupper(substring(nesting_facet, 1, 1)), 
-                          substring(nesting_facet, 2))
-    
+    nested_cap <- paste0(toupper(substring(nested_facet, 1, 1)),
+      substring(nested_facet, 2))
+    nesting_cap <- paste0(toupper(substring(nesting_facet, 1, 1)),
+      substring(nesting_facet, 2))
+
     # Build the main text
     main_text <- sprintf("%s per %s: %d %ss",
-                         nested_cap,
-                         nesting_cap,
-                         n_groups,
-                         nesting_facet)
-    
+      nested_cap,
+      nesting_cap,
+      n_groups,
+      nesting_facet)
+
     # Add mean info
     mean_text <- sprintf(", %.1f %ss per %s",
-                         mean_per_group,
-                         nested_facet,
-                         nesting_facet)
-    
+      mean_per_group,
+      nested_facet,
+      nesting_facet)
+
     # Add harmonic mean if unbalanced
     if (abs(mean_per_group - harmonic_mean) > 0.01) {
       harmonic_text <- sprintf(" (harmonic: %.1f)", harmonic_mean)
@@ -542,9 +542,79 @@ format_nested_footnote <- function(nested_info) {
     } else {
       line <- paste0(main_text, mean_text)
     }
-    
+
     lines <- c(lines, line)
   }
-  
+
   lines
+}
+
+#' Calculate Sample Size Information Per Dimension
+#'
+#' Calculates sample sizes separately for each level of the dimension variable
+#' in long-format multivariate models.
+#'
+#' @param formula A formula object.
+#' @param data A data frame containing the variables.
+#' @param dimension_var Character string naming the dimension variable.
+#'
+#' @return A named list where each element is a sample_size_info for that dimension.
+#'
+#' @keywords internal
+calculate_sample_size_info_per_dimension <- function(formula, data, dimension_var) {
+  if (!dimension_var %in% names(data)) {
+    stop("Dimension variable '", dimension_var, "' not found in data", call. = FALSE)
+  }
+
+  dimension_levels <- unique(data[[dimension_var]])
+  dimension_levels <- sort(as.character(dimension_levels))
+
+  result <- list()
+  for (dim in dimension_levels) {
+    dim_data <- data[data[[dimension_var]] == dim, ]
+    result[[dim]] <- calculate_sample_size_info(formula, dim_data)
+  }
+  result
+}
+
+#' Calculate Sample Size Tibble Per Dimension
+#'
+#' Converts per-dimension sample size information into a tibble with a dim column.
+#'
+#' @param sample_size_info_per_dim List of sample_size_info objects per dimension.
+#'
+#' @return A tibble with columns: dim, effect, type, n
+#'
+#' @keywords internal
+calculate_sample_size_tibble_per_dim <- function(sample_size_info_per_dim) {
+  if (is.null(sample_size_info_per_dim) || length(sample_size_info_per_dim) == 0) {
+    return(tibble::tibble(
+      dim = character(),
+      effect = character(),
+      type = character(),
+      n = numeric()
+    ))
+  }
+
+  rows <- list()
+  for (dim in names(sample_size_info_per_dim)) {
+    ssi <- sample_size_info_per_dim[[dim]]
+    dim_tibble <- calculate_single_sample_size_tibble(ssi)
+    if (nrow(dim_tibble) > 0) {
+      dim_tibble$dim <- dim
+      rows[[length(rows) + 1]] <- dim_tibble
+    }
+  }
+
+  if (length(rows) == 0) {
+    return(tibble::tibble(
+      dim = character(),
+      effect = character(),
+      type = character(),
+      n = numeric()
+    ))
+  }
+
+  dplyr::bind_rows(rows) %>%
+    dplyr::select(dim, effect, type, n)
 }
