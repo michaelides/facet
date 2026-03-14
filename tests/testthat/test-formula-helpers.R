@@ -296,3 +296,34 @@ test_that("parse_residual_facets preserves facet order from formula", {
   result <- parse_residual_facets(f)
   expect_equal(result, "zebra:apple:mango")
 })
+
+# =============================================================================
+# is_long_format_multivariate tests
+# =============================================================================
+
+test_that("is_long_format_multivariate returns FALSE for non-brms formulas", {
+  result <- is_long_format_multivariate(Score ~ (1|Person))
+  expect_false(result$is_long)
+})
+
+test_that("is_long_format_multivariate returns FALSE for wide-format multivariate", {
+  skip_if_not_installed("brms")
+  formula <- brms::mvbind(score1, score2) ~ (1|Person)
+  result <- is_long_format_multivariate(formula)
+  expect_false(result$is_long)
+})
+
+test_that("is_long_format_multivariate detects sigma auxiliary formula", {
+  skip_if_not_installed("brms")
+  formula <- brms::bf(Score ~ 0 + Subtest + (0+Subtest|Person), sigma ~ 0 + Subtest)
+  result <- is_long_format_multivariate(formula)
+  expect_true(result$is_long)
+  expect_equal(result$dimension_var, "Subtest")
+})
+
+test_that("is_long_format_multivariate requires dimension var in random effects", {
+  skip_if_not_installed("brms")
+  formula <- brms::bf(Score ~ (1|Person), sigma ~ 1)
+  result <- is_long_format_multivariate(formula)
+  expect_false(result$is_long)
+})

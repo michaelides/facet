@@ -140,7 +140,7 @@ extract_random_effect_cor <- function(formula) {
 #'
 #' @keywords internal
 parse_g_formula <- function(formula) {
-  if (inherits(formula, "mvbrmsformula") || inherits(formula, "bform")) {
+  if (inherits(formula, "mvbrmsformula")) {
     if (!is.null(formula$forms) && is.list(formula$forms) && length(formula$forms) > 0) {
       first_formula <- formula$forms[[1]]
       formula_terms <- terms(first_formula$formula)
@@ -149,6 +149,10 @@ parse_g_formula <- function(formula) {
     } else {
       stop("Cannot parse multivariate brmsformula: no forms found", call. = FALSE)
     }
+  } else if (inherits(formula, "brmsformula") || inherits(formula, "bform")) {
+    formula_terms <- terms(formula$formula)
+    response <- formula$resp
+    formula_for_findbars <- formula$formula
   } else {
     formula_terms <- terms(formula)
     response <- all.vars(formula, max.names = 1)[1]
@@ -424,6 +428,56 @@ extract_response_names <- function(formula) {
   }
 }
 
+#' Detect Long-Format Multivariate Models
+#'
+#' Checks if a brms formula represents a long-format multivariate model,
+#' characterized by an auxiliary sigma formula and dimension variable in random effects.
+#'
+#' @param formula A formula or brmsformula object.
+#' @return A list with:
+#' \itemize{
+#' \item is_long: Logical indicating if this is a long-format multivariate model
+#' \item dimension_var: Character name of the dimension variable, or NULL
+#' }
+#'
+#' @keywords internal
+is_long_format_multivariate <- function(formula) {
+  if (!inherits(formula, "brmsformula") && !inherits(formula, "bform")) {
+    return(list(is_long = FALSE, dimension_var = NULL))
+  }
+
+  has_sigma <- FALSE
+  sigma_formula <- NULL
+  if (!is.null(formula$pforms) && !is.null(formula$pforms$sigma)) {
+    has_sigma <- TRUE
+    sigma_formula <- formula$pforms$sigma
+  } else if (!is.null(formula$auxiliary) && !is.null(formula$auxiliary$formulas$sigma)) {
+    has_sigma <- TRUE
+    sigma_formula <- formula$auxiliary$formulas$sigma
+  }
+
+  if (!has_sigma) {
+    return(list(is_long = FALSE, dimension_var = NULL))
+  }
+
+  dimension_vars <- all.vars(sigma_formula)
+  dimension_vars <- dimension_vars[dimension_vars != "sigma"]
+  if (length(dimension_vars) == 0) {
+    return(list(is_long = FALSE, dimension_var = NULL))
+  }
+  dimension_var <- dimension_vars[1]
+
+  formula_char <- deparse(formula$formula)
+  pattern <- paste0("0\\s*\\+\\s*", dimension_var, "\\s*\\|")
+  has_in_random <- grepl(pattern, formula_char)
+
+  if (!has_in_random) {
+    return(list(is_long = FALSE, dimension_var = NULL))
+  }
+
+  list(is_long = TRUE, dimension_var = dimension_var)
+}
+
 #' Parse Residual Facets from Formula
 #'
 #' Determines which facets make up the residual (lowest-level) variance component
@@ -432,17 +486,17 @@ extract_response_names <- function(formula) {
 #'
 #' @param formula A formula object with lme4-style random effects (e.g., `score ~ (1|p) + (1|i:d)`).
 #' @param data Optional data frame to detect actual nesting patterns from the data.
-#'   If NULL, assumes all facets are crossed (most conservative).
+#' If NULL, assumes all facets are crossed (most conservative).
 #'
 #' @return A character string representing the facets that make up the residual,
-#'   with facets separated by colons (e.g., `"p:i:d"`).
+#' with facets separated by colons (e.g., `"p:i:d"`).
 #'
 #' @details
 #' The function determines the residual composition by:
 #' \enumerate{
-#'   \item Parsing the formula to extract all unique facets from random effects
-#'   \item If `data` is provided, detecting which facets are nested within others
-#'   \item Returning the interaction of all non-nested (crossed) facets
+#' \item Parsing the formula to extract all unique facets from random effects
+#' \item If `data` is provided, detecting which facets are nested within others
+#' \item Returning the interaction of all non-nested (crossed) facets
 #' }
 #'
 #' ## Nesting Detection
@@ -450,11 +504,11 @@ extract_response_names <- function(formula) {
 #' determine if facets appearing in interaction terms (like `i:d`) are nested
 #' or crossed:
 #' \itemize{
-#'   \item **Nested**: If each level of `i` appears with only one level of `d`,
-#'     then `i` is nested in `d`. The nested facet is absorbed and the residual
-#'     excludes the nesting facet (e.g., residual = `"p:i"` instead of `"p:i:d"`).
-#'   \item **Crossed**: If levels of `i` appear with multiple levels of `d`,
-#'     the facets are crossed. The residual includes all facets (e.g., `"p:i:d"`).
+#' \item **Nested**: If each level of `i` appears with only one level of `d`,
+#' then `i` is nested in `d`. The nested facet is absorbed and the residual
+#' excludes the nesting facet (e.g., residual = `"p:i"` instead of `"p:i:d"`).
+#' \item **Crossed**: If levels of `i` appear with multiple levels of `d`,
+#' the facets are crossed. The residual includes all facets (e.g., `"p:i:d"`).
 #' }
 #'
 #' @examples
