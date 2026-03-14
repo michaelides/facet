@@ -742,3 +742,34 @@ test_that("print.mgstudy shows per-dimension sample sizes", {
 
   expect_true(any(grepl("dim", output)))
 })
+
+test_that("summary.mgstudy handles long_format_multivariate flag", {
+  mock_mgstudy <- list(
+    backend = "brms",
+    long_format_multivariate = TRUE,
+    dimension_var = "Subtest",
+    dimensions = c("A", "B"),
+    sample_size_tibble = tibble::tibble(
+      dim = c("A", "B"),
+      effect = c("Person", "Person"),
+      type = c("main", "main"),
+      n = c(10, 8)
+    ),
+    variance_components = tibble::tibble(
+      component = c("Person", "Residual", "Person", "Residual"),
+      dim = c("A", "A", "B", "B"),
+      type = c("main", "residual", "main", "residual"),
+      var = c(0.5, 0.3, 0.4, 0.35),
+      pct = c(62.5, 37.5, 53.3, 46.7)
+    ),
+    object = "Person",
+    facets = c("Person"),
+    n_obs = 80,
+    correlations = list()
+  )
+  class(mock_mgstudy) <- "mgstudy"
+
+  output <- capture.output(summary(mock_mgstudy))
+
+  expect_true(any(grepl("Long-Format", output)))
+})

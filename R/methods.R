@@ -549,19 +549,30 @@ cat("\nTotal variance:", sum(object$variance_components$var, na.rm = TRUE), "\n"
 #' @export
 #' @rdname summary.mgstudy
 summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
-                             cor_format = c("long", "matrix"),
-                             vc_format = c("dimension", "facet"), ...) {
+                            cor_format = c("long", "matrix"),
+                            vc_format = c("dimension", "facet"), ...) {
   scale <- match.arg(scale)
   cor_format <- match.arg(cor_format)
   vc_format <- match.arg(vc_format)
 
-  cat("=== Multivariate G-Study Summary ===\n\n")
+  if (isTRUE(object$long_format_multivariate)) {
+    cat("=== Multivariate G-Study Summary ===\n")
+    cat("(Long-Format - Unbalanced)\n\n")
 
-  cat("Design Information:\n")
-  cat(" Backend:", object$backend, "\n")
-  cat(" Formula:", deparse(object$formula), "\n")
-  cat(" Observations:", object$n_obs, "\n")
-  cat(" Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
+    cat("Design Information:\n")
+    cat("  Backend:", object$backend, "\n")
+    cat("  Dimension Variable:", object$dimension_var, "\n")
+    cat("  Observations:", object$n_obs, "\n")
+    cat("  Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
+  } else {
+    cat("=== Multivariate G-Study Summary ===\n\n")
+
+    cat("Design Information:\n")
+    cat("  Backend:", object$backend, "\n")
+    cat("  Formula:", deparse(object$formula), "\n")
+    cat("  Observations:", object$n_obs, "\n")
+    cat("  Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
+  }
 
   cat("Facet Information:\n")
   cat(" Object of measurement:", object$object, "\n")
