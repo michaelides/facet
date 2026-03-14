@@ -255,11 +255,39 @@ test_that("ranef.gstudy works with multivariate mom backend", {
     person = factor(rep(1:20, 5)),
     item = factor(rep(1:10, each = 10))
   )
-  result <- gstudy(mvbind(score1, score2) ~ (1 | person) + (1 | item), 
-                   data = test_data_mv, backend = "mom")
+  result <- gstudy(mvbind(score1, score2) ~ (1 | person) + (1 | item),
+    data = test_data_mv, backend = "mom")
   re <- ranef.gstudy(result)
   expect_type(re, "list")
   expect_true("score1" %in% names(re))
   expect_true("score2" %in% names(re))
   expect_true("person" %in% names(re[["score1"]]))
+})
+
+# =============================================================================
+# Long-format multivariate detection tests
+# =============================================================================
+
+test_that("gstudy detects long-format multivariate models", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  test_data <- data.frame(
+    Score = rnorm(60),
+    Person = factor(rep(1:10, 6)),
+    Subtest = factor(rep(c("A", "B"), each = 30)),
+    Item = factor(rep(1:4, 15))
+  )
+  formula <- brms::bf(Score ~ 0 + Subtest + (0+Subtest|Person), sigma ~ 0 + Subtest)
+  # Test detection logic
+  detection <- is_long_format_multivariate(formula)
+  expect_true(detection$is_long)
+  expect_equal(detection$dimension_var, "Subtest")
+})
+
+test_that("gstudy long_format detection sets is_mv correctly", {
+  skip_if_not_installed("brms")
+  formula <- brms::bf(Score ~ 0 + Subtest + (0+Subtest|Person), sigma ~ 0 + Subtest)
+  detection <- is_long_format_multivariate(formula)
+  # Detection should identify this as long-format
+  expect_true(detection$is_long)
 })

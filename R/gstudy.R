@@ -118,6 +118,14 @@ prior = NULL, ...) {
   # 5. Detect if multivariate
   is_mv <- is_multivariate(formula)
 
+  # 5.5. Detect if long-format multivariate
+  long_format_info <- is_long_format_multivariate(formula)
+
+  # If long-format detected, set is_mv to TRUE
+  if (long_format_info$is_long) {
+    is_mv <- TRUE
+  }
+
   # 6. Select backend
   selected_backend <- select_backend(formula, backend)
 
@@ -155,6 +163,65 @@ prior = NULL, ...) {
     fit_mom(formula, data, ...)
   } else {
     fit_brms(formula, data, prior = prior, ...)
+  }
+
+  # 8.5. Handle long-format multivariate extraction
+  if (long_format_info$is_long && selected_backend == "brms") {
+    dimension_var <- long_format_info$dimension_var
+    dimensions <- unique(data[[dimension_var]])
+
+    # Calculate sample sizes per dimension
+    sample_size_info_per_dim <- calculate_sample_size_info_per_dimension(
+      formula, data, dimension_var
+    )
+    sample_size_tibble <- calculate_sample_size_tibble_per_dim(sample_size_info_per_dim)
+
+    # Extract variance components with long-format handling
+    vc <- extract_vc_brms_long_format(
+      model,
+      formula = formula,
+      dimension_var = dimension_var,
+      data = data
+    )
+
+    # Determine facets from variance components
+    facets <- unique(vc$component[vc$component != "Residual"])
+
+    # Determine object of measurement
+    object <- if (length(facets) > 0) facets[1] else NULL
+
+    # Extract facet specifications
+    facet_specs <- extract_facet_specs(formula)
+
+    # Extract correlations (placeholder - Task 6 will implement properly)
+    correlations <- NULL
+
+    # Detect estimation issues
+    estimation_issues <- detect_brms_issues(model, vc)
+
+    # Create mgstudy object
+    result <- list(
+      model = model,
+      variance_components = vc,
+      facets = facets,
+      facet_specs = facet_specs,
+      sample_size_info = calculate_sample_size_info(formula, data),
+      sample_size_info_per_dim = sample_size_info_per_dim,
+      sample_size_tibble = sample_size_tibble,
+      backend = selected_backend,
+      is_multivariate = TRUE,
+      long_format_multivariate = TRUE,
+      dimension_var = dimension_var,
+      dimensions = dimensions,
+      correlations = correlations,
+      formula = formula,
+      data = data,
+      n_obs = nrow(data),
+      object = object,
+      estimation_issues = estimation_issues
+    )
+    class(result) <- "mgstudy"
+    return(result)
   }
 
   # 9. Extract variance components
@@ -203,7 +270,7 @@ object <- if (length(facets) > 0) facets[1] else NULL
   # 12. Extract dimension names
   dimensions <- unique(vc$dim)
 
-  # 13. Extract correlations for multivariate models
+# 13. Extract correlations for multivariate models
   correlations <- NULL
   if (is_mv) {
     if (selected_backend == "brms") {
@@ -213,15 +280,25 @@ object <- if (length(facets) > 0) facets[1] else NULL
     }
   }
 
-  # 14. Create gstudy or mgstudy object
+# 13.5. Detect and store estimation issues
+  estimation_issues <- NULL
+  if (selected_backend == "lme4") {
+    estimation_issues <- detect_lme4_issues(model)
+  } else if (selected_backend == "mom") {
+    estimation_issues <- detect_mom_issues(model)
+  } else if (selected_backend == "brms") {
+    estimation_issues <- detect_brms_issues(model, vc)
+  }
+
+# 14. Create gstudy or mgstudy object
   result <- list(
     model = model,
     variance_components = vc,
     facets = facets,
     facet_specs = facet_specs,
     facet_n = facet_n,
-    sample_size_info = sample_size_info,      # Keep for backwards compat
-    sample_size_tibble = sample_size_tibble,  # New for display
+    sample_size_info = sample_size_info,
+    sample_size_tibble = sample_size_tibble,
     object = object,
     backend = selected_backend,
     is_multivariate = is_mv,
@@ -229,7 +306,8 @@ object <- if (length(facets) > 0) facets[1] else NULL
     data = data,
     n_obs = nrow(data),
     dimensions = dimensions,
-    correlations = correlations
+    correlations = correlations,
+    estimation_issues = estimation_issues
   )
 
   # Assign class based on whether multivariate
