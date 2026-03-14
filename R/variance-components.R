@@ -1198,26 +1198,109 @@ extract_single_variance_from_draws_long_format <- function(draws, grp, resp, typ
   } else {
     if (!is.null(random_summary) && grp %in% names(random_summary)) {
       grp_rand <- random_summary[[grp]]
-      if (param_name %in% rownames(grp_rand)) {
-        rhat_val <- grp_rand[param_name, "Rhat"]
-        bulk_ess_val <- grp_rand[param_name, "Bulk_ESS"]
-        tail_ess_val <- grp_rand[param_name, "Tail_ESS"]
+        if (param_name %in% rownames(grp_rand)) {
+          rhat_val <- grp_rand[param_name, "Rhat"]
+          bulk_ess_val <- grp_rand[param_name, "Bulk_ESS"]
+          tail_ess_val <- grp_rand[param_name, "Tail_ESS"]
+        }
       }
     }
+
+    data.frame(
+      component = component,
+      dim = resp,
+      type = type,
+      var = estimate,
+      error = se,
+      lower = lower,
+      upper = upper,
+      sd = sd_mean,
+      Rhat = rhat_val,
+      Bulk_ESS = bulk_ess_val,
+      Tail_ESS = tail_ess_val,
+      stringsAsFactors = FALSE
+    )
   }
 
-  data.frame(
-    component = component,
-    dim = resp,
-    type = type,
-    var = estimate,
-    error = se,
-    lower = lower,
-    upper = upper,
-    sd = sd_mean,
-    Rhat = rhat_val,
-    Bulk_ESS = bulk_ess_val,
-    Tail_ESS = tail_ess_val,
-    stringsAsFactors = FALSE
-  )
-}
+  extract_correlations_brms_long_format <- function(model, dimension_var, data) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      return(NULL)
+    }
+
+    draws <- tryCatch(
+      brms::as_draws_matrix(model),
+      error = function(e) NULL
+    )
+
+    if (is.null(draws)) {
+      return(list(random_effect_cor = list()))
+    }
+
+    dimension_levels <- unique(data[[dimension_var]])
+    dimension_levels <- sort(as.character(dimension_levels))
+
+    cor_params <- grep("^cor_", colnames(draws), value = TRUE)
+
+    if (length(cor_params) == 0) {
+      return(list(random_effect_cor = list()))
+    }
+
+    cor_by_facet <- list()
+
+    for (param in cor_params) {
+      match_result <- regmatches(param, regexec("cor_([^\\[]+)\\[([^,]+),([^\\]]+)\\]", param))[[1]]
+
+      if (length(match_result) == 4) {
+        facet <- match_result[2]
+        dim1 <- match_result[3]
+        dim2 <- match_result[4]
+
+        if (is.null(cor_by_facet[[facet]])) {
+          cor_by_facet[[facet]] <- list()
+        }
+
+        cor_draws <- tryCatch(
+          posterior::extract_variable(draws, param),
+          error = function(e) NULL
+        )
+
+        if (!is.null(cor_draws)) {
+          cor_by_facet[[facet]] <- c(
+            cor_by_facet[[facet]],
+            list(list(
+              dim1 = dim1,
+              dim2 = dim2,
+              estimate = mean(cor_draws),
+              se = sd(cor_draws),
+              lower = as.numeric(quantile(cor_draws, 0.025)),
+              upper = as.numeric(quantile(cor_draws, 0.975))
+            ))
+          )
+        }
+      }
+    }
+
+    random_effect_cor <- list()
+
+    for (facet in names(cor_by_facet)) {
+      cor_list <- cor_by_facet[[facet]]
+
+      cor_tibble <- dplyr::bind_rows(lapply(cor_list, function(x) {
+        tibble::tibble(
+          dim1 = x$dim1,
+          dim2 = x$dim2,
+          estimate = x$estimate,
+          se = x$se,
+          lower = x$lower,
+          upper = x$upper
+        )
+      }))
+
+      random_effect_cor[[facet]] <- cor_tibble
+    }
+
+    list(
+      random_effect_cor = random_effect_cor,
+      residual_cor = NULL
+    )
+  }

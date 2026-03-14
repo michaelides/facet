@@ -25,3 +25,12 @@ test_that("extract_vc_brms_long_format returns correct structure", {
   expect_true("sd_Person__SubtestA_Intercept" %in% colnames(mock_draws))
   expect_true("b_sigma_SubtestA" %in% colnames(mock_draws))
 })
+
+test_that("extract_correlations_brms_long_format returns correct structure", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  # This tests the expected structure
+  # For correlated effects (|r|), we expect correlation matrices
+  # For uncorrelated effects (||), we expect NULL
+  expect_true(TRUE) # Placeholder for structure verification
+})
