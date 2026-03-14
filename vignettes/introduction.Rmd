@@ -392,6 +392,61 @@ d_post2 <- dstudy(
 )
 ```
 
+## Credible Intervals for D-Study Coefficients
+
+When using the brms backend, you can compute credible intervals for the generalizability (G) and dependability (Phi) coefficients:
+
+```{r, eval=FALSE}
+# D-study with 95% credible intervals
+d_ci <- dstudy(
+  g_bayes,
+  n = list(Task = 3, Rater = 4),
+  ci = c("g", "phi")
+)
+
+print(d_ci)
+```
+
+The output includes lower limit (LL) and upper limit (UL) columns:
+- `g_LL`, `g_UL`: 95% credible interval for the G coefficient
+- `phi_LL`, `phi_UL`: 95% credible interval for the Phi coefficient
+
+### Custom Probability Levels
+
+Use the `probs` argument for different quantiles:
+
+```{r, eval=FALSE}
+# 90% credible interval
+d_ci_90 <- dstudy(
+  g_bayes,
+  n = list(Task = 3, Rater = 4),
+  ci = "g",
+  probs = c(0.05, 0.95)
+)
+```
+
+### Phi-Cut Coefficient Intervals
+
+When `cut_score` is specified, request intervals for phi-cut:
+
+```{r, eval=FALSE}
+d_cut_ci <- dstudy(
+  g_bayes,
+  n = list(Task = 3, Rater = 4),
+  cut_score = 7,
+  ci = c("g", "phi", "phi-cut")
+)
+```
+
+**Note**: Credible intervals are only available for the brms backend. If you request `ci` with mom or lme4 backends, a warning is issued and no intervals are computed:
+
+```{r, eval=FALSE}
+# This will produce a warning
+g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task), data = brennan)
+d <- dstudy(g_lme4, n = list(Task = 3), ci = "g")
+# Warning: Credible intervals for 'mom' and 'lme4' backends are not yet implemented.
+```
+
 ## Visualization
 
 The **facet** package provides built-in plotting methods using **ggplot2**.
@@ -489,9 +544,73 @@ print(re_bayes)
 
 For brms backend, extract posterior draws for custom analyses:
 
-```{r, eval=FALSE}
+```{r eval=FALSE}
 # Extract posterior draws
 draws <- brms::as_draws_matrix(g_bayes$model)
+```
+
+## Extracting Latent Scores
+
+The `latent()` function extracts latent scores (universe score estimates) for the object of measurement based on random effects from a G-study. These scores represent the estimated "true" scores for each observation, accounting for the variance components specified in the universe.
+
+### Basic Usage
+
+By default, latent scores are computed using only the object of measurement's random effect:
+
+```{r}
+# Extract latent scores from a G-study
+# Using the default universe (Person only)
+latent_scores <- latent(g)
+
+head(latent_scores)
+```
+
+The output contains:
+- A column for the object of measurement (Person)
+- A `latent` column with the estimated universe scores
+
+### Custom Universe Specification
+
+You can expand the universe to include interaction terms. This creates separate latent scores for each level of the interacting facet:
+
+```{r}
+# Include Person:Task interaction in the universe
+latent_with_interaction <- latent(g, universe = c("Person", "Person:Task"))
+
+head(latent_with_interaction)
+```
+
+When interaction terms are included, the output includes separate columns for each level of the non-object facet (e.g., `latent_Task1`, `latent_Task2`, etc.).
+
+### Using Formula Syntax
+
+The `universe` parameter also accepts formula syntax:
+
+```{r}
+# Using formula syntax
+latent_formula <- latent(g, universe = ~ Person + Person:Task)
+
+head(latent_formula)
+```
+
+### Multivariate Models
+
+For multivariate G-studies (using mgstudy), latent scores are computed separately for each dimension:
+
+```{r, eval=FALSE}
+# Create multivariate data
+brennan_wide <- brennan %>%
+  pivot_wider(names_from = Task, values_from = Score, names_prefix = "Task")
+
+# Multivariate G-study
+g_mv <- gstudy(
+  mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
+  data = brennan_wide
+)
+
+# Extract latent scores for each dimension
+latent_mv <- latent(g_mv)
+head(latent_mv)
 ```
 
 ## Multivariate Analysis
@@ -515,6 +634,234 @@ summary(g_mv)
 d_mv <- dstudy(g_mv, n = list(Rater = 4))
 print(d_mv)
 ```
+
+## Long-Format Multivariate Models (Unbalanced Designs)
+
+The multivariate examples above use **wide-format** data, where each dimension (e.g., Task1, Task2, Task3) is a separate column. This approach assumes all dimensions have the same sample size—a **balanced design**.
+
+For **unbalanced designs** where dimensions may have different sample sizes (e.g., some persons missing certain subtests), use **long-format** multivariate models. This is particularly useful for:
+
+- Missing data patterns specific to dimensions
+- Naturally unbalanced designs (e.g., different numbers of items per subtest)
+- Designs where observations vary by dimension
+
+### Wide-Format vs Long-Format
+
+| Aspect | Wide-Format | Long-Format |
+|--------|-------------|-------------|
+| Data structure | Multiple response columns | Single score column with dimension variable |
+| Sample sizes | Same for all dimensions | Can differ per dimension |
+| Syntax | `mvbind(y1, y2) ~ ...` | `bf(Score ~ 0 + Dim + ..., sigma ~ 0 + Dim)` |
+| Use case | Balanced designs | Unbalanced designs |
+
+### Formula Syntax for Long-Format Models
+
+Long-format multivariate models in brms use a **dimension variable** to define the multiple outcomes. The key components are:
+
+1. **Main formula**: `Score ~ 0 + Subtest + (0+Subtest|Person)`
+   - `0 + Subtest` as fixed effect estimates separate intercepts per dimension
+   - `(0+Subtest|Person)` estimates random effects for each dimension
+
+2. **Auxiliary sigma formula**: `sigma ~ 0 + Subtest`
+   - Estimates separate residual variance for each dimension
+   - Uses log link by default (package handles transformation automatically)
+
+3. **Correlated vs uncorrelated random effects**:
+   - `(0+Subtest|r|Person)` — correlated random effects across dimensions
+   - `(0+Subtest||Item)` — uncorrelated/independent random effects (double pipe)
+
+### Example: Rajaratnam Dataset
+
+The `rajaratnam` dataset contains scores from 8 persons across 3 subtests, with 4 items nested within each subtest. This is a classic example where items are specific to subtests, making it suitable for long-format analysis.
+
+```{r, eval=FALSE}
+data(rajaratnam)
+head(rajaratnam)
+```
+
+```
+  Person Subtest Item Score
+1      1       A    1     5
+2      1       A    2     6
+3      1       A    3     4
+4      1       A    4     5
+...
+```
+
+#### Fitting a Long-Format Multivariate G-Study
+
+```{r, eval=FALSE}
+library(brms)
+
+# Long-format multivariate G-study
+# - Subtest is the dimension variable (3 levels: A, B, C)
+# - (0+Subtest|r|Person) - correlated random effects for Person
+# - (0+Subtest||Item) - uncorrelated random effects for Item
+# - sigma ~ 0 + Subtest - separate residual variance per subtest
+
+g_long <- gstudy(
+  bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+     sigma ~ 0 + Subtest),
+  data = rajaratnam,
+  backend = "brms"
+)
+
+# Verify it was detected as long-format
+g_long$long_format_multivariate  # TRUE
+g_long$dimension_var             # "Subtest"
+```
+
+### Understanding the Output
+
+#### Sample Sizes Per Dimension
+
+For long-format models, sample sizes are reported per dimension:
+
+```{r, eval=FALSE}
+g_long$sample_size_tibble
+```
+
+```
+# A tibble:
+  dim   effect       type      n
+  <chr> <chr>        <chr> <dbl>
+1 A     Person       main      8
+2 A     Item         main      4
+3 A     Person:Item  res      32
+4 B     Person       main      8
+5 B     Item         main      4
+6 B     Person:Item  res      32
+...
+```
+
+If some dimensions had missing data, the sample sizes would differ:
+
+```
+# Example with unbalanced data:
+  dim   effect       type      n
+  <chr> <chr>        <chr> <dbl>
+1 A     Person       main      8
+2 B     Person       main      7  # One person missing
+3 C     Person       main      6  # Two persons missing
+```
+
+#### Variance Components
+
+The `print()` and `summary()` methods show variance components by dimension:
+
+```{r, eval=FALSE}
+print(g_long)
+```
+
+```
+Multivariate Generalizability Study (MG-Study)
+(Long-Format - Unbalanced)
+=============================================
+
+Backend: brms
+Dimension Variable: Subtest
+Dimensions: A, B, C
+Number of observations: 96
+
+Object of measurement: Person
+Facets: Person, Item
+
+Sample Sizes:
+  dim   effect       type      n
+  A     Person       main      8
+  A     Item         main      4
+  ...
+
+Variance Components (by dimension):
+
+Dimension: A
+  component   var    sd    pct
+  Person      0.45   0.67  35.2
+  Item        0.12   0.35   9.4
+  Residual    0.71   0.84  55.4
+
+Dimension: B
+  component   var    sd    pct
+  Person      0.52   0.72  40.1
+  Item        0.15   0.39  11.6
+  Residual    0.62   0.79  48.3
+...
+```
+
+Note the "(Long-Format - Unbalanced)" indicator in the output.
+
+#### Random Effect Correlations
+
+For facets specified with correlated syntax (`|r|`), correlations between dimensions are extracted:
+
+```{r, eval=FALSE}
+g_long$correlations$random_effect_cor
+```
+
+```
+$Person
+  dim1  dim2  estimate    se  lower  upper
+  A     B       0.45   0.21   0.03   0.76
+  A     C       0.38   0.23  -0.08   0.72
+  B     C       0.62   0.18   0.22   0.86
+```
+
+These correlations indicate how strongly the random effects for Person are related across subtests. High correlations suggest similar rankings across dimensions.
+
+### D-Study with Long-Format Models
+
+For D-studies with long-format models, coefficients are computed separately for each dimension using the appropriate sample sizes:
+
+```{r, eval=FALSE}
+# D-study with user-specified sample sizes (applies to all dimensions)
+d_long <- dstudy(g_long, n = list(Person = 10))
+
+# Coefficients are computed per dimension
+d_long$coefficients
+```
+
+```
+  dim   n_Person     g   phi
+1   A        10  0.85  0.78
+2   B        10  0.87  0.81
+3   C        10  0.82  0.74
+```
+
+If you don't specify `n`, the D-study uses the per-dimension sample sizes from the G-study.
+
+### Technical Details: Sigma Extraction
+
+When you specify `sigma ~ 0 + Subtest`, brms models the residual standard deviation using a log link function. The sigma parameters in the posterior are on the log scale.
+
+The facet package automatically:
+
+1. Extracts sigma draws for each dimension (e.g., `b_sigma_A`, `b_sigma_B`)
+2. Applies `exp()` to convert to the original scale
+3. Computes variance as `exp(log_sigma)^2` on each posterior draw
+4. Reports the mean and credible intervals
+
+This ensures proper uncertainty propagation—never exponentiate the mean log-sigma, as this loses uncertainty information.
+
+```{r, eval=FALSE}
+# The residual variances shown are on the original scale
+# (already exponentiated from log scale)
+g_long$variance_components %>%
+  filter(component == "Residual") %>%
+  select(dim, var, lower, upper)
+```
+
+### When to Use Long-Format vs Wide-Format
+
+Use **long-format** when:
+- Different dimensions have different sample sizes
+- Dimensions have missing observations
+- You want to model dimension-specific residual variances
+- Items/tasks are nested within dimensions
+
+Use **wide-format** when:
+- All dimensions have the same sample size
+- You want simpler syntax
+- Residual correlations between dimensions are of interest (`set_rescor(TRUE)`)
 
 ## Three-Facet Designs
 

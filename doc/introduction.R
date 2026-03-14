@@ -112,6 +112,50 @@ library(broom)
 tidy(d_sweep)
 
 ## -----------------------------------------------------------------------------
+# D-study with a cut-score of 7 (on a 0-10 scale)
+# First, let's check the grand mean from our G-study
+mu_y <- extract_grand_mean(g)
+cat("Grand mean:", mu_y, "\n")
+
+# Now conduct D-study with cut_score = 7
+d_cut <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 7)
+
+print(d_cut)
+
+## -----------------------------------------------------------------------------
+# Compare coefficients with and without cut-score
+d_standard <- dstudy(g, n = list(Task = 3, Rater = 4))
+
+# Standard phi (no cut-score)
+cat("Standard phi:", d_standard$coefficients$phi, "\n")
+
+# Phi-cut with cut-score of 7
+cat("Phi-cut (c=7):", d_cut$coefficients$phi_cut, "\n")
+
+# Phi-cut with different cut-scores
+d_cut_5 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 5)
+d_cut_9 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 9)
+
+cat("Phi-cut (c=5):", d_cut_5$coefficients$phi_cut, "\n")
+cat("Phi-cut (c=9):", d_cut_9$coefficients$phi_cut, "\n")
+
+## -----------------------------------------------------------------------------
+# Sweep with cut-score
+d_sweep_cut <- dstudy(
+  g, 
+  n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)),
+  cut_score = 7
+)
+
+# View results
+tidy(d_sweep_cut)
+
+## -----------------------------------------------------------------------------
+# Access the grand mean used
+d_cut$mu_y
+d_cut$cut_score
+
+## -----------------------------------------------------------------------------
 # D-study with custom universe specification
 # The object of measurement is Person
 d_custom <- dstudy(g, n = list(Task = 3, Rater = 4), 
@@ -161,6 +205,39 @@ summary(d_agg)
 #   n = list(rater = 3),
 #   estimation = "posterior"
 # )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # D-study with 95% credible intervals
+# d_ci <- dstudy(
+#   g_bayes,
+#   n = list(Task = 3, Rater = 4),
+#   ci = c("g", "phi")
+# )
+# 
+# print(d_ci)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # 90% credible interval
+# d_ci_90 <- dstudy(
+#   g_bayes,
+#   n = list(Task = 3, Rater = 4),
+#   ci = "g",
+#   probs = c(0.05, 0.95)
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# d_cut_ci <- dstudy(
+#   g_bayes,
+#   n = list(Task = 3, Rater = 4),
+#   cut_score = 7,
+#   ci = c("g", "phi", "phi-cut")
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # This will produce a warning
+# g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task), data = brennan)
+# d <- dstudy(g_lme4, n = list(Task = 3), ci = "g")
+# # Warning: Credible intervals for 'mom' and 'lme4' backends are not yet implemented.
 
 ## -----------------------------------------------------------------------------
 # Bar plot of variance components (proportions)
@@ -223,6 +300,40 @@ print(summary(model))
 # # Extract posterior draws
 # draws <- brms::as_draws_matrix(g_bayes$model)
 
+## -----------------------------------------------------------------------------
+# Extract latent scores from a G-study
+# Using the default universe (Person only)
+latent_scores <- latent(g)
+
+head(latent_scores)
+
+## -----------------------------------------------------------------------------
+# Include Person:Task interaction in the universe
+latent_with_interaction <- latent(g, universe = c("Person", "Person:Task"))
+
+head(latent_with_interaction)
+
+## -----------------------------------------------------------------------------
+# Using formula syntax
+latent_formula <- latent(g, universe = ~ Person + Person:Task)
+
+head(latent_formula)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Create multivariate data
+# brennan_wide <- brennan %>%
+#   pivot_wider(names_from = Task, values_from = Score, names_prefix = "Task")
+# 
+# # Multivariate G-study
+# g_mv <- gstudy(
+#   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
+#   data = brennan_wide
+# )
+# 
+# # Extract latent scores for each dimension
+# latent_mv <- latent(g_mv)
+# head(latent_mv)
+
 ## ----eval=FALSE---------------------------------------------------------------
 # # Create multivariate data by spreading the tasks
 # brennan_wide <- brennan %>%
@@ -239,6 +350,53 @@ print(summary(model))
 # # D-study for multivariate models
 # d_mv <- dstudy(g_mv, n = list(Rater = 4))
 # print(d_mv)
+
+## ----eval=FALSE---------------------------------------------------------------
+# data(rajaratnam)
+# head(rajaratnam)
+
+## ----eval=FALSE---------------------------------------------------------------
+# library(brms)
+# 
+# # Long-format multivariate G-study
+# # - Subtest is the dimension variable (3 levels: A, B, C)
+# # - (0+Subtest|r|Person) - correlated random effects for Person
+# # - (0+Subtest||Item) - uncorrelated random effects for Item
+# # - sigma ~ 0 + Subtest - separate residual variance per subtest
+# 
+# g_long <- gstudy(
+#   bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+#      sigma ~ 0 + Subtest),
+#   data = rajaratnam,
+#   backend = "brms"
+# )
+# 
+# # Verify it was detected as long-format
+# g_long$long_format_multivariate  # TRUE
+# g_long$dimension_var             # "Subtest"
+
+## ----eval=FALSE---------------------------------------------------------------
+# g_long$sample_size_tibble
+
+## ----eval=FALSE---------------------------------------------------------------
+# print(g_long)
+
+## ----eval=FALSE---------------------------------------------------------------
+# g_long$correlations$random_effect_cor
+
+## ----eval=FALSE---------------------------------------------------------------
+# # D-study with user-specified sample sizes (applies to all dimensions)
+# d_long <- dstudy(g_long, n = list(Person = 10))
+# 
+# # Coefficients are computed per dimension
+# d_long$coefficients
+
+## ----eval=FALSE---------------------------------------------------------------
+# # The residual variances shown are on the original scale
+# # (already exponentiated from log scale)
+# g_long$variance_components %>%
+#   filter(component == "Residual") %>%
+#   select(dim, var, lower, upper)
 
 ## -----------------------------------------------------------------------------
 # G-study with three facets (see Basic G-Study section)
