@@ -587,13 +587,24 @@ gstudy_obj = gstudy_obj,
     probs = probs,
     weights = weights
   )
-    coefficients <- posterior_results$coefficients
-    posterior <- posterior_results$posterior
+      coefficients <- posterior_results$coefficients
+      posterior <- posterior_results$posterior
+    }
   }
-}
 
-# Calculate composite coefficients for posterior estimation path
-if (estimation == "posterior" && is_multivariate && length(dimensions) > 1) {
+  # Initialize composite variables for all paths
+  composite_vc <- NULL
+  composite_post <- NULL
+
+  # Extract composite variance components from posterior_results (single sample size path)
+  if (estimation == "posterior" && !is_sweep && n_provided && is_multivariate && 
+      length(dimensions) > 1 && exists("posterior_results") && !is.null(posterior_results)) {
+    composite_vc <- posterior_results$composite_vc
+    composite_post <- posterior_results$composite_posterior
+  }
+
+  # Calculate composite coefficients for posterior estimation path
+  if (estimation == "posterior" && is_multivariate && length(dimensions) > 1) {
   if (is_sweep) {
     # Sweep with posterior estimation
     composite_posterior_results <- lapply(seq_len(nrow(n_grid)), function(i) {
@@ -677,16 +688,21 @@ if (estimation == "posterior" && is_multivariate && length(dimensions) > 1) {
   }
 }
 
-# For posterior, calculate variance components with both scaled and unscaled
- # Remove diagnostic columns from brms backend
- # But only if NOT in sweep mode (sweep mode uses base variance components)
- if (!is_sweep) {
- d_vc <- calculate_dstudy_variance(vc, n, object, aggregation, TRUE, residual_is_effective, facet_n = gstudy_obj$facet_n)
- } else {
- # For sweep mode, use base variance components (sweep handles scaling separately)
- d_vc <- vc
- }
- } else if (is_sweep) {
+  # For posterior, calculate variance components with both scaled and unscaled
+  # Remove diagnostic columns from brms backend
+  # But only if NOT in sweep mode (sweep mode uses base variance components)
+  if (!is_sweep) {
+    d_vc <- calculate_dstudy_variance(vc, n, object, aggregation, TRUE, residual_is_effective, facet_n = gstudy_obj$facet_n)
+  } else {
+    # For sweep mode, use base variance components (sweep handles scaling separately)
+    d_vc <- vc
+  }
+  
+  # Append composite variance components for multivariate posterior estimation
+  if (!is_sweep && is_multivariate && length(dimensions) > 1 && !is.null(composite_vc)) {
+    d_vc <- dplyr::bind_rows(d_vc, composite_vc)
+  }
+  } else if (is_sweep) {
     # Create grid of all sample size combinations
     n_grid <- expand.grid(n, stringsAsFactors = FALSE)
 
@@ -884,26 +900,27 @@ aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
 # 13. Create dstudy object
 result <- list(
-    gstudy = gstudy_obj,
-    variance_components = d_vc,
-    coefficients = coefficients,
-    n = n,
-    object = object,
-    universe = universe_spec,
-    error = error,
-    aggregation = aggregation,
-    residual_is = residual_is,
-    residual_composition = residual_composition,
-    is_sweep = is_sweep,
-    estimation = estimation,
-    posterior = if (estimation == "posterior") posterior else NULL,
-    is_multivariate = is_multivariate,
-    cut_score = cut_score,
-    mu_y = mu_y,
-    ci = ci,
-    probs = if (!is.null(ci)) probs else NULL,
-    weights = weights
-  )
+  gstudy = gstudy_obj,
+  variance_components = d_vc,
+  coefficients = coefficients,
+  n = n,
+  object = object,
+  universe = universe_spec,
+  error = error,
+  aggregation = aggregation,
+  residual_is = residual_is,
+  residual_composition = residual_composition,
+  is_sweep = is_sweep,
+  estimation = estimation,
+  posterior = if (estimation == "posterior") posterior else NULL,
+  composite_posterior = composite_post,
+  is_multivariate = is_multivariate,
+  cut_score = cut_score,
+  mu_y = mu_y,
+  ci = ci,
+  probs = if (!is.null(ci)) probs else NULL,
+  weights = weights
+)
 
   class(result) <- "dstudy"
   result
