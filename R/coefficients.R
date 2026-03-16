@@ -1118,6 +1118,109 @@ calculate_composite_variance_draws <- function(vc_draws, cov_draws, weights, sca
   composite_draws
 }
 
+#' Calculate D-Study Variance Components with Composite Row
+#'
+#' Adds composite variance component rows for multivariate models using
+#' posterior draws for full uncertainty propagations.
+#'
+#' @param vc_draws Variance draws (from extract_variance_draws)
+#' @param cov_draws Covariance draws (from extract_covariance_draws)
+#' @param weights Named vector of weights
+#' @param n Sample sizes (named list)
+#' @param object Object specification
+#' @param aggregation Aggregation specification
+#' @param n_provided Whether n was provided
+#' @param residual_is Residual composition
+#' @param gstudy_obj G-study object
+#'
+#' @return List with:
+#' \describe{
+#' \item{vc_table}{Tibble with variance components including composite rows}
+#' \item{posterior}{List of composite draws}
+#' }
+#'
+#' @keywords internal
+calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n, object, aggregation, n_provided, residual_is, gstudy_obj) {
+  dimensions <- names(weights)
+  components <- names(vc_draws[[1]])
+
+  object_spec <- parse_specification(object)
+  agg_facets <- if (!is.null(aggregation)) parse_specification(aggregation) else NULL
+
+  composite_draws <- list()
+  composite_summaries <- list()
+
+  for (comp in components) {
+    scale_factor <- compute_component_scale_factor(
+      comp, n, object_spec, agg_facets, residual_is, n_provided, gstudy_obj
+    )
+
+    comp_draws <- calculate_composite_variance_draws(
+      vc_draws, cov_draws, weights, scale_factor
+    )
+
+    composite_draws[[comp]] <- comp_draws[[comp]]
+
+    var_mean <- mean(comp_draws[[comp]], na.rm = TRUE)
+    var_se <- sd(comp_draws[[comp]], na.rm = TRUE)
+
+    composite_summaries[[comp]] <- list(
+      var = var_mean,
+      se = var_se,
+      var_unscaled = var_mean * scale_factor
+    )
+  }
+
+  total_var <- sum(sapply(composite_summaries, function(x) x$var))
+
+  composite_rows <- lapply(components, function(comp) {
+    data.frame(
+      component = comp,
+      var = composite_summaries[[comp]]$var,
+      var_unscaled = composite_summaries[[comp]]$var_unscaled,
+      pct = (composite_summaries[[comp]]$var / total_var) * 100,
+      pct_unscaled = (composite_summaries[[comp]]$var_unscaled / total_var) * 100,
+      dim = "Composite",
+      stringsAsFactors = FALSE
+    )
+  })
+
+  list(
+    vc_table = do.call(rbind, composite_rows),
+    posterior = composite_draws
+  )
+}
+
+#' Compute scale factor for a variance component
+#'
+#' @keywords internal
+compute_component_scale_factor <- function(comp, n, object_spec, agg_facets, residual_is, n_provided, gstudy_obj) {
+  if (comp %in% object_spec) {
+    return(1)
+  }
+
+  total_n <- if (length(n) > 0) prod(unlist(n)) else 1
+
+  if (n_provided && length(n) > 0) {
+    if (comp == "Residual") {
+      return(total_n)
+    }
+
+    comp_facets <- parse_component_facets(comp)
+    scale_factor <- 1
+
+    for (f in comp_facets) {
+      if (f %in% names(n)) {
+        scale_factor <- scale_factor * n[[f]]
+      }
+    }
+
+    return(scale_factor)
+  }
+
+  return(1)
+}
+
 #' Compute Composite Error Variance
 #'
 #' Calculates the composite relative or absolute error variance by summing
