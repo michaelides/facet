@@ -1613,10 +1613,11 @@ compute_sem <- function(error_variance) {
 #'   \item{posterior}{List of posterior distribution vectors (or list of lists for sweep)}
 #'
 #' @keywords internal
-calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, universe = NULL, error = NULL, 
-                                              aggregation = NULL, residual_is = NULL,
-                                              is_sweep = FALSE, n_grid = NULL, n_provided = FALSE, use_scaled = TRUE,
-                                              cut_score = NULL, mu_y = NULL, ci = NULL, probs = c(0.025, 0.975)) {
+calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, universe = NULL, error = NULL,
+                                          aggregation = NULL, residual_is = NULL,
+                                          is_sweep = FALSE, n_grid = NULL, n_provided = FALSE, use_scaled = TRUE,
+                                          cut_score = NULL, mu_y = NULL, ci = NULL, probs = c(0.025, 0.975),
+                                          weights = NULL) {
 if (!requireNamespace("brms", quietly = TRUE)) {
 stop("Package 'brms' is required for posterior estimation.", call. = FALSE)
 }
@@ -1624,10 +1625,19 @@ stop("Package 'brms' is required for posterior estimation.", call. = FALSE)
 # Extract posterior draws
 draws <- brms::as_draws_matrix(gstudy_obj$model)
 
-# Get variance component names and their draws
-vc_draws <- extract_variance_draws(gstudy_obj, draws)
+  # Get variance component names and their draws
+  vc_draws <- extract_variance_draws(gstudy_obj, draws)
 
-# Get object of measurement (always from G-study)
+  # Extract covariance draws for multivariate composite calculation
+  cov_draws <- NULL
+  if (gstudy_obj$is_multivariate && length(gstudy_obj$dimensions) > 1) {
+    cov_draws <- extract_covariance_draws(
+      gstudy_obj$model,
+      gstudy_obj$dimensions
+    )
+  }
+
+  # Get object of measurement (always from G-study)
 if (is.null(object)) {
 object <- gstudy_obj$object
 }
@@ -1775,15 +1785,30 @@ mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y,
 ci = ci,
 probs = probs
 )
-dim_results[[d]] <- cbind(result$summary, dim = d)
-dim_posteriors[[d]] <- result$distributions
-}
+        dim_results[[d]] <- cbind(result$summary, dim = d)
+        dim_posteriors[[d]] <- result$distributions
+      }
 
       coefficients <- tibble::as_tibble(do.call(rbind, lapply(mv_dims, function(d) dim_results[[d]])))
 
+      # Compute composite variance components
+      composite_result <- NULL
+      if (!is.null(cov_draws) && !is.null(weights)) {
+        composite_result <- calculate_dstudy_variance_composite(
+          vc_draws = vc_draws,
+          cov_draws = cov_draws,
+          weights = weights,
+          n = n,
+          object = object,
+          n_provided = n_provided
+        )
+      }
+
       return(list(
         coefficients = coefficients,
-        posterior = dim_posteriors
+        posterior = dim_posteriors,
+        composite_vc = if (!is.null(composite_result)) composite_result$vc_table else NULL,
+        composite_posterior = if (!is.null(composite_result)) composite_result$posterior else NULL
       ))
 } else {
 result <- calculate_single_posterior(
