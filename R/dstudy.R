@@ -592,16 +592,22 @@ gstudy_obj = gstudy_obj,
     }
   }
 
-  # Initialize composite variables for all paths
-  composite_vc <- NULL
-  composite_post <- NULL
+# Initialize composite variables for all paths
+composite_vc <- NULL
+composite_post <- NULL
 
-  # Extract composite variance components from posterior_results (single sample size path)
-  if (estimation == "posterior" && !is_sweep && n_provided && is_multivariate && 
-      length(dimensions) > 1 && exists("posterior_results") && !is.null(posterior_results)) {
+# Extract composite variance components from posterior_results
+# This is populated by calculate_coefficients_posterior() for multivariate models
+if (estimation == "posterior" && !is_sweep && is_multivariate && length(dimensions) > 1) {
+  # For !n_provided path, use posterior_results_scaled
+  if (!n_provided && exists("posterior_results_scaled") && !is.null(posterior_results_scaled)) {
+    composite_vc <- posterior_results_scaled$composite_vc
+    composite_post <- posterior_results_scaled$composite_posterior
+  } else if (n_provided && exists("posterior_results") && !is.null(posterior_results)) {
     composite_vc <- posterior_results$composite_vc
     composite_post <- posterior_results$composite_posterior
   }
+}
 
   # Calculate composite coefficients for posterior estimation path
   if (estimation == "posterior" && is_multivariate && length(dimensions) > 1) {
