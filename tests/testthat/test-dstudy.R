@@ -1330,3 +1330,107 @@ test_that("dstudy handles long_format_multivariate per-dimension sample sizes", 
 
   expect_true(is.mgstudy(mock_g))
 })
+
+# =============================================================================
+# Integration test for multivariate designs with composite coefficients
+# =============================================================================
+
+test_that("dstudy computes composite coefficients for multivariate designs", {
+  skip_if_not_installed("brms")
+
+  set.seed(123)
+  n_persons <- 20
+  n_items <- 5
+
+  data <- data.frame(
+    person = rep(1:n_persons, each = n_items * 2),
+    item = rep(rep(1:n_items, 2), n_persons),
+    dim = rep(c("A", "B"), n_persons * n_items)
+  )
+
+  person_effect_A <- rnorm(n_persons, 0, sqrt(0.4))
+  person_effect_B <- rnorm(n_persons, 0, sqrt(0.3))
+  item_effect <- rnorm(n_items, 0, sqrt(0.1))
+
+  data$score <- NA
+  for (i in 1:nrow(data)) {
+    p <- data$person[i]
+    it <- data$item[i]
+    d <- data$dim[i]
+    if (d == "A") {
+      data$score[i] <- person_effect_A[p] + item_effect[it] + rnorm(1, 0, sqrt(0.5))
+    } else {
+      data$score[i] <- person_effect_B[p] + item_effect[it] + rnorm(1, 0, sqrt(0.6))
+    }
+  }
+
+  data_wide <- tidyr::pivot_wider(data, names_from = dim, values_from = score)
+
+  gstudy_result <- gstudy(
+    formula = mvbind(A, B) ~ (1 | person) + (1 | item),
+    data = data_wide,
+    backend = "mom"
+  )
+
+  dstudy_result <- dstudy(gstudy_result, n = list(person = 10, item = 5))
+
+  expect_true("Composite" %in% dstudy_result$coefficients$dim)
+
+  composite_row <- dstudy_result$coefficients[dstudy_result$coefficients$dim == "Composite", ]
+  expect_true(composite_row$g > 0 && composite_row$g < 1)
+  expect_true(composite_row$phi > 0 && composite_row$phi < 1)
+  expect_true(composite_row$g >= composite_row$phi)
+})
+
+test_that("dstudy computes composite variance components for multivariate posterior estimation", {
+  skip_if_not_installed("brms")
+  set.seed(123)
+  n_persons <- 20
+  n_items <- 5
+  data <- data.frame(
+    person = rep(1:n_persons, each = n_items * 2),
+    item = rep(rep(1:n_items, 2), n_persons),
+    dim = rep(c("A", "B"), n_persons * n_items)
+  )
+
+  person_effect_A <- rnorm(n_persons, 0, sqrt(0.4))
+  person_effect_B <- 0.5 * person_effect_A + rnorm(n_persons, 0, sqrt(0.3 * 0.75))
+  item_effect_A <- rnorm(n_items, 0, sqrt(0.1))
+  item_effect_B <- rnorm(n_items, 0, sqrt(0.1))
+
+  data$score <- NA
+  for (i in 1:nrow(data)) {
+    p <- data$person[i]
+    it <- data$item[i]
+    d <- data$dim[i]
+    if (d == "A") {
+      data$score[i] <- person_effect_A[p] + item_effect_A[it] + rnorm(1, 0, sqrt(0.5))
+    } else {
+      data$score[i] <- person_effect_B[p] + item_effect_B[it] + rnorm(1, 0, sqrt(0.5))
+    }
+  }
+
+  data_wide <- tidyr::pivot_wider(data, names_from = dim, values_from = score)
+
+  gstudy_result <- gstudy(
+    formula = mvbind(A, B) ~ (1 | person) + (1 | item),
+    data = data_wide,
+    backend = "brms",
+    cores = 2,
+    chains = 2,
+    iter = 1000
+  )
+
+  dstudy_result <- dstudy(gstudy_result, n = list(person = 10, item = 5), weights = c(A = 1, B = 1))
+
+  expect_true("Composite" %in% dstudy_result$variance_components$dim)
+
+  composite_rows <- dstudy_result$variance_components[dstudy_result$variance_components$dim == "Composite", ]
+  expect_true(nrow(composite_rows) > 0)
+
+  components <- unique(dstudy_result$variance_components$component)
+  components <- components[components != "Composite"]
+  expect_true(all(components %in% composite_rows$component))
+
+  expect_true(!is.null(dstudy_result$composite_posterior))
+})
