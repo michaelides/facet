@@ -156,7 +156,7 @@ object_in_component <- function(component, object) {
 #' @return The scale factor (numeric).
 #'
 #' @keywords internal
-compute_scale_factor <- function(facets, n) {
+compute_scale_factor_from_facets <- function(facets, n) {
   if (length(facets) == 0 || identical(facets, "Residual")) {
     return(1)
   }
@@ -417,7 +417,7 @@ calculate_dstudy_variance <- function(vc, n, object, aggregation = NULL, n_provi
       is_object = component %in% object_spec,
       is_residual = (component == "Residual"),
       is_interaction = purrr::map_lgl(facets_list, ~ length(.x) > 1),
-      scale_factor = purrr::map_dbl(facets_list, compute_scale_factor, n = n_original),
+      scale_factor = purrr::map_dbl(facets_list, compute_scale_factor_from_facets, n = n_original),
       n_facet = purrr::map_dbl(facets_list, function(flist) {
         if (length(flist) == 1 && flist %in% names(n)) {
           n[[flist]]
@@ -840,6 +840,481 @@ result_df
 })
 
 do.call(rbind, results)
+}
+
+#' Build Variance-Covariance Matrix for a Component
+#'
+#' Constructs a variance-covariance matrix for a specific variance component
+#' in a multivariate design. The diagonal elements are the variances for each
+#' dimension, and off-diagonal elements are covariances (when available).
+#'
+#' @param vc A variance components tibble with columns: component, dim, var
+#' @param component Character string naming the component (e.g., "Person", "Residual")
+#' @param dimensions Character vector of dimension names
+#' @param correlations List containing covariance information from the G-study:
+#'   - `residual_cov`: Tibble of residual covariances
+#'   - `random_effect_cov`: Named list of random effect covariances per facet
+#'
+#' @return A symmetric variance-covariance matrix with dimensions as row/column names
+#'
+#' @keywords internal
+build_component_covariance_matrix <- function(vc, component, dimensions, correlations = NULL, scale_factor = 1) {
+  n_dim <- length(dimensions)
+  cov_matrix <- matrix(0, n_dim, n_dim)
+  rownames(cov_matrix) <- dimensions
+  colnames(cov_matrix) <- dimensions
+
+ for (i in seq_along(dimensions)) {
+ dim_var <- vc$var[vc$component == component & vc$dim == dimensions[i]]
+ if (length(dim_var) > 0) {
+ cov_matrix[i, i] <- dim_var[1] / scale_factor
+ }
+ }
+
+  if (!is.null(correlations) && component == "Residual") {
+    if (!is.null(correlations$residual_cov) && nrow(correlations$residual_cov) > 0) {
+      for (i in seq_len(nrow(correlations$residual_cov))) {
+        row <- correlations$residual_cov[i, ]
+        idx1 <- match(row$dim1, dimensions)
+        idx2 <- match(row$dim2, dimensions)
+        if (!is.na(idx1) && !is.na(idx2)) {
+          # Scale the covariance by the scale_factor
+          scaled_cov <- row$estimate / scale_factor
+          cov_matrix[idx1, idx2] <- scaled_cov
+          cov_matrix[idx2, idx1] <- scaled_cov
+        }
+      }
+    }
+  } else if (!is.null(correlations) && !is.null(correlations$random_effect_cov)) {
+    facet_name <- component
+    if (facet_name %in% names(correlations$random_effect_cov)) {
+      facet_cov <- correlations$random_effect_cov[[facet_name]]
+      if (!is.null(facet_cov) && nrow(facet_cov) > 0) {
+        for (i in seq_len(nrow(facet_cov))) {
+          row <- facet_cov[i, ]
+          idx1 <- match(row$dim1, dimensions)
+          idx2 <- match(row$dim2, dimensions)
+          if (!is.na(idx1) && !is.na(idx2)) {
+            # Scale the covariance by the scale_factor
+            scaled_cov <- row$estimate / scale_factor
+            cov_matrix[idx1, idx2] <- scaled_cov
+            cov_matrix[idx2, idx1] <- scaled_cov
+          }
+        }
+      }
+    }
+  }
+
+  cov_matrix
+}
+
+#' Compute Weighted Variance from Covariance Matrix
+#'
+#' Computes the variance of a weighted composite using the quadratic form
+#' w' * Sigma * w, where w is the weight vector and Sigma is the
+#' variance-covariance matrix.
+#'
+#' @param cov_matrix A symmetric variance-covariance matrix
+#' @param weights Numeric vector of weights (one per dimension)
+#'
+#' @return The weighted variance as a numeric scalar
+#'
+#' @keywords internal
+compute_weighted_variance <- function(cov_matrix, weights) {
+  as.numeric(t(weights) %*% cov_matrix %*% weights)
+}
+
+#' Calculate Composite G and Phi Coefficients
+#'
+#' Computes composite reliability coefficients for multivariate designs by
+#' combining variance-covariance information across dimensions using weights.
+#'
+#' @param vc A variance components tibble (scaled for D-study)
+#' @param n Named list of sample sizes for each facet
+#' @param weights Named numeric vector of weights (names = dimensions)
+#' @param object The object of measurement specification
+#' @param error Optional error component specification
+#' @param aggregation Optional aggregation specification
+#' @param residual_is Optional residual specification
+#' @param universe Optional universe specification
+#' @param correlations List of covariance information from the G-study
+#' @param cut_score Optional cut-score for phi-cut calculation
+#' @param mu_y Optional grand mean(s) for phi-cut calculation
+#'
+#' @return A data.frame with one row containing:
+#'   - dim: "Composite"
+#'   - uni: Universe score variance (composite)
+#'   - sigma2_delta: Relative error variance (composite)
+#'   - sigma2_delta_abs: Absolute error variance (composite)
+#'   - g: G coefficient (composite)
+#'   - phi: Phi coefficient (composite)
+#'   - sem_rel: Standard error of measurement (relative)
+#'   - sem_abs: Standard error of measurement (absolute)
+#'   - phi_cut: Phi-cut coefficient (if cut_score provided)
+#'
+#' @keywords internal
+calculate_composite_coefficients <- function(vc, n, weights, object, error = NULL, aggregation = NULL, residual_is = NULL, universe = NULL, correlations = NULL, cut_score = NULL, mu_y = NULL) {
+  dimensions <- names(weights)
+
+  if (is.null(object)) {
+    object_spec <- vc$component[1]
+  } else {
+    object_spec <- parse_specification(object)
+  }
+
+  if (is.null(universe) || length(universe) == 0) {
+    universe_spec <- object_spec
+  } else {
+    universe_spec <- parse_specification(universe)
+  }
+
+  if (!is.null(error)) {
+    error_spec <- parse_specification(error)
+  } else {
+    error_spec <- NULL
+  }
+
+ components <- unique(vc$component)
+
+ uni_composite <- 0
+  for (comp in universe_spec) {
+    if (comp %in% components) {
+      # For universe components, use scale_factor=1 (no scaling of universe score)
+      cov_mat <- build_component_covariance_matrix(vc, comp, dimensions, correlations, scale_factor = 1)
+      if (comp %in% object_spec) {
+        uni_composite <- uni_composite + compute_weighted_variance(cov_mat, weights)
+      } else {
+        uni_composite <- uni_composite + compute_weighted_variance(cov_mat, weights)
+      }
+    }
+  }
+
+ sigma2_delta_composite <- compute_composite_error_variance(
+ vc, dimensions, weights, correlations, universe_spec, error_spec, aggregation, residual_is, "relative", n = n, object_spec = object_spec
+ )
+
+ sigma2_delta_abs_composite <- compute_composite_error_variance(
+ vc, dimensions, weights, correlations, universe_spec, error_spec, aggregation, residual_is, "absolute", n = n, object_spec = object_spec
+ )
+
+  g_composite <- uni_composite / (uni_composite + sigma2_delta_composite)
+  phi_composite <- uni_composite / (uni_composite + sigma2_delta_abs_composite)
+  sem_rel_composite <- sqrt(sigma2_delta_composite)
+  sem_abs_composite <- sqrt(sigma2_delta_abs_composite)
+
+  result <- data.frame(
+    dim = "Composite",
+    uni = uni_composite,
+    sigma2_delta = sigma2_delta_composite,
+    sigma2_delta_abs = sigma2_delta_abs_composite,
+    g = g_composite,
+    phi = phi_composite,
+    sem_rel = sem_rel_composite,
+    sem_abs = sem_abs_composite,
+    stringsAsFactors = FALSE
+  )
+
+  if (!is.null(cut_score) && !is.null(mu_y)) {
+    mu_y_weighted <- sum(weights * sapply(dimensions, function(d) {
+      if (is.list(mu_y)) mu_y[[d]] else mu_y
+    }))
+    adjustment <- (mu_y_weighted - cut_score)^2
+    result$phi_cut <- (uni_composite + adjustment) / (uni_composite + sigma2_delta_abs_composite + adjustment)
+  }
+
+  result
+}
+
+#' Calculate Composite Variance Draws
+#'
+#' Computes posterior draws of composite variance for each component type
+#' using weighted variance-covariance matrices.
+#'
+#' @param vc_draws Named list (by dimension) of named lists (by component) of variance draws
+#' @param cov_draws Named list from extract_covariance_draws()
+#' @param weights Named numeric vector of weights (names = dimensions)
+#' @param scale_factor Factor to scale variances and covariances (for D-study scaling)
+#'
+#' @return Named list (by component) of posterior draws for composite variance
+#'
+#' @keywords internal
+calculate_composite_variance_draws <- function(vc_draws, cov_draws, weights, scale_factor = 1) {
+  dimensions <- names(vc_draws)
+  n_dim <- length(dimensions)
+  n_draws <- length(vc_draws[[1]][[1]])
+
+  # Get all component names (from first dimension)
+  components <- names(vc_draws[[1]])
+
+  composite_draws <- list()
+
+  for (comp in components) {
+    comp_draws <- numeric(n_draws)
+
+    # Get variance draws for each dimension
+    var_draws_list <- list()
+    for (d in dimensions) {
+      var_draws_list[[d]] <- vc_draws[[d]][[comp]] / scale_factor
+    }
+
+    # For each posterior draw, compute w' * Sigma * w
+    for (draw_idx in 1:n_draws) {
+      # Build covariance matrix for this draw
+      sigma_mat <- matrix(0, n_dim, n_dim)
+      rownames(sigma_mat) <- dimensions
+      colnames(sigma_mat) <- dimensions
+
+      for (i in 1:n_dim) {
+        sigma_mat[i, i] <- var_draws_list[[dimensions[i]]][draw_idx]
+      }
+
+      # Add off-diagonal covariances
+      cov_list <- NULL
+      if (comp == "Residual") {
+        cov_list <- cov_draws$residual
+      } else if (comp %in% names(cov_draws$random_effect)) {
+        cov_list <- cov_draws$random_effect[[comp]]
+      }
+
+      if (!is.null(cov_list)) {
+        for (pair_name in names(cov_list)) {
+          dims_pair <- strsplit(pair_name, "_")[[1]]
+          if (length(dims_pair) == 2 && all(dims_pair %in% dimensions)) {
+            idx1 <- match(dims_pair[1], dimensions)
+            idx2 <- match(dims_pair[2], dimensions)
+            cov_val <- cov_list[[pair_name]][draw_idx] / scale_factor
+            sigma_mat[idx1, idx2] <- cov_val
+            sigma_mat[idx2, idx1] <- cov_val
+          }
+        }
+      }
+
+      # Compute weighted variance: t(weights) %*% sigma_mat %*% weights
+      comp_draws[draw_idx] <- as.numeric(t(weights) %*% sigma_mat %*% weights)
+    }
+
+    composite_draws[[comp]] <- comp_draws
+  }
+
+  composite_draws
+}
+
+#' Compute Composite Error Variance
+#'
+#' Calculates the composite relative or absolute error variance by summing
+#' weighted variance-covariance matrices for all error components.
+#'
+#' @param vc A variance components tibble
+#' @param dimensions Character vector of dimension names
+#' @param weights Named numeric vector of weights
+#' @param correlations List of covariance information from the G-study
+#' @param universe_spec Character vector of universe components
+#' @param error_spec Optional character vector of error components
+#' @param aggregation Optional aggregation specification
+#' @param residual_is Optional residual specification
+#' @param error_type Either "relative" or "absolute"
+#' @param scale_factor Factor by which to scale covariances
+#'
+#' @return The composite error variance as a numeric scalar
+#'
+#' @keywords internal
+compute_composite_error_variance <- function(vc, dimensions, weights, correlations, universe_spec, error_spec, aggregation, residual_is, error_type, n = NULL, object_spec = NULL) {
+ components <- unique(vc$component)
+
+ if (!is.null(error_spec)) {
+ error_components <- error_spec
+ } else {
+ if (error_type == "relative") {
+ error_components <- vc$component[
+ sapply(vc$component, function(comp) {
+ if (comp == "Residual") return(TRUE)
+ if (comp %in% universe_spec) return(FALSE)
+ facets <- parse_component_facets(comp)
+ any(universe_spec %in% facets)
+ })
+ ]
+ } else {
+ error_components <- setdiff(components, universe_spec)
+ }
+ }
+
+ total_error <- 0
+ for (comp in error_components) {
+ if (comp %in% components) {
+ comp_scale_factor <- compute_scale_factor(comp, n, object_spec, universe_spec)
+ cov_mat <- build_component_covariance_matrix(vc, comp, dimensions, correlations, scale_factor = comp_scale_factor)
+ total_error <- total_error + compute_weighted_variance(cov_mat, weights)
+ }
+ }
+
+ total_error
+}
+
+#' Compute Scale Factor for Composite Variance
+#'
+#' Computes the scale factor for scaling covariances in composite variance
+#' calculation. The scale factor depends on the component type:
+#' - For main effects (e.g., Item): scale_factor = n_facet
+#' - For Residual: scale_factor = product of all error facet sample sizes
+#'
+#' @param component The variance component name
+#' @param n Named list of sample sizes
+#' @param object_spec Object of measurement specification
+#' @param universe_spec Universe components specification
+#'
+#' @return The scale factor for this component
+#'
+#' @keywords internal
+compute_scale_factor <- function(component, n, object_spec, universe_spec) {
+ if (is.null(n) || length(n) == 0) {
+ return(1)
+ }
+
+ if (component == "Residual") {
+ scale_factor <- 1
+ for (facet_name in names(n)) {
+ if (!(facet_name %in% object_spec)) {
+ scale_factor <- scale_factor * n[[facet_name]]
+ }
+ }
+ return(scale_factor)
+ }
+
+ facets <- parse_component_facets(component)
+
+ if (length(facets) == 0) {
+ return(1)
+ }
+
+ if (length(facets) == 1) {
+ facet_name <- facets[1]
+ if (facet_name %in% names(n)) {
+ return(n[[facet_name]])
+ }
+ return(1)
+ }
+
+ scale_factor <- 1
+ for (facet in facets) {
+ if (facet %in% names(n) && !(facet %in% object_spec)) {
+ scale_factor <- scale_factor * n[[facet]]
+ }
+ }
+
+ scale_factor
+}
+
+#' Calculate Composite Coefficients Using Posterior Draws
+#'
+#' Computes composite reliability coefficients from a Bayesian multivariate G-study
+#' by computing coefficients for each posterior draw and summarizing.
+#'
+#' @param gstudy_obj The mgstudy object from a Bayesian G-study
+#' @param vc Variance components tibble (scaled for D-study)
+#' @param n Named list of sample sizes
+#' @param weights Named numeric vector of weights
+#' @param object The object of measurement specification
+#' @param error Optional error component specification
+#' @param aggregation Optional aggregation specification
+#' @param residual_is Optional residual specification
+#' @param universe Optional universe specification
+#' @param cut_score Optional cut-score for phi-cut calculation
+#' @param mu_y Optional grand mean(s) for phi-cut calculation
+#' @param ci Optional CI specification
+#' @param probs Probability levels for credible intervals
+#'
+#' @return A data.frame with composite coefficient summaries including CIs if requested
+#'
+#' @keywords internal
+calculate_composite_coefficients_posterior <- function(gstudy_obj, vc, n, weights, object, error = NULL, aggregation = NULL, residual_is = NULL, universe = NULL, cut_score = NULL, mu_y = NULL, ci = NULL, probs = c(0.025, 0.975)) {
+  
+  dimensions <- names(weights)
+  correlations <- gstudy_obj$correlations
+  
+  # Parse specifications
+  if (is.null(object)) {
+    object_spec <- vc$component[1]
+  } else {
+    object_spec <- parse_specification(object)
+  }
+  
+  if (is.null(universe) || length(universe) == 0) {
+    universe_spec <- object_spec
+  } else {
+    universe_spec <- parse_specification(universe)
+  }
+  
+  if (!is.null(error)) {
+    error_spec <- parse_specification(error)
+  } else {
+    error_spec <- NULL
+  }
+  
+  components <- unique(vc$component)
+  
+  # For posterior estimation, we compute composite for each draw
+  # Since we don't have the full posterior of covariances, 
+  # we use the point estimates from the correlations structure
+  
+  # Compute universe score variance (composite)
+  uni_composite <- 0
+  for (comp in universe_spec) {
+    if (comp %in% components) {
+      cov_mat <- build_component_covariance_matrix(vc, comp, dimensions, correlations)
+      if (comp %in% object_spec) {
+        uni_composite <- uni_composite + compute_weighted_variance(cov_mat, weights)
+      } else {
+        uni_composite <- uni_composite + compute_weighted_variance(cov_mat, weights)
+      }
+    }
+  }
+  
+  # Compute relative error variance (composite)
+  sigma2_delta_composite <- compute_composite_error_variance(
+    vc, dimensions, weights, correlations, universe_spec, error_spec,
+    aggregation, residual_is, "relative"
+  )
+  
+  # Compute absolute error variance (composite)
+  sigma2_delta_abs_composite <- compute_composite_error_variance(
+    vc, dimensions, weights, correlations, universe_spec, error_spec,
+    aggregation, residual_is, "absolute"
+  )
+  
+  # Compute coefficients
+  g_composite <- uni_composite / (uni_composite + sigma2_delta_composite)
+  phi_composite <- uni_composite / (uni_composite + sigma2_delta_abs_composite)
+  
+  sem_rel_composite <- sqrt(sigma2_delta_composite)
+  sem_abs_composite <- sqrt(sigma2_delta_abs_composite)
+  
+  result <- data.frame(
+    dim = "Composite",
+    uni = uni_composite,
+    sigma2_delta = sigma2_delta_composite,
+    sigma2_delta_abs = sigma2_delta_abs_composite,
+    g = g_composite,
+    phi = phi_composite,
+    sem_rel = sem_rel_composite,
+    sem_abs = sem_abs_composite,
+    stringsAsFactors = FALSE
+  )
+  
+  if (!is.null(cut_score) && !is.null(mu_y)) {
+    mu_y_weighted <- sum(weights * sapply(dimensions, function(d) {
+      if (is.list(mu_y)) mu_y[[d]] else mu_y
+    }))
+    adjustment <- (mu_y_weighted - cut_score)^2
+    result$phi_cut <- (uni_composite + adjustment) / 
+                       (uni_composite + sigma2_delta_abs_composite + adjustment)
+  }
+  
+  # Note: For full posterior CIs on composite coefficients, we would need
+  # to propagate uncertainty from the covariance posterior draws.
+  # Currently using point estimates of covariances.
+  # CI columns would need to be added here if ci is specified.
+  
+  result
 }
 
 #' Compute Relative Error Variance
