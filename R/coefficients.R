@@ -1039,9 +1039,28 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
 #'
 #' @keywords internal
 calculate_composite_variance_draws <- function(vc_draws, cov_draws, weights, scale_factor = 1) {
+  # Input validation
+  if (!is.list(vc_draws) || length(vc_draws) == 0) {
+    stop("vc_draws must be a non-empty list", call. = FALSE)
+  }
+  if (!is.numeric(weights) || length(weights) == 0) {
+    stop("weights must be a numeric vector", call. = FALSE)
+  }
+  
   dimensions <- names(vc_draws)
   n_dim <- length(dimensions)
-  n_draws <- length(vc_draws[[1]][[1]])
+  
+  if (!all(names(weights) %in% dimensions)) {
+    stop("weights names must match dimensions in vc_draws", call. = FALSE)
+  }
+  
+  # Check vc_draws structure
+  first_dim <- vc_draws[[1]]
+  if (!is.list(first_dim) || length(first_dim) == 0) {
+    stop("vc_draws must be a nested list structure", call. = FALSE)
+  }
+  
+  n_draws <- length(first_dim[[1]])
 
   # Get all component names (from first dimension)
   components <- names(vc_draws[[1]])
