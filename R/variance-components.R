@@ -1298,7 +1298,6 @@ for (i in 2:n_resp) {
 #'
 #' @param model A fitted brms model object
 #' @param dimensions Character vector of dimension/response names
-#' @param vc_variance Variance components tibble (for SD values to convert correlations)
 #'
 #' @return Named list with:
 #' \describe{
@@ -1307,16 +1306,19 @@ for (i in 2:n_resp) {
 #' }
 #'
 #' @keywords internal
-extract_covariance_draws <- function(model, dimensions, vc_variance = NULL) {
+extract_covariance_draws <- function(model, dimensions) {
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("Package 'brms' is required.", call. = FALSE)
   }
   if (!requireNamespace("posterior", quietly = TRUE)) {
     stop("Package 'posterior' is required.", call. = FALSE)
   }
+  
+  if (!inherits(model, "brmsfit")) {
+    stop("model must be a brmsfit object", call. = FALSE)
+  }
 
   draws <- brms::as_draws_matrix(model)
-  n_draws <- nrow(draws)
   n_dim <- length(dimensions)
 
   result <- list(
