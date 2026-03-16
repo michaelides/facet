@@ -1121,38 +1121,34 @@ calculate_composite_variance_draws <- function(vc_draws, cov_draws, weights, sca
 #' Calculate D-Study Variance Components with Composite Row
 #'
 #' Adds composite variance component rows for multivariate models using
-#' posterior draws for full uncertainty propagations.
+#' posterior draws for full uncertainty propagation.
 #'
 #' @param vc_draws Variance draws (from extract_variance_draws)
 #' @param cov_draws Covariance draws (from extract_covariance_draws)
 #' @param weights Named vector of weights
 #' @param n Sample sizes (named list)
 #' @param object Object specification
-#' @param aggregation Aggregation specification
 #' @param n_provided Whether n was provided
-#' @param residual_is Residual composition
-#' @param gstudy_obj G-study object
 #'
 #' @return List with:
-#' \describe{
-#' \item{vc_table}{Tibble with variance components including composite rows}
-#' \item{posterior}{List of composite draws}
-#' }
+#'   \describe{
+#'     \item{vc_table}{Tibble with variance components including composite rows}
+#'     \item{posterior}{List of composite draws}
+#'   }
 #'
 #' @keywords internal
-calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n, object, aggregation, n_provided, residual_is, gstudy_obj) {
+calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n, object, n_provided) {
   dimensions <- names(weights)
   components <- names(vc_draws[[1]])
-
+  
   object_spec <- parse_specification(object)
-  agg_facets <- if (!is.null(aggregation)) parse_specification(aggregation) else NULL
 
   composite_draws <- list()
   composite_summaries <- list()
 
   for (comp in components) {
     scale_factor <- compute_component_scale_factor(
-      comp, n, object_spec, agg_facets, residual_is, n_provided, gstudy_obj
+      comp, n, object_spec, n_provided
     )
 
     comp_draws <- calculate_composite_variance_draws(
@@ -1172,6 +1168,7 @@ calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n,
   }
 
   total_var <- sum(sapply(composite_summaries, function(x) x$var))
+  total_var_unscaled <- sum(sapply(composite_summaries, function(x) x$var_unscaled))
 
   composite_rows <- lapply(components, function(comp) {
     data.frame(
@@ -1179,7 +1176,7 @@ calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n,
       var = composite_summaries[[comp]]$var,
       var_unscaled = composite_summaries[[comp]]$var_unscaled,
       pct = (composite_summaries[[comp]]$var / total_var) * 100,
-      pct_unscaled = (composite_summaries[[comp]]$var_unscaled / total_var) * 100,
+      pct_unscaled = (composite_summaries[[comp]]$var_unscaled / total_var_unscaled) * 100,
       dim = "Composite",
       stringsAsFactors = FALSE
     )
@@ -1194,30 +1191,30 @@ calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n,
 #' Compute scale factor for a variance component
 #'
 #' @keywords internal
-compute_component_scale_factor <- function(comp, n, object_spec, agg_facets, residual_is, n_provided, gstudy_obj) {
+compute_component_scale_factor <- function(comp, n, object_spec, n_provided) {
   if (comp %in% object_spec) {
     return(1)
   }
-
+  
   total_n <- if (length(n) > 0) prod(unlist(n)) else 1
-
+  
   if (n_provided && length(n) > 0) {
     if (comp == "Residual") {
       return(total_n)
     }
-
+    
     comp_facets <- parse_component_facets(comp)
     scale_factor <- 1
-
+    
     for (f in comp_facets) {
       if (f %in% names(n)) {
         scale_factor <- scale_factor * n[[f]]
       }
     }
-
+    
     return(scale_factor)
   }
-
+  
   return(1)
 }
 
