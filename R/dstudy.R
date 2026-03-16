@@ -209,6 +209,9 @@ is_multivariate <- inherits(gstudy_obj, "mgstudy")
     weights <- NULL
   }
 
+  # Initialize composite posterior (set for posterior estimation path)
+  composite_post <- NULL
+
   # 1.1. Check for estimation issues and warn
   check_estimation_issues(gstudy_obj)
 
