@@ -203,7 +203,7 @@ extract_vc_brms <- function(model, conf_level = 0.95, formula = NULL) {
     stop("Package 'posterior' is required.", call. = FALSE)
   }
 
-  model_summary <- summary(model)
+  model_summary <- suppressWarnings(summary(model))
   random_summary <- model_summary$random
   spec_pars <- model_summary$spec_pars
 
@@ -676,6 +676,39 @@ summarize_cor <- function(cor_tibble, digits = 3) {
   summary_df
 }
 
+#' Summarize Covariance Tibble for Display
+#'
+#' Formats a covariance tibble for printing with rounded values.
+#'
+#' @param cov_tibble A tibble with covariance estimates.
+#' @param digits Number of digits to round to.
+#'
+#' @return A formatted data frame for printing.
+#'
+#' @keywords internal
+summarize_cov <- function(cov_tibble, digits = 3) {
+  if (is.null(cov_tibble) || nrow(cov_tibble) == 0) {
+    return(cov_tibble)
+  }
+
+  summary_df <- cov_tibble
+
+  summary_df$estimate <- round(summary_df$estimate, digits)
+  summary_df$se <- round(summary_df$se, digits)
+  summary_df$`2.5% CI` <- round(summary_df$lower, digits)
+  summary_df$`97.5% CI` <- round(summary_df$upper, digits)
+
+  if ("Rhat" %in% names(summary_df)) {
+    summary_df$Rhat <- round(summary_df$Rhat, digits)
+  }
+
+  col_order <- c("dim1", "dim2", "estimate", "se", "2.5% CI", "97.5% CI", "Rhat", "Bulk_ESS", "Tail_ESS")
+  final_cols <- col_order[col_order %in% names(summary_df)]
+  summary_df <- summary_df[, final_cols, drop = FALSE]
+
+  summary_df
+}
+
 #' @rdname extract_vc
 #' @keywords internal
 extract_vc.brmsfit <- function(model, ...) {
@@ -805,7 +838,7 @@ extract_correlations_brms <- function(model) {
   }
 
   vc <- brms::VarCorr(model)
-  model_summary <- summary(model)
+  model_summary <- suppressWarnings(summary(model))
   random_summary <- model_summary$random
   spec_pars <- model_summary$spec_pars
   rescor_pars <- model_summary$rescor_pars
@@ -961,6 +994,610 @@ extract_correlations_brms <- function(model) {
   result
 }
 
+#' Extract Covariances from brms Multivariate Model
+#'
+#' Extracts residual covariances and random effect covariances from a
+#' multivariate brms model by computing them from the full posterior.
+#'
+#' @param model A brmsfit object from a multivariate model.
+#'
+#' @return A list with:
+#'   \item{residual_cov}{Tibble with residual covariances (dim1, dim2, estimate, se, lower, upper, Rhat, Bulk_ESS, Tail_ESS)}
+#'   \item{random_effect_cov}{Named list of tibbles for each facet with correlated random effects}
+#'   \item{residual_cov_matrix}{Matrix of residual covariance point estimates}
+#'   \item{random_effect_cov_matrix}{Named list of matrices for random effect covariances}
+#'
+#' @keywords internal
+extract_covariances_brms <- function(model) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop("Package 'brms' is required.", call. = FALSE)
+  }
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    stop("Package 'posterior' is required.", call. = FALSE)
+  }
+
+  draws <- brms::as_draws_matrix(model)
+  model_summary <- suppressWarnings(summary(model))
+  random_summary <- model_summary$random
+  spec_pars <- model_summary$spec_pars
+  rescor_pars <- model_summary$rescor_pars
+
+  resp_names <- NULL
+  if (!is.null(model$formula) && inherits(model$formula, "mvbrmsformula")) {
+    resp_names <- model$formula$responses
+  }
+
+  if (is.null(resp_names) && !is.null(model$formula) && !is.null(model$formula$formula)) {
+    bform <- model$formula$formula
+    if (inherits(bform, "list") && length(bform) > 0) {
+      resp_names <- names(bform)
+    }
+  }
+
+  result <- list(
+    residual_cov = NULL,
+    random_effect_cov = list(),
+    residual_cov_matrix = NULL,
+    random_effect_cov_matrix = list()
+  )
+
+  if (is.null(resp_names) || length(resp_names) <= 1) {
+    return(result)
+  }
+
+  n_resp <- length(resp_names)
+
+  cov_array_to_tibble <- function(cov_draws_list, resp_names, grp_name = NULL, random_summary, rescor_pars) {
+    n <- length(resp_names)
+    rows <- list()
+
+    for (i in 2:n) {
+      for (j in 1:(i - 1)) {
+        cov_draws <- cov_draws_list[[paste0(resp_names[j], "_", resp_names[i])]]
+        if (is.null(cov_draws)) {
+          cov_draws <- cov_draws_list[[paste0(resp_names[i], "_", resp_names[j])]]
+        }
+
+        if (is.null(cov_draws) || length(cov_draws) == 0) {
+          next
+        }
+
+        estimate <- mean(cov_draws, na.rm = TRUE)
+        se <- sd(cov_draws, na.rm = TRUE)
+        lower <- quantile(cov_draws, 0.025, na.rm = TRUE)
+        upper <- quantile(cov_draws, 0.975, na.rm = TRUE)
+
+        rhat_val <- NA_real_
+        bulk_ess_val <- NA_real_
+        tail_ess_val <- NA_real_
+
+        if (is.null(grp_name) || grp_name == "residual__") {
+          if (!is.null(rescor_pars) && nrow(rescor_pars) > 0) {
+            possible_names <- c(
+              paste0("rescor(", resp_names[j], ",", resp_names[i], ")"),
+              paste0("rescor(", resp_names[i], ",", resp_names[j], ")")
+            )
+            for (pname in possible_names) {
+              if (pname %in% rownames(rescor_pars)) {
+                rhat_val <- rescor_pars[pname, "Rhat"]
+                bulk_ess_val <- rescor_pars[pname, "Bulk_ESS"]
+                tail_ess_val <- rescor_pars[pname, "Tail_ESS"]
+                break
+              }
+            }
+          }
+        } else {
+          if (!is.null(grp_name) && grp_name %in% names(random_summary)) {
+            grp_summary <- random_summary[[grp_name]]
+            if (!is.null(grp_summary) && nrow(grp_summary) > 0) {
+              possible_names <- c(
+                paste0("cor(", resp_names[j], "_Intercept,", resp_names[i], "_Intercept)"),
+                paste0("cor(", resp_names[i], "_Intercept,", resp_names[j], "_Intercept)")
+              )
+              for (pname in possible_names) {
+                if (pname %in% rownames(grp_summary)) {
+                  rhat_val <- grp_summary[pname, "Rhat"]
+                  bulk_ess_val <- grp_summary[pname, "Bulk_ESS"]
+                  tail_ess_val <- grp_summary[pname, "Tail_ESS"]
+                  break
+                }
+              }
+            }
+          }
+        }
+
+        rows[[length(rows) + 1]] <- data.frame(
+          dim1 = resp_names[j],
+          dim2 = resp_names[i],
+          estimate = estimate,
+          se = se,
+          lower = lower,
+          upper = upper,
+          Rhat = rhat_val,
+          Bulk_ESS = bulk_ess_val,
+          Tail_ESS = tail_ess_val,
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+
+    if (length(rows) > 0) {
+      do.call(rbind, rows)
+    } else {
+      data.frame(
+        dim1 = character(),
+        dim2 = character(),
+        estimate = numeric(),
+        se = numeric(),
+        lower = numeric(),
+        upper = numeric(),
+        Rhat = numeric(),
+        Bulk_ESS = numeric(),
+        Tail_ESS = numeric(),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  extract_sd_draws <- function(draws, param_base, resp) {
+    possible_names <- c(
+      paste0(param_base, "_", resp, "_Intercept"),
+      paste0(param_base, "__", resp, "_Intercept"),
+      paste0(param_base, "_", resp),
+      paste0(param_base, "__", resp)
+    )
+    for (pname in possible_names) {
+      if (pname %in% colnames(draws)) {
+        return(posterior::extract_variable(draws, pname))
+      }
+    }
+    NULL
+  }
+
+  extract_cor_draws <- function(draws, param_base, resp1, resp2) {
+    possible_names <- c(
+      paste0(param_base, "(", resp1, "_Intercept,", resp2, "_Intercept)"),
+      paste0(param_base, "(", resp2, "_Intercept,", resp1, "_Intercept)")
+    )
+    for (pname in possible_names) {
+      if (pname %in% colnames(draws)) {
+        return(posterior::extract_variable(draws, pname))
+      }
+    }
+    NULL
+  }
+
+  sigma_draws <- list()
+  for (resp in resp_names) {
+    sigma_draws[[resp]] <- posterior::extract_variable(draws, paste0("sigma_", resp))
+  }
+
+  if ("rescor" %in% colnames(draws) || any(grepl("^rescor[(]", colnames(draws))) || any(grepl("^rescor_", colnames(draws)))) {
+    cov_draws_list <- list()
+    cov_mat <- matrix(NA, n_resp, n_resp)
+    rownames(cov_mat) <- resp_names
+    colnames(cov_mat) <- resp_names
+
+for (i in 2:n_resp) {
+  for (j in 1:(i - 1)) {
+    cor_draws <- NULL
+    possible_names <- c(
+      paste0("rescor(", resp_names[j], ",", resp_names[i], ")"),
+      paste0("rescor(", resp_names[i], ",", resp_names[j], ")"),
+      paste0("rescor__", resp_names[j], "__", resp_names[i]),
+      paste0("rescor__", resp_names[i], "__", resp_names[j])
+    )
+    for (pname in possible_names) {
+      if (pname %in% colnames(draws)) {
+        cor_draws <- posterior::extract_variable(draws, pname)
+        break
+      }
+    }
+
+    if (!is.null(cor_draws) && length(cor_draws) > 0) {
+      sd_i <- sigma_draws[[resp_names[i]]]
+      sd_j <- sigma_draws[[resp_names[j]]]
+      cov_draws <- cor_draws * sd_i * sd_j
+      cov_draws_list[[paste0(resp_names[j], "_", resp_names[i])]] <- cov_draws
+      cov_mat[resp_names[j], resp_names[i]] <- mean(cov_draws, na.rm = TRUE)
+      cov_mat[resp_names[i], resp_names[j]] <- mean(cov_draws, na.rm = TRUE)
+    }
+  }
+}
+
+    for (i in seq_len(n_resp)) {
+      var_draws <- sigma_draws[[resp_names[i]]]^2
+      cov_mat[resp_names[i], resp_names[i]] <- mean(var_draws, na.rm = TRUE)
+    }
+
+    if (length(cov_draws_list) > 0) {
+      result$residual_cov <- cov_array_to_tibble(cov_draws_list, resp_names, "residual__", random_summary, rescor_pars)
+      result$residual_cov_matrix <- cov_mat
+    }
+  }
+
+  vc <- brms::VarCorr(model)
+  for (grp in names(vc)) {
+    if (grp == "residual__") next
+
+    sd_param_base <- paste0("sd_", grp)
+    cor_param_base <- paste0("cor_", grp)
+
+    has_cor <- FALSE
+    for (i in 2:n_resp) {
+      for (j in 1:(i - 1)) {
+        possible_names <- c(
+          paste0(cor_param_base, "(", resp_names[j], "_Intercept,", resp_names[i], "_Intercept)"),
+          paste0(cor_param_base, "(", resp_names[i], "_Intercept,", resp_names[j], "_Intercept)")
+        )
+        for (pname in possible_names) {
+          if (pname %in% colnames(draws)) {
+            has_cor <- TRUE
+            break
+          }
+        }
+        if (has_cor) break
+      }
+      if (has_cor) break
+    }
+
+    if (!has_cor) next
+
+    cov_draws_list <- list()
+    cov_mat <- matrix(NA, n_resp, n_resp)
+    rownames(cov_mat) <- resp_names
+    colnames(cov_mat) <- resp_names
+
+    sd_draws_list <- list()
+    for (resp in resp_names) {
+      sd_draws_list[[resp]] <- extract_sd_draws(draws, sd_param_base, resp)
+    }
+
+    for (i in 2:n_resp) {
+      for (j in 1:(i - 1)) {
+        cor_draws <- extract_cor_draws(draws, cor_param_base, resp_names[j], resp_names[i])
+
+        if (!is.null(cor_draws) && length(cor_draws) > 0 &&
+            !is.null(sd_draws_list[[resp_names[i]]]) &&
+            !is.null(sd_draws_list[[resp_names[j]]])) {
+          cov_draws <- cor_draws * sd_draws_list[[resp_names[i]]] * sd_draws_list[[resp_names[j]]]
+          cov_draws_list[[paste0(resp_names[j], "_", resp_names[i])]] <- cov_draws
+          cov_mat[resp_names[j], resp_names[i]] <- mean(cov_draws, na.rm = TRUE)
+          cov_mat[resp_names[i], resp_names[j]] <- mean(cov_draws, na.rm = TRUE)
+        }
+      }
+    }
+
+    for (i in seq_len(n_resp)) {
+      if (!is.null(sd_draws_list[[resp_names[i]]])) {
+        var_draws <- sd_draws_list[[resp_names[i]]]^2
+        cov_mat[resp_names[i], resp_names[i]] <- mean(var_draws, na.rm = TRUE)
+      }
+    }
+
+    if (length(cov_draws_list) > 0) {
+      result$random_effect_cov[[grp]] <- cov_array_to_tibble(cov_draws_list, resp_names, grp, random_summary, rescor_pars)
+      result$random_effect_cov_matrix[[grp]] <- cov_mat
+    }
+  }
+
+  if (length(result$random_effect_cov) == 0) {
+    result$random_effect_cov <- NULL
+  }
+  if (length(result$random_effect_cov_matrix) == 0) {
+    result$random_effect_cov_matrix <- NULL
+  }
+
+  result
+}
+
+#' Extract Covariance Draws from brms Model
+#'
+#' Extracts posterior draws of covariances between dimensions for
+#' multivariate models. Used for computing composite variance components.
+#'
+#' @param model A fitted brms model object
+#' @param dimensions Character vector of dimension/response names
+#' @param vc_variance Variance components tibble (for SD values to convert correlations)
+#'
+#' @return Named list with:
+#' \describe{
+#' \item{residual}{List of residual covariance draws (named by dimension pairs)}
+#' \item{random_effect}{Named list of covariances per facet}
+#' }
+#'
+#' @keywords internal
+extract_covariance_draws <- function(model, dimensions, vc_variance = NULL) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop("Package 'brms' is required.", call. = FALSE)
+  }
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    stop("Package 'posterior' is required.", call. = FALSE)
+  }
+
+  draws <- brms::as_draws_matrix(model)
+  n_draws <- nrow(draws)
+  n_dim <- length(dimensions)
+
+  result <- list(
+    residual = list(),
+    random_effect = list()
+  )
+
+  if (n_dim <= 1) {
+    return(result)
+  }
+
+  sigma_draws <- list()
+  for (d in dimensions) {
+    param_name <- paste0("sigma_", d)
+    if (param_name %in% colnames(draws)) {
+      sigma_draws[[d]] <- posterior::extract_variable(draws, param_name)
+    }
+  }
+
+  for (i in 2:n_dim) {
+    for (j in 1:(i - 1)) {
+      param_name <- paste0("rescor(", dimensions[j], ",", dimensions[i], ")")
+      alt_name <- paste0("rescor(", dimensions[i], ",", dimensions[j], ")")
+
+      cor_draws <- NULL
+      if (param_name %in% colnames(draws)) {
+        cor_draws <- posterior::extract_variable(draws, param_name)
+      } else if (alt_name %in% colnames(draws)) {
+        cor_draws <- posterior::extract_variable(draws, alt_name)
+      }
+
+      if (!is.null(cor_draws) && !is.null(sigma_draws[[dimensions[i]]]) && !is.null(sigma_draws[[dimensions[j]]])) {
+        cov_draws <- sigma_draws[[dimensions[j]]] * sigma_draws[[dimensions[i]]] * cor_draws
+        result$residual[[paste0(dimensions[j], "_", dimensions[i])]] <- cov_draws
+      }
+    }
+  }
+
+  vc_groups <- names(brms::VarCorr(model))
+  vc_groups <- setdiff(vc_groups, "residual__")
+
+  for (grp in vc_groups) {
+    clean_grp <- gsub("__", ":", grp)
+    result$random_effect[[clean_grp]] <- list()
+
+    for (i in 2:n_dim) {
+      for (j in 1:(i - 1)) {
+        param_name <- paste0("cor_", grp, "(", dimensions[j], "_Intercept,", dimensions[i], "_Intercept)")
+        alt_name <- paste0("cor_", grp, "(", dimensions[i], "_Intercept,", dimensions[j], "_Intercept)")
+
+        cor_draws <- NULL
+        if (param_name %in% colnames(draws)) {
+          cor_draws <- posterior::extract_variable(draws, param_name)
+        } else if (alt_name %in% colnames(draws)) {
+          cor_draws <- posterior::extract_variable(draws, alt_name)
+        }
+
+        if (!is.null(cor_draws)) {
+          sd_param1 <- paste0("sd_", grp, "__", dimensions[i], "_Intercept")
+          sd_param2 <- paste0("sd_", grp, "__", dimensions[j], "_Intercept")
+
+          sd_draws1 <- NULL
+          sd_draws2 <- NULL
+
+          if (sd_param1 %in% colnames(draws)) {
+            sd_draws1 <- posterior::extract_variable(draws, sd_param1)
+          }
+          if (sd_param2 %in% colnames(draws)) {
+            sd_draws2 <- posterior::extract_variable(draws, sd_param2)
+          }
+
+          if (!is.null(sd_draws1) && !is.null(sd_draws2)) {
+            cov_draws <- sd_draws2 * sd_draws1 * cor_draws
+            result$random_effect[[clean_grp]][[paste0(dimensions[j], "_", dimensions[i])]] <- cov_draws
+          }
+        }
+      }
+    }
+
+    if (length(result$random_effect[[clean_grp]]) == 0) {
+      result$random_effect[[clean_grp]] <- NULL
+    }
+  }
+
+  if (length(result$random_effect) == 0 || all(sapply(result$random_effect, is.null))) {
+    result$random_effect <- NULL
+  }
+
+  result
+}
+
+#' Extract Covariances from MOM Multivariate Model
+#'
+#' Extracts residual covariances and random effect covariances from a
+#' multivariate method-of-moments model.
+#'
+#' @param model A momfit object from a multivariate model.
+#'
+#' @return A list with:
+#'   \item{residual_cov}{Tibble with residual covariances (dim1, dim2, estimate, se, lower, upper)}
+#'   \item{random_effect_cov}{Named list of tibbles for each facet with correlated random effects}
+#'   \item{residual_cov_matrix}{Matrix of residual covariance point estimates}
+#'   \item{random_effect_cov_matrix}{Named list of matrices for random effect covariances}
+#'
+#' @keywords internal
+extract_covariances_mom <- function(model) {
+  if (!inherits(model, "momfit")) {
+    stop("model must be a momfit object", call. = FALSE)
+  }
+
+  if (!isTRUE(model$is_multivariate) || length(model$responses) <= 1) {
+    return(list(
+      residual_cov = NULL,
+      random_effect_cov = list(),
+      residual_cov_matrix = NULL,
+      random_effect_cov_matrix = list()
+    ))
+  }
+
+  responses <- model$responses
+  n_resp <- length(responses)
+
+  result <- list(
+    residual_cov = NULL,
+    random_effect_cov = list(),
+    residual_cov_matrix = NULL,
+    random_effect_cov_matrix = list()
+  )
+
+  vc <- model$variance_components
+  correlations <- model$correlations
+
+  if (is.null(correlations)) {
+    return(result)
+  }
+
+  residual_sd <- numeric(n_resp)
+  names(residual_sd) <- responses
+  for (i in seq_along(responses)) {
+    resp <- responses[i]
+    resid_vc <- vc[vc$dim == resp & vc$component == "Residual", ]
+    if (nrow(resid_vc) > 0) {
+      residual_sd[i] <- sqrt(max(0, resid_vc$var[1]))
+    }
+  }
+
+  if (!is.null(correlations$residual_cor) && nrow(correlations$residual_cor) > 0) {
+    cov_list <- list()
+    cov_mat <- matrix(NA, n_resp, n_resp)
+    rownames(cov_mat) <- responses
+    colnames(cov_mat) <- responses
+
+    for (i in seq_len(nrow(correlations$residual_cor))) {
+      cor_row <- correlations$residual_cor[i, ]
+      dim1 <- cor_row$dim1
+      dim2 <- cor_row$dim2
+      cor_est <- cor_row$estimate
+
+      sd1 <- residual_sd[dim1]
+      sd2 <- residual_sd[dim2]
+
+      cov_est <- cor_est * sd1 * sd2
+
+      se_cov <- NA_real_
+      if ("se" %in% names(cor_row) && !is.na(cor_row$se)) {
+        se_cov <- cor_row$se * sd1 * sd2
+      }
+
+      lower_cov <- NA_real_
+      upper_cov <- NA_real_
+      if ("lower" %in% names(cor_row) && !is.na(cor_row$lower)) {
+        lower_cov <- cor_row$lower * sd1 * sd2
+      }
+      if ("upper" %in% names(cor_row) && !is.na(cor_row$upper)) {
+        upper_cov <- cor_row$upper * sd1 * sd2
+      }
+
+      cov_list[[length(cov_list) + 1]] <- data.frame(
+        dim1 = dim1,
+        dim2 = dim2,
+        estimate = cov_est,
+        se = se_cov,
+        lower = lower_cov,
+        upper = upper_cov,
+        stringsAsFactors = FALSE
+      )
+
+      cov_mat[dim1, dim2] <- cov_est
+      cov_mat[dim2, dim1] <- cov_est
+    }
+
+    for (i in seq_len(n_resp)) {
+      cov_mat[responses[i], responses[i]] <- residual_sd[i]^2
+    }
+
+    if (length(cov_list) > 0) {
+      result$residual_cov <- do.call(rbind, cov_list)
+      result$residual_cov_matrix <- cov_mat
+    }
+  }
+
+  if (!is.null(correlations$random_effect_cor) && length(correlations$random_effect_cor) > 0) {
+    for (facet in names(correlations$random_effect_cor)) {
+      cor_tibble <- correlations$random_effect_cor[[facet]]
+      if (is.null(cor_tibble) || nrow(cor_tibble) == 0) next
+
+      facet_sd <- numeric(n_resp)
+      names(facet_sd) <- responses
+      for (i in seq_along(responses)) {
+        resp <- responses[i]
+        facet_vc <- vc[vc$dim == resp & vc$component == facet, ]
+        if (nrow(facet_vc) > 0) {
+          facet_sd[i] <- sqrt(max(0, facet_vc$var[1]))
+        }
+      }
+
+      cov_list <- list()
+      cov_mat <- matrix(NA, n_resp, n_resp)
+      rownames(cov_mat) <- responses
+      colnames(cov_mat) <- responses
+
+      for (i in seq_len(nrow(cor_tibble))) {
+        cor_row <- cor_tibble[i, ]
+        dim1 <- cor_row$dim1
+        dim2 <- cor_row$dim2
+        cor_est <- cor_row$estimate
+
+        sd1 <- facet_sd[dim1]
+        sd2 <- facet_sd[dim2]
+
+        cov_est <- cor_est * sd1 * sd2
+
+        se_cov <- NA_real_
+        if ("se" %in% names(cor_row) && !is.na(cor_row$se)) {
+          se_cov <- cor_row$se * sd1 * sd2
+        }
+
+        lower_cov <- NA_real_
+        upper_cov <- NA_real_
+        if ("lower" %in% names(cor_row) && !is.na(cor_row$lower)) {
+          lower_cov <- cor_row$lower * sd1 * sd2
+        }
+        if ("upper" %in% names(cor_row) && !is.na(cor_row$upper)) {
+          upper_cov <- cor_row$upper * sd1 * sd2
+        }
+
+        cov_list[[length(cov_list) + 1]] <- data.frame(
+          dim1 = dim1,
+          dim2 = dim2,
+          estimate = cov_est,
+          se = se_cov,
+          lower = lower_cov,
+          upper = upper_cov,
+          stringsAsFactors = FALSE
+        )
+
+        cov_mat[dim1, dim2] <- cov_est
+        cov_mat[dim2, dim1] <- cov_est
+      }
+
+      for (i in seq_len(n_resp)) {
+        cov_mat[responses[i], responses[i]] <- facet_sd[i]^2
+      }
+
+      if (length(cov_list) > 0) {
+        result$random_effect_cov[[facet]] <- do.call(rbind, cov_list)
+        result$random_effect_cov_matrix[[facet]] <- cov_mat
+      }
+    }
+  }
+
+  if (length(result$random_effect_cov) == 0) {
+    result$random_effect_cov <- NULL
+  }
+  if (length(result$random_effect_cov_matrix) == 0) {
+    result$random_effect_cov_matrix <- NULL
+  }
+
+  result
+}
+
 #' @rdname extract_vc
 #' @keywords internal
 extract_vc.brmsfit <- function(model, ...) {
@@ -990,7 +1627,7 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
   }
 
   draws <- brms::as_draws_matrix(model)
-  model_summary <- summary(model)
+  model_summary <- suppressWarnings(summary(model))
   random_summary <- model_summary$random
   spec_pars <- model_summary$spec_pars
 
@@ -1299,8 +1936,283 @@ extract_single_variance_from_draws_long_format <- function(draws, grp, resp, typ
       random_effect_cor[[facet]] <- cor_tibble
     }
 
-    list(
-      random_effect_cor = random_effect_cor,
-      residual_cor = NULL
-    )
+  list(
+    random_effect_cor = random_effect_cor,
+    residual_cor = NULL
+  )
+}
+
+#' Extract Covariances from brms Long-Format Multivariate Model
+#'
+#' Extracts residual covariances and random effect covariances from a
+#' long-format multivariate brms model. Converts correlations to covariances
+#' using Cov = Cor * SD_i * SD_j.
+#'
+#' @param model A fitted brms model
+#' @param dimension_var Name of the dimension variable in the data
+#' @param data The original data used to fit the model
+#' @param vc Optional variance components tibble (for extracting SDs)
+#'
+#' @return A list with:
+#'   - residual_cov: Tibble with residual covariances (dim1, dim2, estimate, se, lower, upper)
+#'   - random_effect_cov: Named list of tibbles for each facet with covariances
+#'   - residual_cov_matrix: Matrix of residual covariance point estimates
+#'   - random_effect_cov_matrix: Named list of matrices for random effect covariances
+#'
+#' @keywords internal
+extract_covariances_brms_long_format <- function(model, dimension_var, data, vc = NULL) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    return(list(
+      residual_cov = NULL,
+      random_effect_cov = list(),
+      residual_cov_matrix = NULL,
+      random_effect_cov_matrix = list()
+    ))
   }
+
+  draws <- tryCatch(
+    brms::as_draws_matrix(model),
+    error = function(e) NULL
+  )
+
+  if (is.null(draws)) {
+    return(list(
+      residual_cov = NULL,
+      random_effect_cov = list(),
+      residual_cov_matrix = NULL,
+      random_effect_cov_matrix = list()
+    ))
+  }
+
+  dimension_levels <- unique(data[[dimension_var]])
+  dimension_levels <- sort(as.character(dimension_levels))
+  n_dim <- length(dimension_levels)
+
+  result <- list(
+    residual_cov = NULL,
+    random_effect_cov = list(),
+    residual_cov_matrix = NULL,
+    random_effect_cov_matrix = list()
+  )
+
+  # Extract sigma (residual SD) parameters for each dimension
+  sigma_draws_list <- list()
+  for (dim in dimension_levels) {
+    possible_names <- c(
+      paste0("sigma_", dim),
+      paste0("sigma_", dim, "_Intercept"),
+      paste0("sigma_", gsub(" ", "_", dim))
+    )
+    for (pname in possible_names) {
+      if (pname %in% colnames(draws)) {
+        sigma_draws_list[[dim]] <- posterior::extract_variable(draws, pname)
+        break
+      }
+    }
+  }
+
+  # Extract residual correlations (rescor) if present
+  rescor_draws_list <- list()
+  rescor_params <- grep("^rescor\\(", colnames(draws), value = TRUE)
+
+  for (param in rescor_params) {
+    match_result <- regmatches(param, regexec("rescor\\(([^,]+),([^)]+)\\)", param))[[1]]
+    if (length(match_result) == 3) {
+      dim1 <- match_result[1]
+      dim2 <- match_result[2]
+      key <- paste0(dim1, "_", dim2)
+      rescor_draws_list[[key]] <- posterior::extract_variable(draws, param)
+    }
+  }
+
+  # Compute residual covariances from sigma and rescor
+  if (length(sigma_draws_list) > 0 && length(rescor_draws_list) > 0) {
+    residual_cov_rows <- list()
+    residual_cov_matrix <- matrix(0, n_dim, n_dim)
+    rownames(residual_cov_matrix) <- dimension_levels
+    colnames(residual_cov_matrix) <- dimension_levels
+
+    # Diagonal: variance
+    for (dim in dimension_levels) {
+      if (!is.null(sigma_draws_list[[dim]])) {
+        var_draws <- sigma_draws_list[[dim]]^2
+        residual_cov_matrix[dim, dim] <- mean(var_draws, na.rm = TRUE)
+      }
+    }
+
+    # Off-diagonal: covariance from correlation
+    for (i in 2:n_dim) {
+      for (j in 1:(i - 1)) {
+        dim1 <- dimension_levels[j]
+        dim2 <- dimension_levels[i]
+
+        key1 <- paste0(dim1, "_", dim2)
+        key2 <- paste0(dim2, "_", dim1)
+        cor_draws <- rescor_draws_list[[key1]]
+        if (is.null(cor_draws)) cor_draws <- rescor_draws_list[[key2]]
+
+        if (!is.null(cor_draws) &&
+            !is.null(sigma_draws_list[[dim1]]) &&
+            !is.null(sigma_draws_list[[dim2]])) {
+          cov_draws <- cor_draws * sigma_draws_list[[dim1]] * sigma_draws_list[[dim2]]
+
+          estimate <- mean(cov_draws, na.rm = TRUE)
+          se <- sd(cov_draws, na.rm = TRUE)
+          lower <- as.numeric(quantile(cov_draws, 0.025, na.rm = TRUE))
+          upper <- as.numeric(quantile(cov_draws, 0.975, na.rm = TRUE))
+
+          residual_cov_rows[[length(residual_cov_rows) + 1]] <- tibble::tibble(
+            dim1 = dim1,
+            dim2 = dim2,
+            estimate = estimate,
+            se = se,
+            lower = lower,
+            upper = upper
+          )
+
+          residual_cov_matrix[dim1, dim2] <- estimate
+          residual_cov_matrix[dim2, dim1] <- estimate
+        }
+      }
+    }
+
+    if (length(residual_cov_rows) > 0) {
+      result$residual_cov <- dplyr::bind_rows(residual_cov_rows)
+      result$residual_cov_matrix <- residual_cov_matrix
+    }
+  }
+
+  # Extract random effect correlations and convert to covariances
+  cor_params <- grep("^cor_", colnames(draws), value = TRUE)
+
+  if (length(cor_params) > 0) {
+    # Group correlation parameters by facet
+    cor_by_facet <- list()
+    sd_by_facet <- list()
+
+    for (param in cor_params) {
+      match_result <- regmatches(param, regexec("cor_([^\\[]+)\\[([^,]+),([^\\]]+)\\]", param))[[1]]
+
+      if (length(match_result) == 4) {
+        facet <- match_result[2]
+        dim1 <- match_result[3]
+        dim2 <- match_result[4]
+
+        if (is.null(cor_by_facet[[facet]])) {
+          cor_by_facet[[facet]] <- list()
+        }
+
+        cor_draws <- tryCatch(
+          posterior::extract_variable(draws, param),
+          error = function(e) NULL
+        )
+
+        if (!is.null(cor_draws)) {
+          cor_by_facet[[facet]][[paste0(dim1, "_", dim2)]] <- list(
+            dim1 = dim1,
+            dim2 = dim2,
+            cor_draws = cor_draws
+          )
+        }
+      }
+    }
+
+    # Extract SD parameters for each facet and dimension
+    sd_params <- grep("^sd_", colnames(draws), value = TRUE)
+
+    for (param in sd_params) {
+      match_result <- regmatches(param, regexec("sd_([^\\[]+)\\[([^\\]]+)\\]", param))[[1]]
+
+      if (length(match_result) == 3) {
+        facet <- match_result[2]
+        dim_combo <- match_result[3]
+
+        if (is.null(sd_by_facet[[facet]])) {
+          sd_by_facet[[facet]] <- list()
+        }
+
+        sd_draws <- tryCatch(
+          posterior::extract_variable(draws, param),
+          error = function(e) NULL
+        )
+
+        if (!is.null(sd_draws)) {
+          sd_by_facet[[facet]][[dim_combo]] <- sd_draws
+        }
+      }
+    }
+
+    # Convert correlations to covariances for each facet
+    for (facet in names(cor_by_facet)) {
+      cov_rows <- list()
+      n_facet_dim <- length(unique(unlist(lapply(cor_by_facet[[facet]], function(x) c(x$dim1, x$dim2)))))
+
+      # Get all dimensions for this facet
+      facet_dims <- unique(unlist(lapply(cor_by_facet[[facet]], function(x) c(x$dim1, x$dim2))))
+
+      # Build covariance matrix for this facet
+      cov_matrix <- matrix(0, length(facet_dims), length(facet_dims))
+      rownames(cov_matrix) <- facet_dims
+      colnames(cov_matrix) <- facet_dims
+
+      # Fill diagonal with variances
+      for (dim in facet_dims) {
+        sd_param_name <- paste0(dim, "_Intercept")
+        if (is.null(sd_by_facet[[facet]][[sd_param_name]])) {
+          sd_param_name <- dim
+        }
+
+        if (!is.null(sd_by_facet[[facet]][[sd_param_name]])) {
+          sd_draws <- sd_by_facet[[facet]][[sd_param_name]]
+          var_draws <- sd_draws^2
+          cov_matrix[dim, dim] <- mean(var_draws, na.rm = TRUE)
+        }
+      }
+
+      # Fill off-diagonal with covariances
+      for (key in names(cor_by_facet[[facet]])) {
+        cor_info <- cor_by_facet[[facet]][[key]]
+        dim1 <- cor_info$dim1
+        dim2 <- cor_info$dim2
+        cor_draws <- cor_info$cor_draws
+
+        # Get SDs for both dimensions
+        sd1_name <- paste0(dim1, "_Intercept")
+        if (is.null(sd_by_facet[[facet]][[sd1_name]])) sd1_name <- dim1
+        sd2_name <- paste0(dim2, "_Intercept")
+        if (is.null(sd_by_facet[[facet]][[sd2_name]])) sd2_name <- dim2
+
+        sd1_draws <- sd_by_facet[[facet]][[sd1_name]]
+        sd2_draws <- sd_by_facet[[facet]][[sd2_name]]
+
+        if (!is.null(sd1_draws) && !is.null(sd2_draws)) {
+          cov_draws <- cor_draws * sd1_draws * sd2_draws
+
+          estimate <- mean(cov_draws, na.rm = TRUE)
+          se <- sd(cov_draws, na.rm = TRUE)
+          lower <- as.numeric(quantile(cov_draws, 0.025, na.rm = TRUE))
+          upper <- as.numeric(quantile(cov_draws, 0.975, na.rm = TRUE))
+
+          cov_rows[[length(cov_rows) + 1]] <- tibble::tibble(
+            dim1 = dim1,
+            dim2 = dim2,
+            estimate = estimate,
+            se = se,
+            lower = lower,
+            upper = upper
+          )
+
+          cov_matrix[dim1, dim2] <- estimate
+          cov_matrix[dim2, dim1] <- estimate
+        }
+      }
+
+      if (length(cov_rows) > 0) {
+        result$random_effect_cov[[facet]] <- dplyr::bind_rows(cov_rows)
+        result$random_effect_cov_matrix[[facet]] <- cov_matrix
+      }
+    }
+  }
+
+  result
+}
