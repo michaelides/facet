@@ -15,6 +15,7 @@ dstudy(
   cut_score = NULL,
   ci = NULL,
   probs = c(0.025, 0.975),
+  weights = NULL,
   ...
 )
 }
@@ -87,6 +88,11 @@ Default is NULL (no credible intervals computed).}
 calculation. Default is \code{c(0.025, 0.975)} for a 95\% credible interval.
 Works like the \code{quantile()} function. Only used when \code{ci} is specified.}
 
+\item{weights}{Numeric vector of weights for computing composite coefficients.
+Length must match the number of dimensions in the multivariate design.
+Default is NULL, which uses equal weights (1 for each dimension).
+Only applicable for multivariate G-studies (mgstudy objects).}
+
 \item{...}{Additional arguments (currently unused).}
 }
 \value{
@@ -100,8 +106,13 @@ An object of class "dstudy" containing:
 \item var_scaled: Scaled variance (divided by D-study sample sizes)
 \item pct_scaled: Percentage of total scaled variance
 \item dim: Dimension/response variable (for multivariate models)
-}}
-\item{coefficients}{A tibble with G and D coefficients}
+}
+For multivariate models with posterior estimation, variance_components includes
+additional rows with dim = "Composite" showing the weighted composite variance
+for each component type, computed with full posterior propagation.}
+\item{coefficients}{A tibble with G and D coefficients. For multivariate designs,
+the coefficients tibble includes an additional row with dim = "Composite" showing
+the weighted composite G and Phi coefficients.}
 \item{n}{The number of levels for each facet}
 \item{object}{The object of measurement (first component from G-study)}
 \item{universe}{The universe components specification}
@@ -111,6 +122,8 @@ An object of class "dstudy" containing:
 \item{residual_composition}{The facets that make up the residual (from parse_residual_facets)}
 \item{estimation}{The estimation method used ("simple" or "posterior")}
 \item{posterior}{List of posterior distributions (only when estimation = "posterior")}
+\item{composite_posterior}{Posterior draws of composite variance components for
+downstream analysis (only for multivariate models with posterior estimation)}
 \item{cut_score}{The cutoff score used for phi-cut calculation (if provided)}
 \item{mu_y}{The grand mean(s) used for phi-cut calculation (if cut_score provided)}
 \item{ci}{The credible interval specification (if provided)}
@@ -137,6 +150,42 @@ a facet (e.g., averaging across multiple raters), so that the variance
 components for that facet are divided by their respective sample sizes
 before computing coefficients.
 }
+}
+
+\subsection{Composite Coefficients for Multivariate Designs}{
+
+For multivariate G-studies (mgstudy objects), composite coefficients provide
+an overall reliability estimate for a weighted sum of dimension scores.
+The composite score is:
+
+\code{Y_composite = sum(w_d * Y_d)}
+
+The variance of this composite for any variance component is computed as:
+
+\verb{sigma^2_composite = w' * Sigma * w}
+
+Where:
+\itemize{
+\item \code{w} is the vector of weights (one per dimension)
+\item \code{Sigma} is the variance-covariance matrix for that component
+}
+
+Expanded, this equals:
+
+\verb{sigma^2_composite = sum(w_d^2 * sigma^2_d) + 2 * sum(w_d * w_d' * sigma_dd')}
+
+The covariances (off-diagonal elements) contribute when dimensions are correlated.
+This means composite reliability often exceeds the average of dimension-specific
+reliabilities, as the composite "borrows strength" from correlations.
+
+The \code{weights} parameter controls the contribution of each dimension:
+\itemize{
+\item Default: \code{NULL} uses equal weights (1 for each dimension)
+\item Custom: Provide a numeric vector with length matching the number of dimensions
+}
+
+For posterior estimation with brms backend, composite coefficients are computed
+for each posterior draw, properly propagating uncertainty to the final estimates.
 }
 }
 \examples{

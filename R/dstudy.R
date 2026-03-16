@@ -72,7 +72,10 @@
 #' \item var_scaled: Scaled variance (divided by D-study sample sizes)
 #' \item pct_scaled: Percentage of total scaled variance
 #' \item dim: Dimension/response variable (for multivariate models)
-#' }}
+#' }
+#' For multivariate models with posterior estimation, variance_components includes
+#' additional rows with dim = "Composite" showing the weighted composite variance
+#' for each component type, computed with full posterior propagation.}
 #' \item{coefficients}{A tibble with G and D coefficients. For multivariate designs,
 #' the coefficients tibble includes an additional row with dim = "Composite" showing
 #' the weighted composite G and Phi coefficients.}
@@ -85,6 +88,8 @@
 #' \item{residual_composition}{The facets that make up the residual (from parse_residual_facets)}
 #' \item{estimation}{The estimation method used ("simple" or "posterior")}
 #' \item{posterior}{List of posterior distributions (only when estimation = "posterior")}
+#' \item{composite_posterior}{Posterior draws of composite variance components for
+#' downstream analysis (only for multivariate models with posterior estimation)}
 #' \item{cut_score}{The cutoff score used for phi-cut calculation (if provided)}
 #' \item{mu_y}{The grand mean(s) used for phi-cut calculation (if cut_score provided)}
 #' \item{ci}{The credible interval specification (if provided)}
