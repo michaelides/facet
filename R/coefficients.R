@@ -532,12 +532,18 @@ is_object ~ .data$var,
 	pct_scaled = (.data$var / sum(.data$var, na.rm = TRUE)) * 100
 ) %>%
 	select(-any_of(c('pct', 'facets_list', 'is_object', 'is_residual', 'is_interaction',
-		'scale_factor', 'n_facet', 'has_additional_agg', 'additional_agg_factor',
-		'has_agg', 'agg_n', 'error', 'se', 'lower', 'upper', 'sd', 'Rhat', 'Bulk_ESS', 'Tail_ESS')))
-}
-}
+'scale_factor', 'n_facet', 'has_additional_agg', 'additional_agg_factor',
+    'has_agg', 'agg_n', 'error', 'se', 'lower', 'upper', 'sd', 'Rhat', 'Bulk_ESS', 'Tail_ESS')))
+  }
+  }
 
- d_vc
+  # Ensure dim column comes after component for multivariate models
+  if ("dim" %in% names(d_vc)) {
+    d_vc <- d_vc %>% 
+      dplyr::relocate(dim, .after = component)
+  }
+
+  d_vc
 }
 
 #' Calculate Divided Variance Components
@@ -1173,11 +1179,11 @@ calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n,
   composite_rows <- lapply(components, function(comp) {
     data.frame(
       component = comp,
+      dim = "Composite",
       var = composite_summaries[[comp]]$var,
       var_unscaled = composite_summaries[[comp]]$var_unscaled,
       pct = (composite_summaries[[comp]]$var / total_var) * 100,
       pct_unscaled = (composite_summaries[[comp]]$var_unscaled / total_var_unscaled) * 100,
-      dim = "Composite",
       stringsAsFactors = FALSE
     )
   })
