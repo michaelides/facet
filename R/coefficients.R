@@ -1152,38 +1152,41 @@ calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n,
   composite_draws <- list()
   composite_summaries <- list()
 
-  for (comp in components) {
+for (comp in components) {
     scale_factor <- compute_component_scale_factor(
       comp, n, object_spec, n_provided
     )
-
+    
     comp_draws <- calculate_composite_variance_draws(
       vc_draws, cov_draws, weights, scale_factor
     )
-
+    
     composite_draws[[comp]] <- comp_draws[[comp]]
-
-    var_mean <- mean(comp_draws[[comp]], na.rm = TRUE)
+    
+    var_scaled_mean <- mean(comp_draws[[comp]], na.rm = TRUE)
     var_se <- sd(comp_draws[[comp]], na.rm = TRUE)
-
+    
+    # Unscaled = scaled * scale_factor (reverse the D-study scaling)
+    var_unscaled_mean <- var_scaled_mean * scale_factor
+    
     composite_summaries[[comp]] <- list(
-      var = var_mean,
-      se = var_se,
-      var_unscaled = var_mean * scale_factor
+      var_scaled = var_scaled_mean,
+      var_unscaled = var_unscaled_mean,
+      se = var_se
     )
   }
-
-  total_var <- sum(sapply(composite_summaries, function(x) x$var))
+  
+  total_var_scaled <- sum(sapply(composite_summaries, function(x) x$var_scaled))
   total_var_unscaled <- sum(sapply(composite_summaries, function(x) x$var_unscaled))
-
+  
   composite_rows <- lapply(components, function(comp) {
     data.frame(
       component = comp,
       dim = "Composite",
-      var = composite_summaries[[comp]]$var,
       var_unscaled = composite_summaries[[comp]]$var_unscaled,
-      pct = (composite_summaries[[comp]]$var / total_var) * 100,
       pct_unscaled = (composite_summaries[[comp]]$var_unscaled / total_var_unscaled) * 100,
+      var_scaled = composite_summaries[[comp]]$var_scaled,
+      pct_scaled = (composite_summaries[[comp]]$var_scaled / total_var_scaled) * 100,
       stringsAsFactors = FALSE
     )
   })
