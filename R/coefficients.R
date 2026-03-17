@@ -1275,7 +1275,148 @@ compute_composite_error_variance <- function(vc, dimensions, weights, correlatio
  }
  }
 
- total_error
+  total_error
+}
+
+#' Calculate Composite Coefficients from Posterior Draws
+#'
+#' Computes composite reliability coefficients from posterior draws of
+#' variance components and covariances. This ensures proper uncertainty
+#' propagation for multivariate D-studies with brms backend.
+#'
+#' @param vc_draws Named list (by dimension) of named lists (by component) of variance draws
+#' @param cov_draws Named list from extract_covariance_draws()
+#' @param weights Named numeric vector of weights (names = dimensions)
+#' @param scale_factors Named list of scale factors per component
+#' @param object_spec Parsed object specification
+#' @param universe_spec Parsed universe specification  
+#' @param error_spec Parsed error specification (or NULL)
+#' @param agg_facets Parsed aggregation specification (or NULL)
+#' @param residual_is Residual composition specification
+#' @param cut_score Optional cut score for phi-cut
+#' @param mu_y Named list of grand means (or single value)
+#' @param ci Optional CI specification (character vector)
+#' @param probs Probability levels for credible intervals
+#'
+#' @return List with:
+#'   \describe{
+#'     \item{summary}{Data frame with coefficient point estimates}
+#'     \item{distributions}{Named list of posterior draws for each coefficient}
+#'   }
+#'
+#' @keywords internal
+calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws, 
+                                                         weights, scale_factors,
+                                                         object_spec, universe_spec, 
+                                                         error_spec, agg_facets,
+                                                         residual_is, cut_score = NULL,
+                                                         mu_y = NULL, ci = NULL, 
+                                                         probs = c(0.025, 0.975)) {
+  dimensions <- names(weights)
+  n_draws <- length(vc_draws[[1]][[1]])
+  components <- names(vc_draws[[1]])
+  
+  error_info <- identify_error_components_for_draws(components, universe_spec, error_spec, agg_facets)
+  
+  composite_variance_draws <- list()
+  for (comp in components) {
+    scale_factor <- scale_factors[[comp]]
+    composite_variance_draws[[comp]] <- calculate_composite_variance_draws(
+      vc_draws, cov_draws, weights, scale_factor
+    )[[comp]]
+  }
+  
+  uni_draws <- rep(0, n_draws)
+  for (comp in universe_spec) {
+    if (comp %in% components) {
+      scale_factor <- scale_factors[[comp]]
+      if (comp %in% object_spec) {
+        uni_draws <- uni_draws + composite_variance_draws[[comp]]
+      } else {
+        uni_draws <- uni_draws + composite_variance_draws[[comp]] / scale_factor
+      }
+    }
+  }
+  
+  sigma2_delta_draws <- rep(0, n_draws)
+  for (i in which(error_info$is_relative_error)) {
+    comp <- components[i]
+    sigma2_delta_draws <- sigma2_delta_draws + composite_variance_draws[[comp]]
+  }
+  
+  sigma2_delta_abs_draws <- rep(0, n_draws)
+  for (i in which(error_info$is_absolute_error)) {
+    comp <- components[i]
+    sigma2_delta_abs_draws <- sigma2_delta_abs_draws + composite_variance_draws[[comp]]
+  }
+  
+  g_draws <- uni_draws / (uni_draws + sigma2_delta_draws)
+  phi_draws <- uni_draws / (uni_draws + sigma2_delta_abs_draws)
+  sem_rel_draws <- sqrt(sigma2_delta_draws)
+  sem_abs_draws <- sqrt(sigma2_delta_abs_draws)
+  
+  g_draws[is.nan(g_draws) | is.infinite(g_draws)] <- NA
+  phi_draws[is.nan(phi_draws) | is.infinite(phi_draws)] <- NA
+  
+  phi_cut_draws <- NULL
+  if (!is.null(cut_score) && !is.null(mu_y)) {
+    mu_y_weighted <- sum(weights * sapply(dimensions, function(d) {
+      if (is.list(mu_y)) mu_y[[d]] else mu_y
+    }))
+    adjustment <- (mu_y_weighted - cut_score)^2
+    phi_cut_draws <- (uni_draws + adjustment) / (uni_draws + sigma2_delta_abs_draws + adjustment)
+    phi_cut_draws[is.nan(phi_cut_draws) | is.infinite(phi_cut_draws)] <- NA
+  }
+  
+  summary_df <- data.frame(
+    dim = "Composite",
+    uni = mean(uni_draws, na.rm = TRUE),
+    sigma2_delta = mean(sigma2_delta_draws, na.rm = TRUE),
+    sigma2_delta_abs = mean(sigma2_delta_abs_draws, na.rm = TRUE),
+    g = mean(g_draws, na.rm = TRUE),
+    phi = mean(phi_draws, na.rm = TRUE),
+    sem_rel = mean(sem_rel_draws, na.rm = TRUE),
+    sem_abs = mean(sem_abs_draws, na.rm = TRUE),
+    stringsAsFactors = FALSE
+  )
+  
+  if (!is.null(cut_score)) {
+    summary_df$phi_cut <- mean(phi_cut_draws, na.rm = TRUE)
+  }
+  
+  if (!is.null(ci)) {
+    if ("g" %in% ci) {
+      summary_df$g_LL <- quantile(g_draws, probs[1], na.rm = TRUE)
+      summary_df$g_UL <- quantile(g_draws, probs[2], na.rm = TRUE)
+    }
+    if ("phi" %in% ci) {
+      summary_df$phi_LL <- quantile(phi_draws, probs[1], na.rm = TRUE)
+      summary_df$phi_UL <- quantile(phi_draws, probs[2], na.rm = TRUE)
+    }
+    if ("phi-cut" %in% ci && !is.null(cut_score)) {
+      summary_df$phi_cut_LL <- quantile(phi_cut_draws, probs[1], na.rm = TRUE)
+      summary_df$phi_cut_UL <- quantile(phi_cut_draws, probs[2], na.rm = TRUE)
+    }
+  }
+  
+  distributions <- list(
+    uni = uni_draws,
+    sigma2_delta = sigma2_delta_draws,
+    sigma2_delta_abs = sigma2_delta_abs_draws,
+    g = g_draws,
+    phi = phi_draws,
+    sem_rel = sem_rel_draws,
+    sem_abs = sem_abs_draws
+  )
+  
+  if (!is.null(cut_score)) {
+    distributions$phi_cut <- phi_cut_draws
+  }
+  
+  list(
+    summary = summary_df,
+    distributions = distributions
+  )
 }
 
 #' Compute Scale Factor for Composite Variance
@@ -1329,120 +1470,7 @@ compute_scale_factor <- function(component, n, object_spec, universe_spec) {
  }
  }
 
- scale_factor
-}
-
-#' Calculate Composite Coefficients Using Posterior Draws
-#'
-#' Computes composite reliability coefficients from a Bayesian multivariate G-study
-#' by computing coefficients for each posterior draw and summarizing.
-#'
-#' @param gstudy_obj The mgstudy object from a Bayesian G-study
-#' @param vc Variance components tibble (scaled for D-study)
-#' @param n Named list of sample sizes
-#' @param weights Named numeric vector of weights
-#' @param object The object of measurement specification
-#' @param error Optional error component specification
-#' @param aggregation Optional aggregation specification
-#' @param residual_is Optional residual specification
-#' @param universe Optional universe specification
-#' @param cut_score Optional cut-score for phi-cut calculation
-#' @param mu_y Optional grand mean(s) for phi-cut calculation
-#' @param ci Optional CI specification
-#' @param probs Probability levels for credible intervals
-#'
-#' @return A data.frame with composite coefficient summaries including CIs if requested
-#'
-#' @keywords internal
-calculate_composite_coefficients_posterior <- function(gstudy_obj, vc, n, weights, object, error = NULL, aggregation = NULL, residual_is = NULL, universe = NULL, cut_score = NULL, mu_y = NULL, ci = NULL, probs = c(0.025, 0.975)) {
-  
-  dimensions <- names(weights)
-  correlations <- gstudy_obj$correlations
-  
-  # Parse specifications
-  if (is.null(object)) {
-    object_spec <- vc$component[1]
-  } else {
-    object_spec <- parse_specification(object)
-  }
-  
-  if (is.null(universe) || length(universe) == 0) {
-    universe_spec <- object_spec
-  } else {
-    universe_spec <- parse_specification(universe)
-  }
-  
-  if (!is.null(error)) {
-    error_spec <- parse_specification(error)
-  } else {
-    error_spec <- NULL
-  }
-  
-  components <- unique(vc$component)
-  
-  # For posterior estimation, we compute composite for each draw
-  # Since we don't have the full posterior of covariances, 
-  # we use the point estimates from the correlations structure
-  
-  # Compute universe score variance (composite)
-  uni_composite <- 0
-  for (comp in universe_spec) {
-    if (comp %in% components) {
-      cov_mat <- build_component_covariance_matrix(vc, comp, dimensions, correlations)
-      if (comp %in% object_spec) {
-        uni_composite <- uni_composite + compute_weighted_variance(cov_mat, weights)
-      } else {
-        uni_composite <- uni_composite + compute_weighted_variance(cov_mat, weights)
-      }
-    }
-  }
-  
-  # Compute relative error variance (composite)
-  sigma2_delta_composite <- compute_composite_error_variance(
-    vc, dimensions, weights, correlations, universe_spec, error_spec,
-    aggregation, residual_is, "relative"
-  )
-  
-  # Compute absolute error variance (composite)
-  sigma2_delta_abs_composite <- compute_composite_error_variance(
-    vc, dimensions, weights, correlations, universe_spec, error_spec,
-    aggregation, residual_is, "absolute"
-  )
-  
-  # Compute coefficients
-  g_composite <- uni_composite / (uni_composite + sigma2_delta_composite)
-  phi_composite <- uni_composite / (uni_composite + sigma2_delta_abs_composite)
-  
-  sem_rel_composite <- sqrt(sigma2_delta_composite)
-  sem_abs_composite <- sqrt(sigma2_delta_abs_composite)
-  
-  result <- data.frame(
-    dim = "Composite",
-    uni = uni_composite,
-    sigma2_delta = sigma2_delta_composite,
-    sigma2_delta_abs = sigma2_delta_abs_composite,
-    g = g_composite,
-    phi = phi_composite,
-    sem_rel = sem_rel_composite,
-    sem_abs = sem_abs_composite,
-    stringsAsFactors = FALSE
-  )
-  
-  if (!is.null(cut_score) && !is.null(mu_y)) {
-    mu_y_weighted <- sum(weights * sapply(dimensions, function(d) {
-      if (is.list(mu_y)) mu_y[[d]] else mu_y
-    }))
-    adjustment <- (mu_y_weighted - cut_score)^2
-    result$phi_cut <- (uni_composite + adjustment) / 
-                       (uni_composite + sigma2_delta_abs_composite + adjustment)
-  }
-  
-  # Note: For full posterior CIs on composite coefficients, we would need
-  # to propagate uncertainty from the covariance posterior draws.
-  # Currently using point estimates of covariances.
-  # CI columns would need to be added here if ci is specified.
-  
-  result
+  scale_factor
 }
 
 #' Compute Relative Error Variance
@@ -1596,6 +1624,75 @@ compute_phi_coefficient <- function(variance_components, n, object, error = NULL
 #' @keywords internal
 compute_sem <- function(error_variance) {
   sqrt(error_variance)
+}
+
+#' Identify Error Components for D-Study (Internal)
+#'
+#' Determines which variance components belong to relative and absolute error.
+#' This consolidates logic used by both point-estimate and draw-based computations.
+#'
+#' @param components Character vector of component names
+#' @param universe_spec Character vector of universe components
+#' @param error_spec Character vector of explicit error components (or NULL)
+#' @param agg_facets Character vector of aggregation facets (or NULL)
+#'
+#' @return List with `is_relative_error` and `is_absolute_error` logical vectors
+#'
+#' @keywords internal
+identify_error_components_for_draws <- function(components, universe_spec, error_spec = NULL, 
+                                        agg_facets = NULL) {
+  n_comp <- length(components)
+  is_universe <- components %in% universe_spec
+  
+  is_agg_main <- logical(n_comp)
+  if (!is.null(agg_facets)) {
+    for (i in seq_len(n_comp)) {
+      comp <- components[i]
+      if (comp == "Residual") {
+        is_agg_main[i] <- FALSE
+      } else {
+        comp_facets <- parse_component_facets(comp)
+        is_agg_main[i] <- length(comp_facets) == 1 && all(comp_facets %in% agg_facets)
+      }
+    }
+  }
+  
+  if (!is.null(error_spec)) {
+    is_error_component <- components %in% error_spec
+    return(list(
+      is_relative_error = is_error_component,
+      is_absolute_error = is_error_component,
+      error_spec_used = TRUE
+    ))
+  }
+  
+  is_relative_error <- logical(n_comp)
+  is_absolute_error <- logical(n_comp)
+  
+  for (i in seq_len(n_comp)) {
+    comp <- components[i]
+    
+    if (is_universe[i] || is_agg_main[i]) {
+      next
+    }
+    
+    is_absolute_error[i] <- TRUE
+    
+    if (comp == "Residual" || grepl("^Residual", comp)) {
+      is_relative_error[i] <- TRUE
+    } else {
+      comp_facets <- parse_component_facets(comp)
+      if (any(universe_spec %in% comp_facets)) {
+        is_relative_error[i] <- TRUE
+      }
+    }
+  }
+  
+  list(
+    is_relative_error = is_relative_error,
+    is_absolute_error = is_absolute_error,
+    error_spec_used = FALSE
+  )
 }
 
 #' Calculate Coefficients Using Posterior Draws
@@ -1800,10 +1897,11 @@ probs = probs
 
       coefficients <- tibble::as_tibble(do.call(rbind, lapply(mv_dims, function(d) dim_results[[d]])))
 
-      # Compute composite variance components
       composite_result <- NULL
+      composite_posterior <- NULL
+      
       if (!is.null(cov_draws) && !is.null(weights)) {
-        composite_result <- calculate_dstudy_variance_composite(
+        vc_result <- calculate_dstudy_variance_composite(
           vc_draws = vc_draws,
           cov_draws = cov_draws,
           weights = weights,
@@ -1811,13 +1909,45 @@ probs = probs
           object = object,
           n_provided = n_provided
         )
+        
+        components <- names(vc_draws[[1]])
+        scale_factors <- list()
+        for (comp in components) {
+          scale_factors[[comp]] <- compute_component_scale_factor(comp, n, object_spec, n_provided)
+        }
+        
+        coef_result <- calculate_composite_coefficients_from_draws(
+          vc_draws = vc_draws,
+          cov_draws = cov_draws,
+          weights = weights,
+          scale_factors = scale_factors,
+          object_spec = object_spec,
+          universe_spec = universe_spec,
+          error_spec = error_spec,
+          agg_facets = agg_facets,
+          residual_is = residual_is,
+          cut_score = cut_score,
+          mu_y = mu_y,
+          ci = ci,
+          probs = probs
+        )
+        
+        coefficients <- dplyr::bind_rows(coefficients, coef_result$summary)
+        composite_posterior <- coef_result$distributions
+        
+        return(list(
+          coefficients = coefficients,
+          posterior = dim_posteriors,
+          composite_vc = vc_result$vc_table,
+          composite_posterior = composite_posterior
+        ))
       }
 
       return(list(
         coefficients = coefficients,
         posterior = dim_posteriors,
-        composite_vc = if (!is.null(composite_result)) composite_result$vc_table else NULL,
-        composite_posterior = if (!is.null(composite_result)) composite_result$posterior else NULL
+        composite_vc = NULL,
+        composite_posterior = NULL
       ))
 } else {
 result <- calculate_single_posterior(

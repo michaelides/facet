@@ -1434,3 +1434,138 @@ test_that("dstudy computes composite variance components for multivariate poster
 
   expect_true(!is.null(dstudy_result$composite_posterior))
 })
+
+test_that("composite coefficients are computed from posterior draws, not point estimates", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  set.seed(789)
+  
+  n_persons <- 20
+  n_items <- 5
+  
+  data <- data.frame(
+    person = rep(1:n_persons, each = n_items * 2),
+    item = rep(rep(1:n_items, 2), n_persons),
+    dim = rep(c("A", "B"), n_persons * n_items)
+  )
+  
+  person_A <- rnorm(n_persons, 0, sqrt(0.4))
+  person_B <- 0.7 * person_A + rnorm(n_persons, 0, sqrt(0.3))
+  item_A <- rnorm(n_items, 0, sqrt(0.1))
+  item_B <- rnorm(n_items, 0, sqrt(0.1))
+  
+  data$score <- NA
+  for (i in 1:nrow(data)) {
+    p <- data$person[i]
+    it <- data$item[i]
+    d <- data$dim[i]
+    if (d == "A") {
+      data$score[i] <- person_A[p] + item_A[it] + rnorm(1, 0, sqrt(0.5))
+    } else {
+      data$score[i] <- person_B[p] + item_B[it] + rnorm(1, 0, sqrt(0.5))
+    }
+  }
+  
+  data_wide <- tidyr::pivot_wider(data, names_from = dim, values_from = score)
+  
+  gstudy_result <- gstudy(
+    formula = mvbind(A, B) ~ (1 | person) + (1 | item),
+    data = data_wide,
+    backend = "brms",
+    cores = 2, chains = 2, iter = 1000
+  )
+  
+  dstudy_result <- dstudy(
+    gstudy_result, 
+    n = list(person = 10, item = 5), 
+    weights = c(A = 1, B = 1)
+  )
+  
+  expect_s3_class(dstudy_result$coefficients, "data.frame")
+  
+  composite_row <- dstudy_result$coefficients[dstudy_result$coefficients$dim == "Composite", ]
+  expect_true(nrow(composite_row) == 1)
+  
+  expect_true(!is.null(dstudy_result$composite_posterior), 
+              "composite_posterior should exist for brms backend")
+  
+  post <- dstudy_result$composite_posterior
+  
+  expect_true("uni" %in% names(post), "uni draws should exist")
+  expect_true("sigma2_delta" %in% names(post), "sigma2_delta draws should exist")
+  expect_true("sigma2_delta_abs" %in% names(post), "sigma2_delta_abs draws should exist")
+  expect_true("g" %in% names(post), "g draws should exist")
+  expect_true("phi" %in% names(post), "phi draws should exist")
+  
+  g_draws <- post$uni / (post$uni + post$sigma2_delta)
+  phi_draws <- post$uni / (post$uni + post$sigma2_delta_abs)
+  
+  g_draw_mean <- mean(g_draws, na.rm = TRUE)
+  phi_draw_mean <- mean(phi_draws, na.rm = TRUE)
+  
+  expect_equal(composite_row$g, g_draw_mean, tolerance = 0.01,
+               info = "g coefficient should be mean of per-draw calculations")
+  expect_equal(composite_row$phi, phi_draw_mean, tolerance = 0.01,
+               info = "phi coefficient should be mean of per-draw calculations")
+})
+
+test_that("composite coefficients include credible intervals when ci requested", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  set.seed(321)
+  
+  n_persons <- 15
+  n_items <- 4
+  
+  data <- data.frame(
+    person = rep(1:n_persons, each = n_items * 2),
+    item = rep(rep(1:n_items, 2), n_persons),
+    dim = rep(c("A", "B"), n_persons * n_items)
+  )
+  
+  person_A <- rnorm(n_persons, 0, 1)
+  person_B <- person_A + rnorm(n_persons, 0, 0.5)
+  
+  data$score <- NA
+  for (i in 1:nrow(data)) {
+    p <- data$person[i]
+    d <- data$dim[i]
+    if (d == "A") {
+      data$score[i] <- person_A[p] + rnorm(1, 0, 0.5)
+    } else {
+      data$score[i] <- person_B[p] + rnorm(1, 0, 0.5)
+    }
+  }
+  
+  data_wide <- tidyr::pivot_wider(data, names_from = dim, values_from = score)
+  
+  gstudy_result <- gstudy(
+    formula = mvbind(A, B) ~ (1 | person),
+    data = data_wide,
+    backend = "brms",
+    cores = 2, chains = 2, iter = 800
+  )
+  
+  dstudy_result <- dstudy(
+    gstudy_result, 
+    n = list(person = 10),
+    weights = c(A = 0.5, B = 0.5),
+    ci = c("g", "phi")
+  )
+  
+  composite_row <- dstudy_result$coefficients[dstudy_result$coefficients$dim == "Composite", ]
+  
+  expect_true("g_LL" %in% names(dstudy_result$coefficients), 
+              "g_LL should exist when ci includes 'g'")
+  expect_true("g_UL" %in% names(dstudy_result$coefficients),
+              "g_UL should exist when ci includes 'g'")
+  expect_true("phi_LL" %in% names(dstudy_result$coefficients),
+              "phi_LL should exist when ci includes 'phi'")
+  expect_true("phi_UL" %in% names(dstudy_result$coefficients),
+              "phi_UL should exist when ci includes 'phi'")
+  
+  expect_true(!is.na(composite_row$g_LL), "Composite g_LL should not be NA")
+  expect_true(!is.na(composite_row$g_UL), "Composite g_UL should not be NA")
+  expect_true(composite_row$g_LL <= composite_row$g, "g_LL should be <= g")
+  expect_true(composite_row$g_UL >= composite_row$g, "g_UL should be >= g")
+})
