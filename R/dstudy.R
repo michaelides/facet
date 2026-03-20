@@ -50,7 +50,7 @@
 #' phi coefficient. For multivariate models, can be a single value applied to all dimensions.
 #' Default is NULL (no phi-cut calculation).
 #' @param ci Character vector specifying which coefficients to compute credible intervals for.
-#'   Options: "g", "phi", "phi-cut". Can specify multiple: `ci = c("g", "phi")`.
+#'   Options: "g", "phi", "phi-cut", "var_rel", "var_abs". Can specify multiple: `ci = c("g", "phi")`.
 #'   Credible intervals are only available when using the brms backend.
 #'   Default is NULL (no credible intervals computed).
 #' @param probs Numeric vector of length 2 specifying the quantiles for credible interval
@@ -263,7 +263,7 @@ backend = "brms"
 
   # 1.9. Validate ci parameter
   if (!is.null(ci)) {
-    ci <- match.arg(ci, c("g", "phi", "phi-cut"), several.ok = TRUE)
+    ci <- match.arg(ci, c("g", "phi", "phi-cut", "var_rel", "var_abs"), several.ok = TRUE)
     if (gstudy_obj$backend != "brms") {
       warning(
         "Credible intervals for 'mom' and 'lme4' backends are not yet implemented. ",
@@ -689,29 +689,32 @@ coefficients <- do.call(rbind, results)
       if (!n_provided) {
         d_vc_iter <- calculate_dstudy_variance(vc, n_current, object, aggregation, FALSE, residual_is_effective, facet_n = gstudy_obj$facet_n)
       } else {
-        d_vc_iter <- calculate_dstudy_variance(vc, n_current, object, aggregation, n_provided, residual_is_effective, facet_n = gstudy_obj$facet_n)
-      }
+d_vc_iter <- calculate_dstudy_variance(vc, n_current, object, aggregation, n_provided, residual_is_effective, facet_n = gstudy_obj$facet_n)
+    }
 
-      composite_coefs <- calculate_composite_coefficients(
-        vc = d_vc_iter,
-        n = n_current,
-        weights = weights,
-        object = object,
-        error = error,
-        aggregation = aggregation,
-        residual_is = residual_is_effective,
-        universe = universe_spec,
-        correlations = gstudy_obj$correlations,
-        cut_score = cut_score,
-        mu_y = mu_y
-      )
+    composite_coefs <- calculate_composite_coefficients(
+      vc = d_vc_iter,
+      n = n_current,
+      weights = weights,
+      object = object,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      universe = universe_spec,
+      correlations = gstudy_obj$correlations,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      gstudy_data = gstudy_obj$data,
+      dimension_var = gstudy_obj$dimension_var
+    )
 
-      if ("estimate" %in% names(coefficients)) {
-        est_type <- coefficients$estimate[1]
-        composite_coefs$estimate <- est_type
-      }
+        composite_summary <- composite_coefs$summary
+        if ("estimate" %in% names(coefficients)) {
+          est_type <- coefficients$estimate[1]
+          composite_summary$estimate <- est_type
+        }
 
-      cbind(data.frame(n_current, stringsAsFactors = FALSE), composite_coefs)
+        cbind(data.frame(n_current, stringsAsFactors = FALSE), composite_summary)
     })
 
     composite_combined <- do.call(rbind, composite_results)
@@ -762,47 +765,53 @@ aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
     if (is_multivariate && length(dimensions) > 1) {
       # Need to compute composite for both unscaled and scaled
       # Unscaled composite
-      composite_unscaled <- calculate_composite_coefficients(
-        vc = vc,
-        n = NULL,
-        weights = weights,
-        object = object,
-        error = error,
-        aggregation = aggregation,
-        residual_is = residual_is_effective,
-        universe = universe_spec,
-        correlations = gstudy_obj$correlations,
-        cut_score = cut_score,
-        mu_y = mu_y
-      )
-      composite_unscaled$estimate <- "unscaled"
+composite_unscaled <- calculate_composite_coefficients(
+    vc = vc,
+    n = NULL,
+    weights = weights,
+    object = object,
+    error = error,
+    aggregation = aggregation,
+    residual_is = residual_is_effective,
+    universe = universe_spec,
+    correlations = gstudy_obj$correlations,
+    cut_score = cut_score,
+    mu_y = mu_y,
+    gstudy_data = gstudy_obj$data,
+    dimension_var = gstudy_obj$dimension_var
+  )
+  composite_unscaled_summary <- composite_unscaled$summary
+  composite_unscaled_summary$estimate <- "unscaled"
 
-      # Scaled composite
-      composite_scaled <- calculate_composite_coefficients(
-        vc = d_vc,
-        n = n,
-        weights = weights,
-        object = object,
-        error = error,
-        aggregation = aggregation,
-        residual_is = residual_is_effective,
-        universe = universe_spec,
-        correlations = gstudy_obj$correlations,
-        cut_score = cut_score,
-        mu_y = mu_y
-      )
-      composite_scaled$estimate <- "scaled"
+  # Scaled composite
+  composite_scaled <- calculate_composite_coefficients(
+    vc = d_vc,
+    n = n,
+    weights = weights,
+    object = object,
+    error = error,
+    aggregation = aggregation,
+    residual_is = residual_is_effective,
+    universe = universe_spec,
+correlations = gstudy_obj$correlations,
+    cut_score = cut_score,
+    mu_y = mu_y,
+    gstudy_data = gstudy_obj$data,
+    dimension_var = gstudy_obj$dimension_var
+  )
+  composite_scaled_summary <- composite_scaled$summary
+  composite_scaled_summary$estimate <- "scaled"
 
-      coefficients <- dplyr::bind_rows(coefficients, composite_unscaled, composite_scaled)
+        coefficients <- dplyr::bind_rows(coefficients, composite_unscaled_summary, composite_scaled_summary)
     }
     } else {
 # When n IS provided: use standard D-study variance calculation
   d_vc <- calculate_dstudy_variance(vc, n, object, aggregation, n_provided, residual_is_effective, facet_n = gstudy_obj$facet_n)
 
-  # Calculate coefficients (scaled only, no estimate column)
-  coefficients <- calculate_coefficients(d_vc, n, object, error, aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
+    # Calculate coefficients (scaled only, no estimate column)
+    coefficients <- calculate_coefficients(d_vc, n, object, error, aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
-  # Calculate composite coefficients for multivariate designs
+# Calculate composite coefficients for multivariate designs
   if (is_multivariate && length(dimensions) > 1) {
     composite_coefs <- calculate_composite_coefficients(
       vc = d_vc,
@@ -815,16 +824,39 @@ aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
       universe = universe_spec,
       correlations = gstudy_obj$correlations,
       cut_score = cut_score,
-      mu_y = mu_y
+      mu_y = mu_y,
+      gstudy_data = gstudy_obj$data,
+      dimension_var = gstudy_obj$dimension_var
     )
 
-    # Add estimate column if present in other coefficients
-    if ("estimate" %in% names(coefficients)) {
-      composite_coefs$estimate <- coefficients$estimate[1]
-    }
+      composite_summary <- composite_coefs$summary
 
-    # Append composite row to coefficients
-    coefficients <- dplyr::bind_rows(coefficients, composite_coefs)
+      # Add VAR columns to coefficients if not present
+      if (!"var_rel" %in% names(coefficients)) {
+        coefficients$var_rel <- NA_real_
+      }
+      if (!"var_abs" %in% names(coefficients)) {
+        coefficients$var_abs <- NA_real_
+      }
+
+      # Add VAR values to dimension rows
+      if (!is.null(composite_coefs$per_subscale_var)) {
+        for (dim_name in names(composite_coefs$per_subscale_var)) {
+          dim_idx <- which(coefficients$dim == dim_name)
+          if (length(dim_idx) > 0) {
+            coefficients$var_rel[dim_idx] <- composite_coefs$per_subscale_var[[dim_name]]$var_rel
+            coefficients$var_abs[dim_idx] <- composite_coefs$per_subscale_var[[dim_name]]$var_abs
+          }
+        }
+      }
+
+      # Add estimate column if present in other coefficients
+      if ("estimate" %in% names(coefficients)) {
+        composite_summary$estimate <- coefficients$estimate[1]
+      }
+
+      # Append composite row to coefficients
+      coefficients <- dplyr::bind_rows(coefficients, composite_summary)
   }
 }
 }

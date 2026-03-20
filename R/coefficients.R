@@ -959,7 +959,7 @@ compute_weighted_variance <- function(cov_matrix, weights) {
 #'   - phi_cut: Phi-cut coefficient (if cut_score provided)
 #'
 #' @keywords internal
-calculate_composite_coefficients <- function(vc, n, weights, object, error = NULL, aggregation = NULL, residual_is = NULL, universe = NULL, correlations = NULL, cut_score = NULL, mu_y = NULL) {
+calculate_composite_coefficients <- function(vc, n, weights, object, error = NULL, aggregation = NULL, residual_is = NULL, universe = NULL, correlations = NULL, cut_score = NULL, mu_y = NULL, gstudy_data = NULL, dimension_var = NULL) {
   dimensions <- names(weights)
 
   if (is.null(object)) {
@@ -980,12 +980,11 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
     error_spec <- NULL
   }
 
- components <- unique(vc$component)
+  components <- unique(vc$component)
 
- uni_composite <- 0
+  uni_composite <- 0
   for (comp in universe_spec) {
     if (comp %in% components) {
-      # For universe components, use scale_factor=1 (no scaling of universe score)
       cov_mat <- build_component_covariance_matrix(vc, comp, dimensions, correlations, scale_factor = 1)
       if (comp %in% object_spec) {
         uni_composite <- uni_composite + compute_weighted_variance(cov_mat, weights)
@@ -995,18 +994,79 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
     }
   }
 
- sigma2_delta_composite <- compute_composite_error_variance(
- vc, dimensions, weights, correlations, universe_spec, error_spec, aggregation, residual_is, "relative", n = n, object_spec = object_spec
- )
+  sigma2_delta_composite <- compute_composite_error_variance(
+    vc, dimensions, weights, correlations, universe_spec, error_spec, aggregation, residual_is, "relative", n = n, object_spec = object_spec
+  )
 
- sigma2_delta_abs_composite <- compute_composite_error_variance(
- vc, dimensions, weights, correlations, universe_spec, error_spec, aggregation, residual_is, "absolute", n = n, object_spec = object_spec
- )
+  sigma2_delta_abs_composite <- compute_composite_error_variance(
+    vc, dimensions, weights, correlations, universe_spec, error_spec, aggregation, residual_is, "absolute", n = n, object_spec = object_spec
+  )
 
   g_composite <- uni_composite / (uni_composite + sigma2_delta_composite)
   phi_composite <- uni_composite / (uni_composite + sigma2_delta_abs_composite)
   sem_rel_composite <- sqrt(sigma2_delta_composite)
   sem_abs_composite <- sqrt(sigma2_delta_abs_composite)
+
+  var_rel <- NA_real_
+  var_abs <- NA_real_
+  per_subscale_var <- NULL
+  
+  if ("dim" %in% names(vc) && length(dimensions) > 1 && !is.null(gstudy_data)) {
+    dim_g <- vapply(dimensions, function(d) {
+      vc_d <- vc[vc$dim == d, , drop = FALSE]
+      var_col <- if ("var_scaled" %in% names(vc_d)) "var_scaled" else "var"
+      uni_d <- sum(vc_d[[var_col]][vc_d$component %in% universe_spec], na.rm = TRUE)
+      rel_comps <- vc_d$component[sapply(vc_d$component, function(c) {
+        if (c %in% universe_spec) return(FALSE)
+        if (c == "Residual") return(TRUE)
+        facets <- parse_component_facets(c)
+        any(universe_spec %in% facets)
+      })]
+      err_rel_d <- sum(vc_d[[var_col]][vc_d$component %in% rel_comps], na.rm = TRUE)
+      g_d <- if ((uni_d + err_rel_d) > 0) uni_d / (uni_d + err_rel_d) else NA_real_
+      g_d
+    }, numeric(1))
+    names(dim_g) <- dimensions
+
+    dim_phi <- vapply(dimensions, function(d) {
+      vc_d <- vc[vc$dim == d, , drop = FALSE]
+      var_col <- if ("var_scaled" %in% names(vc_d)) "var_scaled" else "var"
+      uni_d <- sum(vc_d[[var_col]][vc_d$component %in% universe_spec], na.rm = TRUE)
+      all_comps <- vc_d$component[!(vc_d$component %in% universe_spec)]
+      err_abs_d <- sum(vc_d[[var_col]][vc_d$component %in% all_comps], na.rm = TRUE)
+      phi_d <- if ((uni_d + err_abs_d) > 0) uni_d / (uni_d + err_abs_d) else NA_real_
+      phi_d
+    }, numeric(1))
+    names(dim_phi) <- dimensions
+
+obs_cov_info <- compute_observed_covariances(
+    data = gstudy_data,
+    dimensions = dimensions,
+    weights = weights,
+    dimension_var = dimension_var
+  )
+
+  per_subscale_var <- lapply(dimensions, function(d) {
+      sum_cov <- if (length(dimensions) > 1) {
+        sum(obs_cov_info$obs_cov[d, setdiff(dimensions, d)])
+      } else {
+        0
+      }
+
+      num_rel <- (obs_cov_info$obs_var[d] * dim_g[d] + sum_cov)^2
+      den_rel <- obs_cov_info$obs_var[d] * g_composite * obs_cov_info$obs_var_C
+      prmse_c_rel <- if (is.finite(den_rel) && den_rel > 0) num_rel / den_rel else NA_real_
+      var_rel_d <- if (!is.na(prmse_c_rel) && prmse_c_rel > 0) dim_g[d] / prmse_c_rel else NA_real_
+
+      num_abs <- (obs_cov_info$obs_var[d] * dim_phi[d] + sum_cov)^2
+      den_abs <- obs_cov_info$obs_var[d] * phi_composite * obs_cov_info$obs_var_C
+      prmse_c_abs <- if (is.finite(den_abs) && den_abs > 0) num_abs / den_abs else NA_real_
+      var_abs_d <- if (!is.na(prmse_c_abs) && prmse_c_abs > 0) dim_phi[d] / prmse_c_abs else NA_real_
+
+      list(var_rel = var_rel_d, var_abs = var_abs_d)
+    })
+    names(per_subscale_var) <- dimensions
+  }
 
   result <- data.frame(
     dim = "Composite",
@@ -1017,6 +1077,8 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
     phi = phi_composite,
     sem_rel = sem_rel_composite,
     sem_abs = sem_abs_composite,
+    var_rel = NA_real_,
+    var_abs = NA_real_,
     stringsAsFactors = FALSE
   )
 
@@ -1028,7 +1090,10 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
     result$phi_cut <- (uni_composite + adjustment) / (uni_composite + sigma2_delta_abs_composite + adjustment)
   }
 
-  result
+  list(
+    summary = result,
+    per_subscale_var = per_subscale_var
+  )
 }
 
 #' Calculate Composite Variance Draws
@@ -1306,18 +1371,20 @@ compute_composite_error_variance <- function(vc, dimensions, weights, correlatio
 #'
 #' @keywords internal
 calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws, 
-                                                         weights, scale_factors,
-                                                         object_spec, universe_spec, 
-                                                         error_spec, agg_facets,
-                                                         residual_is, cut_score = NULL,
-                                                         mu_y = NULL, ci = NULL, 
-                                                         probs = c(0.025, 0.975)) {
+  weights, scale_factors, 
+  object_spec, universe_spec, 
+  error_spec, agg_facets, 
+  residual_is, cut_score = NULL, 
+  mu_y = NULL, ci = NULL, 
+  probs = c(0.025, 0.975), 
+  gstudy_data = NULL,
+  dimension_var = NULL) {
   dimensions <- names(weights)
   n_draws <- length(vc_draws[[1]][[1]])
   components <- names(vc_draws[[1]])
-  
+
   error_info <- identify_error_components_for_draws(components, universe_spec, error_spec, agg_facets)
-  
+
   composite_variance_draws <- list()
   for (comp in components) {
     scale_factor <- scale_factors[[comp]]
@@ -1325,7 +1392,7 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
       vc_draws, cov_draws, weights, scale_factor
     )[[comp]]
   }
-  
+
   uni_draws <- rep(0, n_draws)
   for (comp in universe_spec) {
     if (comp %in% components) {
@@ -1337,27 +1404,103 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
       }
     }
   }
-  
+
   sigma2_delta_draws <- rep(0, n_draws)
   for (i in which(error_info$is_relative_error)) {
     comp <- components[i]
     sigma2_delta_draws <- sigma2_delta_draws + composite_variance_draws[[comp]]
   }
-  
+
   sigma2_delta_abs_draws <- rep(0, n_draws)
   for (i in which(error_info$is_absolute_error)) {
     comp <- components[i]
     sigma2_delta_abs_draws <- sigma2_delta_abs_draws + composite_variance_draws[[comp]]
   }
-  
+
   g_draws <- uni_draws / (uni_draws + sigma2_delta_draws)
   phi_draws <- uni_draws / (uni_draws + sigma2_delta_abs_draws)
   sem_rel_draws <- sqrt(sigma2_delta_draws)
   sem_abs_draws <- sqrt(sigma2_delta_abs_draws)
-  
+
   g_draws[is.nan(g_draws) | is.infinite(g_draws)] <- NA
   phi_draws[is.nan(phi_draws) | is.infinite(phi_draws)] <- NA
+
+  # Compute per-dimension G/Phi draws for VAR calculation using Haberman formula
+  # Each dim_g_draws[[d]] is a list with g, uni, err_abs
+  var_rel_draws <- NULL
+  var_abs_draws <- NULL
+  var_rel_draws_matrix <- NULL
+  var_abs_draws_matrix <- NULL
   
+  if (length(dimensions) > 1 && !is.null(gstudy_data)) {
+    dim_g_draws <- lapply(dimensions, function(d) {
+      uni_d <- rep(0, n_draws)
+      err_rel_d <- rep(0, n_draws)
+      err_abs_d <- rep(0, n_draws)
+      for (comp in components) {
+        sf <- scale_factors[[comp]]
+        v <- vc_draws[[d]][[comp]] / sf
+        if (comp %in% universe_spec) {
+          if (comp %in% object_spec) {
+            uni_d <- uni_d + vc_draws[[d]][[comp]]
+          } else {
+            uni_d <- uni_d + v
+          }
+        } else {
+          err_abs_d <- err_abs_d + v
+          is_rel <- comp == "Residual" || grepl("^Residual", comp) || {
+            facets <- parse_component_facets(comp)
+            any(universe_spec %in% facets)
+          }
+          if (is_rel) err_rel_d <- err_rel_d + v
+        }
+      }
+      denom_rel <- uni_d + err_rel_d
+      g_d <- ifelse(denom_rel > 0, uni_d / denom_rel, NA_real_)
+      denom_abs <- uni_d + err_abs_d
+      phi_d <- ifelse(denom_abs > 0, uni_d / denom_abs, NA_real_)
+      list(g = g_d, phi = phi_d, uni = uni_d, err_abs = err_abs_d)
+    })
+    names(dim_g_draws) <- dimensions
+
+    # Build matrices for Haberman formula
+    subscale_g_matrix <- do.call(cbind, lapply(dimensions, function(d) dim_g_draws[[d]]$g))
+    colnames(subscale_g_matrix) <- dimensions
+    subscale_phi_matrix <- do.call(cbind, lapply(dimensions, function(d) dim_g_draws[[d]]$phi))
+colnames(subscale_phi_matrix) <- dimensions
+
+  # Compute observed covariances from data (constant across draws)
+  obs_cov_info <- compute_observed_covariances(
+    data = gstudy_data,
+    dimensions = dimensions,
+    weights = weights,
+    dimension_var = dimension_var
+  )
+
+  # Compute VAR using Haberman formula
+    var_result <- compute_var_haberman_draws(
+      subscale_g_draws = subscale_g_matrix,
+      subscale_phi_draws = subscale_phi_matrix,
+      composite_g_draws = g_draws,
+      composite_phi_draws = phi_draws,
+      obs_var = obs_cov_info$obs_var,
+      obs_cov = obs_cov_info$obs_cov,
+      obs_var_C = obs_cov_info$obs_var_C,
+      dimensions = dimensions
+    )
+
+    var_rel_draws_matrix <- var_result$var_rel
+    var_abs_draws_matrix <- var_result$var_abs
+
+    # Summary values (means) for Composite row - these will be NA since VAR is per-subscale
+    var_rel_draws <- NA_real_
+    var_abs_draws <- NA_real_
+  } else if (length(dimensions) > 1) {
+    # No data available - cannot compute VAR
+    var_rel_draws <- NA_real_
+    var_abs_draws <- NA_real_
+  }
+
   phi_cut_draws <- NULL
   if (!is.null(cut_score) && !is.null(mu_y)) {
     mu_y_weighted <- sum(weights * sapply(dimensions, function(d) {
@@ -1367,7 +1510,7 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
     phi_cut_draws <- (uni_draws + adjustment) / (uni_draws + sigma2_delta_abs_draws + adjustment)
     phi_cut_draws[is.nan(phi_cut_draws) | is.infinite(phi_cut_draws)] <- NA
   }
-  
+
   summary_df <- data.frame(
     dim = "Composite",
     uni = mean(uni_draws, na.rm = TRUE),
@@ -1377,13 +1520,15 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
     phi = mean(phi_draws, na.rm = TRUE),
     sem_rel = mean(sem_rel_draws, na.rm = TRUE),
     sem_abs = mean(sem_abs_draws, na.rm = TRUE),
+    var_rel = NA_real_,
+    var_abs = NA_real_,
     stringsAsFactors = FALSE
   )
-  
+
   if (!is.null(cut_score)) {
     summary_df$phi_cut <- mean(phi_cut_draws, na.rm = TRUE)
   }
-  
+
   if (!is.null(ci)) {
     if ("g" %in% ci) {
       summary_df$g_LL <- quantile(g_draws, probs[1], na.rm = TRUE)
@@ -1397,8 +1542,14 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
       summary_df$phi_cut_LL <- quantile(phi_cut_draws, probs[1], na.rm = TRUE)
       summary_df$phi_cut_UL <- quantile(phi_cut_draws, probs[2], na.rm = TRUE)
     }
+    if (("var_rel" %in% ci || "var_abs" %in% ci) && !is.null(var_rel_draws_matrix)) {
+      summary_df$var_rel_LL <- NA_real_
+      summary_df$var_rel_UL <- NA_real_
+      summary_df$var_abs_LL <- NA_real_
+      summary_df$var_abs_UL <- NA_real_
+    }
   }
-  
+
   distributions <- list(
     uni = uni_draws,
     sigma2_delta = sigma2_delta_draws,
@@ -1408,14 +1559,32 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
     sem_rel = sem_rel_draws,
     sem_abs = sem_abs_draws
   )
-  
+
+  if (!is.null(var_rel_draws_matrix)) {
+    distributions$var_rel_matrix <- var_rel_draws_matrix
+    distributions$var_abs_matrix <- var_abs_draws_matrix
+  }
+
   if (!is.null(cut_score)) {
     distributions$phi_cut <- phi_cut_draws
   }
-  
+
+  per_subscale_var <- NULL
+  if (!is.null(var_rel_draws_matrix)) {
+    per_subscale_var <- list(
+      var_rel = colMeans(var_rel_draws_matrix, na.rm = TRUE),
+      var_abs = colMeans(var_abs_draws_matrix, na.rm = TRUE),
+      var_rel_LL = apply(var_rel_draws_matrix, 2, quantile, probs = probs[1], na.rm = TRUE),
+      var_rel_UL = apply(var_rel_draws_matrix, 2, quantile, probs = probs[2], na.rm = TRUE),
+      var_abs_LL = apply(var_abs_draws_matrix, 2, quantile, probs = probs[1], na.rm = TRUE),
+      var_abs_UL = apply(var_abs_draws_matrix, 2, quantile, probs = probs[2], na.rm = TRUE)
+    )
+  }
+
   list(
     summary = summary_df,
-    distributions = distributions
+    distributions = distributions,
+    per_subscale_var = per_subscale_var
   )
 }
 
@@ -1626,6 +1795,173 @@ compute_sem <- function(error_variance) {
   sqrt(error_variance)
 }
 
+#' Compute Value Added Ratio (VAR)
+#'
+#' Calculates the Value Added Ratio (VAR) for a multivariate composite design.
+#' VAR expresses how much the composite reliability improves over that of a
+#' Compute Observed Score Variances and Covariances for VAR Calculation
+#'
+#' Computes observed score variances and covariances from the original data,
+#' which are required for the Haberman (2008) formula in VAR calculation.
+#' These are data quantities (not model estimates) and are constant across
+#' posterior draws.
+#'
+#' @param data A data frame containing the subscale scores.
+#' @param dimensions Character vector of dimension/subscale names.
+#' @param weights Named numeric vector of weights for each dimension.
+#'
+#' @return A list with:
+#' \describe{
+#' \item{obs_var}{Named vector of observed score variances per dimension}
+#' \item{obs_cov}{Matrix of observed score covariances between dimensions}
+#' \item{obs_var_C}{Observed variance of the weighted composite}
+#' }
+#'
+#' @keywords internal
+compute_observed_covariances <- function(data, dimensions, weights, dimension_var = NULL) {
+  # Handle long-format data: reshape to wide format
+  if (!is.null(dimension_var) && dimension_var %in% names(data)) {
+    # Find the score column (first numeric column that isn't dimension_var)
+    score_col <- NULL
+    for (col in names(data)) {
+      if (col != dimension_var && is.numeric(data[[col]])) {
+        score_col <- col
+        break
+      }
+    }
+    
+    if (!is.null(score_col)) {
+      # Reshape from long to wide format
+      data <- tidyr::pivot_wider(
+        data,
+        id_cols = setdiff(names(data), c(dimension_var, score_col)),
+        names_from = all_of(dimension_var),
+        values_from = all_of(score_col)
+      )
+    }
+  }
+  
+  n_dims <- length(dimensions)
+  obs_var <- vapply(dimensions, function(d) {
+    var(data[[d]], na.rm = TRUE)
+  }, numeric(1))
+  names(obs_var) <- dimensions
+  
+  obs_cov <- matrix(0, nrow = n_dims, ncol = n_dims)
+  rownames(obs_cov) <- colnames(obs_cov) <- dimensions
+  for (i in seq_len(n_dims)) {
+    for (j in seq_len(n_dims)) {
+      if (i == j) {
+        obs_cov[i, j] <- obs_var[i]
+      } else {
+        obs_cov[i, j] <- cov(data[[dimensions[i]]], data[[dimensions[j]]], use = "complete.obs")
+      }
+    }
+  }
+  
+  w <- weights[dimensions]
+  obs_var_C <- as.numeric(t(w) %*% obs_cov %*% w)
+  
+  list(
+    obs_var = obs_var,
+    obs_cov = obs_cov,
+    obs_var_C = obs_var_C
+  )
+}
+
+#' Compute VAR Using Haberman Formula (Per Draw)
+#'
+#' Computes the Value Added Ratio (VAR) for each subscale using the
+#' Haberman (2008) formula, which evaluates whether a subscale's own scores
+#' better estimate its universe score than the composite does.
+#'
+#' The formula is:
+#' \deqn{VAR(S_i) = \frac{PRMSE(S_i)}{PRMSE(C \rightarrow S_i)}}
+#'
+#' Where PRMSE(C -> S_i) is:
+#' \deqn{PRMSE(C \rightarrow S_i) = \frac{(\sigma^2_{S_i} \cdot Rel(S_i) + \sum_{j \neq i} \sigma_{S_i, S_j})^2}{\sigma^2_{S_i} \cdot Rel(C) \cdot \sigma^2_C}}
+#'
+#' @param subscale_g_draws Matrix [n_draws x n_dims] of subscale G coefficients.
+#' @param subscale_phi_draws Matrix [n_draws x n_dims] of subscale Phi coefficients.
+#' @param composite_g_draws Vector [n_draws] of composite G coefficients.
+#' @param composite_phi_draws Vector [n_draws] of composite Phi coefficients.
+#' @param obs_var Named vector of observed score variances per dimension.
+#' @param obs_cov Matrix of observed score covariances between dimensions.
+#' @param obs_var_C Observed variance of the composite.
+#' @param dimensions Character vector of dimension names.
+#'
+#' @return List with var_rel_draws and var_abs_draws matrices [n_draws x n_dims].
+#'
+#' @references
+#' Haberman, S. J. (2008). When can subscores have value? \emph{Journal of
+#' Educational and Behavioral Statistics}, 33(2), 204-229.
+#'
+#' Vispoel, W. P., Lee, H., Hong, H., & Chen, T. (2023). Applying multivariate
+#' generalizability theory to psychological assessments. \emph{Psychological
+#' Methods}, 28(4), 847-870.
+#'
+#' @keywords internal
+compute_var_haberman_draws <- function(
+    subscale_g_draws,
+    subscale_phi_draws,
+    composite_g_draws,
+    composite_phi_draws,
+    obs_var,
+    obs_cov,
+    obs_var_C,
+    dimensions) {
+
+  n_draws <- length(composite_g_draws)
+  n_dims <- length(dimensions)
+
+  var_rel_draws <- matrix(NA_real_, nrow = n_draws, ncol = n_dims)
+  colnames(var_rel_draws) <- dimensions
+
+  var_abs_draws <- matrix(NA_real_, nrow = n_draws, ncol = n_dims)
+  colnames(var_abs_draws) <- dimensions
+
+  for (d_idx in seq_len(n_dims)) {
+    d <- dimensions[d_idx]
+
+    other_dims <- setdiff(dimensions, d)
+    sum_cov <- if (length(other_dims) > 0) {
+      sum(obs_cov[d, other_dims])
+    } else {
+      0
+    }
+
+    for (i in seq_len(n_draws)) {
+      PRMSE_S_rel <- subscale_g_draws[i, d_idx]
+      PRMSE_S_abs <- subscale_phi_draws[i, d_idx]
+
+      num_rel <- (obs_var[d] * PRMSE_S_rel + sum_cov)^2
+      den_rel <- obs_var[d] * composite_g_draws[i] * obs_var_C
+      PRMSE_C_to_S_rel <- if (is.finite(den_rel) && den_rel > 0) num_rel / den_rel else NA_real_
+
+      num_abs <- (obs_var[d] * PRMSE_S_abs + sum_cov)^2
+      den_abs <- obs_var[d] * composite_phi_draws[i] * obs_var_C
+      PRMSE_C_to_S_abs <- if (is.finite(den_abs) && den_abs > 0) num_abs / den_abs else NA_real_
+
+      var_rel_draws[i, d_idx] <- if (!is.na(PRMSE_C_to_S_rel) && PRMSE_C_to_S_rel > 0) {
+        PRMSE_S_rel / PRMSE_C_to_S_rel
+      } else {
+        NA_real_
+      }
+
+      var_abs_draws[i, d_idx] <- if (!is.na(PRMSE_C_to_S_abs) && PRMSE_C_to_S_abs > 0) {
+        PRMSE_S_abs / PRMSE_C_to_S_abs
+      } else {
+        NA_real_
+      }
+    }
+  }
+
+  list(
+    var_rel = var_rel_draws,
+    var_abs = var_abs_draws
+  )
+}
+
 #' Identify Error Components for D-Study (Internal)
 #'
 #' Determines which variance components belong to relative and absolute error.
@@ -1720,10 +2056,10 @@ identify_error_components_for_draws <- function(components, universe_spec, error
 #'
 #' @keywords internal
 calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, universe = NULL, error = NULL,
-                                          aggregation = NULL, residual_is = NULL,
-                                          is_sweep = FALSE, n_grid = NULL, n_provided = FALSE, use_scaled = TRUE,
-                                          cut_score = NULL, mu_y = NULL, ci = NULL, probs = c(0.025, 0.975),
-                                          weights = NULL) {
+    aggregation = NULL, residual_is = NULL,
+    is_sweep = FALSE, n_grid = NULL, n_provided = FALSE, use_scaled = TRUE,
+    cut_score = NULL, mu_y = NULL, ci = NULL, probs = c(0.025, 0.975),
+    weights = NULL) {
 if (!requireNamespace("brms", quietly = TRUE)) {
 stop("Package 'brms' is required for posterior estimation.", call. = FALSE)
 }
@@ -1824,13 +2160,13 @@ dim_results[[d]] <- combo_result$summary
 dim_posteriors[[d]] <- combo_result$distributions
 }
 
-        # Combine results with dimension column
-        results[[i]] <- cbind(
-          data.frame(n_current, stringsAsFactors = FALSE),
-          do.call(rbind, lapply(names(dim_results), function(d) {
-            cbind(dim_results[[d]], dim = d)
-          }))
-        )
+		# Combine results with dimension column
+		results[[i]] <- cbind(
+			data.frame(n_current, stringsAsFactors = FALSE),
+			do.call(rbind, lapply(names(dim_results), function(d) {
+				cbind(dim = d, dim_results[[d]])
+			}))
+		)
         posterior_list[[i]] <- dim_posteriors
 } else {
 # Univariate: single dimension
@@ -1891,7 +2227,7 @@ mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y,
 ci = ci,
 probs = probs
 )
-        dim_results[[d]] <- cbind(result$summary, dim = d)
+			dim_results[[d]] <- cbind(dim = d, result$summary)
         dim_posteriors[[d]] <- result$distributions
       }
 
@@ -1916,31 +2252,50 @@ probs = probs
           scale_factors[[comp]] <- compute_component_scale_factor(comp, n, object_spec, n_provided)
         }
         
-        coef_result <- calculate_composite_coefficients_from_draws(
-          vc_draws = vc_draws,
-          cov_draws = cov_draws,
-          weights = weights,
-          scale_factors = scale_factors,
-          object_spec = object_spec,
-          universe_spec = universe_spec,
-          error_spec = error_spec,
-          agg_facets = agg_facets,
-          residual_is = residual_is,
-          cut_score = cut_score,
-          mu_y = mu_y,
-          ci = ci,
-          probs = probs
-        )
-        
-        coefficients <- dplyr::bind_rows(coefficients, coef_result$summary)
-        composite_posterior <- coef_result$distributions
-        
-        return(list(
-          coefficients = coefficients,
-          posterior = dim_posteriors,
-          composite_vc = vc_result$vc_table,
-          composite_posterior = composite_posterior
-        ))
+    coef_result <- calculate_composite_coefficients_from_draws(
+      vc_draws = vc_draws,
+      cov_draws = cov_draws,
+      weights = weights,
+      scale_factors = scale_factors,
+      object_spec = object_spec,
+      universe_spec = universe_spec,
+      error_spec = error_spec,
+      agg_facets = agg_facets,
+      residual_is = residual_is,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs,
+      gstudy_data = gstudy_obj$data,
+      dimension_var = gstudy_obj$dimension_var
+    )
+
+    coefficients <- dplyr::bind_rows(coefficients, coef_result$summary)
+
+if (!is.null(coef_result$per_subscale_var)) {
+    for (d in names(coef_result$per_subscale_var$var_rel)) {
+      var_row <- which(coefficients$dim == d)
+      if (length(var_row) == 1) {
+        coefficients$var_rel[var_row] <- coef_result$per_subscale_var$var_rel[d]
+        coefficients$var_abs[var_row] <- coef_result$per_subscale_var$var_abs[d]
+        if (!is.null(ci) && ("var_rel" %in% ci || "var_abs" %in% ci)) {
+          coefficients$var_rel_LL[var_row] <- coef_result$per_subscale_var$var_rel_LL[d]
+          coefficients$var_rel_UL[var_row] <- coef_result$per_subscale_var$var_rel_UL[d]
+          coefficients$var_abs_LL[var_row] <- coef_result$per_subscale_var$var_abs_LL[d]
+          coefficients$var_abs_UL[var_row] <- coef_result$per_subscale_var$var_abs_UL[d]
+        }
+      }
+    }
+  }
+
+    composite_posterior <- coef_result$distributions
+
+    return(list(
+      coefficients = coefficients,
+      posterior = dim_posteriors,
+      composite_vc = vc_result$vc_table,
+      composite_posterior = composite_posterior
+    ))
       }
 
       return(list(
@@ -1992,69 +2347,114 @@ extract_variance_draws <- function(gstudy_obj, draws) {
   model <- gstudy_obj$model
   vc <- gstudy_obj$variance_components
   is_mv <- gstudy_obj$is_multivariate
-  
+  is_long_format <- isTRUE(gstudy_obj$long_format_multivariate)
+
   if (is_mv) {
     dims <- unique(vc$dim)
     vc_draws <- vector("list", length(dims))
     names(vc_draws) <- dims
-    
+
     for (d in dims) {
       vc_dim <- vc[vc$dim == d, ]
       vc_draws[[d]] <- list()
-      
+
       for (comp in vc_dim$component) {
-        if (comp == "Residual") {
-          param_name <- paste0("sigma_", d)
-        } else {
-          clean_comp <- gsub(":", "__", comp)
-          param_name <- paste0("sd_", clean_comp, "__", d, "_Intercept")
-        }
-        
-        if (param_name %in% colnames(draws)) {
-          sd_draws <- posterior::extract_variable(draws, param_name)
-          vc_draws[[d]][[comp]] <- sd_draws^2
-        } else {
-          var_estimate <- vc_dim$var[vc_dim$component == comp]
-          sd_draws <- rep(sqrt(var_estimate), nrow(draws))
-          vc_draws[[d]][[comp]] <- sd_draws^2
-        }
+        sd_draws <- extract_sd_draws_multivariate(
+          draws = draws,
+          comp = comp,
+          dim = d,
+          vc_dim = vc_dim,
+          is_long_format = is_long_format
+        )
+        vc_draws[[d]][[comp]] <- sd_draws^2
       }
     }
   } else {
     vc_draws <- list()
-    
+
     for (comp in vc$component) {
-      if (comp == "Residual") {
-        param_name <- "sigma"
-      } else {
-        clean_comp <- gsub(":", "__", comp)
-        param_name <- paste0("sd_", clean_comp, "__Intercept")
-      }
-      
-      if (param_name %in% colnames(draws)) {
-        sd_draws <- posterior::extract_variable(draws, param_name)
-        vc_draws[[comp]] <- sd_draws^2
-      } else {
-        param_name_alt <- paste0("sd_", clean_comp)
-        if (param_name_alt %in% colnames(draws)) {
-          sd_draws <- posterior::extract_variable(draws, param_name_alt)
-          vc_draws[[comp]] <- sd_draws^2
-        } else {
-          matching_params <- grep(paste0("^sd_", clean_comp), colnames(draws), value = TRUE)
-          if (length(matching_params) > 0) {
-            sd_draws <- posterior::extract_variable(draws, matching_params[1])
-            vc_draws[[comp]] <- sd_draws^2
-          } else {
-            var_estimate <- vc$var[vc$component == comp]
-            sd_draws <- rep(sqrt(var_estimate), nrow(draws))
-            vc_draws[[comp]] <- sd_draws^2
-          }
-        }
-      }
+      sd_draws <- extract_sd_draws_univariate(
+        draws = draws,
+        comp = comp,
+        vc = vc
+      )
+      vc_draws[[comp]] <- sd_draws^2
     }
   }
 
   vc_draws
+}
+
+extract_sd_draws_multivariate <- function(draws, comp, dim, vc_dim, is_long_format = FALSE) {
+  param_candidates <- character()
+
+  if (comp == "Residual") {
+    param_candidates <- c(
+      paste0("sigma_", dim),
+      paste0("sigma_", gsub(" ", "_", dim)),
+      paste0("b_sigma_", dim)
+    )
+  } else {
+    clean_comp <- gsub(":", "__", comp)
+    param_candidates <- c(
+      paste0("sd_", clean_comp, "__", dim, "_Intercept"),
+      paste0("sd_", clean_comp, "__", dim),
+      paste0("sd_", comp, "__", dim, "_Intercept"),
+      paste0("sd_", comp, "__", dim)
+    )
+  }
+
+  for (param_name in param_candidates) {
+    if (param_name %in% colnames(draws)) {
+      sd_draws <- posterior::extract_variable(draws, param_name)
+      if (comp == "Residual" && grepl("^b_sigma_", param_name)) {
+        sd_draws <- exp(sd_draws)
+      }
+      return(sd_draws)
+    }
+  }
+
+  base_pattern <- if (comp == "Residual") {
+    paste0("sigma_", dim)
+  } else {
+    paste0("sd_", gsub(":", "__", comp), "__", dim)
+  }
+  matching_params <- grep(paste0("^", base_pattern), colnames(draws), value = TRUE)
+  if (length(matching_params) > 0) {
+    sd_draws <- posterior::extract_variable(draws, matching_params[1])
+    return(sd_draws)
+  }
+
+  var_estimate <- vc_dim$var[vc_dim$component == comp]
+  n_draws <- if (is.matrix(draws)) nrow(draws) else length(draws)
+  rep(sqrt(var_estimate), n_draws)
+}
+
+extract_sd_draws_univariate <- function(draws, comp, vc) {
+  if (comp == "Residual") {
+    param_name <- "sigma"
+  } else {
+    clean_comp <- gsub(":", "__", comp)
+    param_name <- paste0("sd_", clean_comp, "__Intercept")
+  }
+
+  if (param_name %in% colnames(draws)) {
+    return(posterior::extract_variable(draws, param_name))
+  }
+
+  param_name_alt <- paste0("sd_", clean_comp)
+  if (param_name_alt %in% colnames(draws)) {
+    return(posterior::extract_variable(draws, param_name_alt))
+  }
+
+  matching_params <- grep(paste0("^sd_", clean_comp), colnames(draws), value = TRUE)
+  if (length(matching_params) > 0) {
+    return(posterior::extract_variable(draws, matching_params[1]))
+  }
+
+  var_estimate <- vc$var[vc$component == comp]
+  n_draws <- if (is.matrix(draws)) nrow(draws) else length(draws)
+  rep(sqrt(var_estimate), n_draws)
 }
 
 #' Calculate Posterior Coefficients for a Single Sample Size

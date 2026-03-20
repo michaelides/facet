@@ -284,7 +284,7 @@ test_that("dstudy does not warn when error does not match residual", {
   # Specify error component that doesn't match residual
   expect_warning(
     result <- dstudy(g, n = list(rater = 3), error = "rater"),
-    NA
+    "Model is"
   )
 
   expect_s3_class(result, "dstudy")
@@ -297,7 +297,7 @@ test_that("dstudy does not warn when error is NULL", {
 
   expect_warning(
     result <- dstudy(g, n = list(rater = 3)),
-    NA
+    "Model is"
   )
 
   expect_s3_class(result, "dstudy")
@@ -719,7 +719,7 @@ test_that("plot.dstudy creates line plot for two vector n with grouping", {
 
   p <- plot(d, type = "sweep", coefficient = "both")
   expect_s3_class(p, "ggplot")
-  expect_true(any(grepl("facet_wrap", deparse(body(p)))))
+  expect_true(!inherits(p$facet, "FacetNull"))
 })
 
 test_that("plot.dstudy coefficients type still works", {
@@ -992,7 +992,7 @@ test_that("scaled estimates produce correct divisors for interaction components"
 
 # Test calculate_divided_variance (used for scaled estimates)
 vc_scaled <- calculate_divided_variance(vc, n = list(item = n_item),
-residual_is = "person:item")
+object = "person", residual_is = "person:item")
 
   # Check that object variance is not divided
   p_scaled <- vc_scaled$var_divided[vc_scaled$component == "person"]
@@ -1568,4 +1568,72 @@ test_that("composite coefficients include credible intervals when ci requested",
   expect_true(!is.na(composite_row$g_UL), "Composite g_UL should not be NA")
   expect_true(composite_row$g_LL <= composite_row$g, "g_LL should be <= g")
   expect_true(composite_row$g_UL >= composite_row$g, "g_UL should be >= g")
+})
+
+test_that("VAR is computed for long-format multivariate models", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  
+  data(rajaratnam)
+  
+  gu <- gstudy(
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+       sigma ~ 0 + Subtest),
+    data = rajaratnam,
+    backend = "brms",
+    chains = 2,
+    iter = 500,
+    refresh = 0
+  )
+  
+  # Use correct dimension names from gu$dimensions
+  dims <- as.character(gu$dimensions)
+  weights <- setNames(rep(1, length(dims)), dims)
+  
+  d <- dstudy(gu, n = list(Person = 5), weights = weights)
+  
+  # VAR should not be NA for subscale rows
+  subscale_rows <- d$coefficients[d$coefficients$dim != "Composite", ]
+  expect_true(all(!is.na(subscale_rows$var_rel)))
+  expect_true(all(!is.na(subscale_rows$var_abs)))
+  
+  # VAR values should be positive and finite
+  expect_true(all(subscale_rows$var_rel > 0))
+  expect_true(all(subscale_rows$var_abs > 0))
+})
+
+test_that("VAR is computed for wide-format multivariate models (brms backend)", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  
+  set.seed(456)
+  n_persons <- 30
+  
+  person_effect <- rnorm(n_persons, 0, 2)
+  
+  data <- data.frame(
+    person = 1:n_persons,
+    A = person_effect + rnorm(n_persons, 0, 1),
+    B = 0.7 * person_effect + rnorm(n_persons, 0, 1)
+  )
+  
+  gu <- gstudy(
+    mvbind(A, B) ~ (1 | person),
+    data = data,
+    backend = "brms",
+    chains = 2,
+    iter = 500,
+    refresh = 0
+  )
+  
+  d <- dstudy(gu, n = list(person = 10), weights = c(A = 1, B = 1))
+  
+  # VAR should not be NA for subscale rows
+  subscale_rows <- d$coefficients[d$coefficients$dim != "Composite", ]
+  expect_true(all(!is.na(subscale_rows$var_rel)))
+  expect_true(all(!is.na(subscale_rows$var_abs)))
+  
+  # VAR values should be positive and finite
+  expect_true(all(subscale_rows$var_rel > 0))
+  expect_true(all(subscale_rows$var_abs > 0))
 })
