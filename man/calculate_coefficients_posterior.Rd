@@ -19,7 +19,8 @@ calculate_coefficients_posterior(
   cut_score = NULL,
   mu_y = NULL,
   ci = NULL,
-  probs = c(0.025, 0.975)
+  probs = c(0.025, 0.975),
+  weights = NULL
 )
 }
 \arguments{

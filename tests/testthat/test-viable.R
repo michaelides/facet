@@ -365,6 +365,106 @@ test_that("viable results match prmse() when weights match", {
   expect_equal(viable_result$prmse_c_rel, prmse_result$prmse_c_rel, tolerance = 1e-10)
 })
 
+# =============================================================================
+# Sweep mode tests
+# =============================================================================
+
+test_that("viable works with sweep dstudy objects", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  
+  set.seed(123)
+  n_persons <- 30
+  person_effect <- rnorm(n_persons, 0, 2)
+  data <- data.frame(
+    person = 1:n_persons,
+    A = person_effect + rnorm(n_persons, 0, 1),
+    B = 0.7 * person_effect + rnorm(n_persons, 0, 1)
+  )
+  
+  gu <- gstudy(
+    mvbind(A, B) ~ (1 | person),
+    data = data,
+    backend = "brms",
+    chains = 2,
+    iter = 500,
+    refresh = 0
+  )
+  
+  d_sweep <- dstudy(gu, n = list(person = c(5, 10, 15)), weights = c(A = 1, B = 1))
+  expect_true(d_sweep$is_sweep)
+  
+  result <- viable(d_sweep)
+  expect_s3_class(result, "tbl_df")
+  expect_equal(nrow(result), 2)
+  expect_true(all(c("dim", "prmse_c_rel", "prmse_c_abs", "var_rel", "var_abs") %in% names(result)))
+})
+
+test_that("viable sweep uses actual sample sizes from gstudy", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  
+  set.seed(456)
+  n_persons <- 30
+  person_effect <- rnorm(n_persons, 0, 2)
+  data <- data.frame(
+    person = 1:n_persons,
+    A = person_effect + rnorm(n_persons, 0, 1),
+    B = 0.7 * person_effect + rnorm(n_persons, 0, 1)
+  )
+  
+  gu <- gstudy(
+    mvbind(A, B) ~ (1 | person),
+    data = data,
+    backend = "brms",
+    chains = 2,
+    iter = 500,
+    refresh = 0
+  )
+  
+  actual_n <- gu$facet_n
+  
+  d_sweep <- dstudy(gu, n = list(person = c(5, 10, 15)), weights = c(A = 1, B = 1))
+  
+  d_actual <- dstudy(gu, n = as.list(actual_n), weights = c(A = 1, B = 1))
+  
+  result_sweep <- viable(d_sweep)
+  result_actual <- viable(d_actual)
+  
+  expect_equal(result_sweep$var_rel, result_actual$var_rel, tolerance = 0.1)
+  expect_equal(result_sweep$prmse_c_rel, result_actual$prmse_c_rel, tolerance = 0.1)
+})
+
+test_that("viable sweep with CIs produces CI columns", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+  
+  set.seed(789)
+  n_persons <- 30
+  person_effect <- rnorm(n_persons, 0, 2)
+  data <- data.frame(
+    person = 1:n_persons,
+    A = person_effect + rnorm(n_persons, 0, 1),
+    B = 0.7 * person_effect + rnorm(n_persons, 0, 1)
+  )
+  
+  gu <- gstudy(
+    mvbind(A, B) ~ (1 | person),
+    data = data,
+    backend = "brms",
+    chains = 2,
+    iter = 500,
+    refresh = 0
+  )
+  
+  d_sweep <- dstudy(gu, n = list(person = c(5, 10, 15)), weights = c(A = 1, B = 1))
+  
+  result <- viable(d_sweep, ci = c("prmse", "var"))
+  expect_true("prmse_c_rel_LL" %in% names(result))
+  expect_true("var_rel_LL" %in% names(result))
+  expect_true(all(result$var_rel_LL < result$var_rel_UL))
+})
+
 test_that("viable works with custom probs", {
   skip_if_not_installed("brms")
   skip_on_cran()

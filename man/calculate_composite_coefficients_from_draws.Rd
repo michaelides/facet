@@ -17,7 +17,9 @@ calculate_composite_coefficients_from_draws(
   cut_score = NULL,
   mu_y = NULL,
   ci = NULL,
-  probs = c(0.025, 0.975)
+  probs = c(0.025, 0.975),
+  gstudy_data = NULL,
+  dimension_var = NULL
 )
 }
 \arguments{

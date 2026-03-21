@@ -65,11 +65,12 @@ viable <- function(dstudy_obj, ci = NULL, probs = c(0.025, 0.975), weights = NUL
     stop("'dstudy_obj' must be a dstudy object", call. = FALSE)
   }
 
-  if (is.null(dstudy_obj$var)) {
+  if (!isTRUE(dstudy_obj$is_multivariate)) {
     stop("No VAR results available. VAR is only computed for multivariate models.", call. = FALSE)
   }
 
-  if (is.null(dstudy_obj$posterior) && is.null(dstudy_obj$composite_posterior)) {
+  if (is.null(dstudy_obj$posterior) && is.null(dstudy_obj$composite_posterior) && 
+      !inherits(dstudy_obj$gstudy$model, "brmsfit")) {
     stop("viable() requires posterior estimation. Re-run dstudy with a brms backend.", call. = FALSE)
   }
 
@@ -87,14 +88,28 @@ viable <- function(dstudy_obj, ci = NULL, probs = c(0.025, 0.975), weights = NUL
     stop("'probs' must be between 0 and 1", call. = FALSE)
   }
 
-  dims <- names(dstudy_obj$var$var_rel)
-  if (is.null(dims)) {
-    dims <- colnames(dstudy_obj$var$var_rel_draws)
+  is_sweep <- isTRUE(dstudy_obj$is_sweep)
+
+  if (is.null(dstudy_obj$var) && !is_sweep) {
+    stop("No VAR results available. VAR is only computed for multivariate models.", call. = FALSE)
+  }
+
+  if (!is_sweep) {
+    dims <- names(dstudy_obj$var$var_rel)
+    if (is.null(dims)) {
+      dims <- colnames(dstudy_obj$var$var_rel_draws)
+    }
+  } else {
+    dims <- dstudy_obj$gstudy$dimensions
   }
   n_dims <- length(dims)
 
   if (is.null(weights)) {
     weights <- dstudy_obj$weights
+    if (is.null(weights)) {
+      weights <- rep(1, n_dims)
+      names(weights) <- dims
+    }
   } else {
     if (length(weights) != n_dims) {
       stop("weights must have length ", n_dims, " (number of dimensions), got ", length(weights), call. = FALSE)
@@ -102,7 +117,12 @@ viable <- function(dstudy_obj, ci = NULL, probs = c(0.025, 0.975), weights = NUL
     names(weights) <- dims
   }
 
-  weights_match <- isTRUE(all.equal(weights, dstudy_obj$weights))
+  weights_match <- !is_sweep && isTRUE(all.equal(weights, dstudy_obj$weights))
+
+  if (is_sweep) {
+    actual_n <- as.list(dstudy_obj$gstudy$facet_n)
+    return(recalculate_var_with_weights(dstudy_obj, weights, dims, ci, probs, actual_n))
+  }
 
   if (weights_match) {
     var <- dstudy_obj$var
@@ -160,19 +180,26 @@ viable <- function(dstudy_obj, ci = NULL, probs = c(0.025, 0.975), weights = NUL
     return(tibble::as_tibble(base_cols))
   }
 
-  recalculate_var_with_weights(dstudy_obj, weights, dims, ci, probs)
+  recalculate_var_with_weights(dstudy_obj, weights, dims, ci, probs, n = NULL)
 }
 
 #' Recalculate VAR with Alternative Weights
 #'
+#' @param n Optional named list of sample sizes. If NULL, uses sample sizes
+#'   from the dstudy object. For sweep mode, this should be the actual
+#'   sample sizes from the G-study.
 #' @keywords internal
-recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs) {
+recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n = NULL) {
 
   gstudy_obj <- dstudy_obj$gstudy
   dimensions <- dims
   universe_spec <- dstudy_obj$universe
   error_spec <- dstudy_obj$error
   object_spec <- dstudy_obj$object
+
+  if (is.null(n)) {
+    n <- dstudy_obj$n
+  }
 
   vc_draws <- extract_variance_draws_from_gstudy(gstudy_obj)
   cov_draws <- gstudy_obj$correlations
@@ -191,6 +218,17 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs) {
 
   n_draws <- length(vc_draws[[1]][[1]])
 
+  scale_factors <- compute_scale_factors_for_viable(components, n, universe_spec, object_spec)
+
+  scaled_vc_draws <- list()
+  for (d in dimensions) {
+    scaled_vc_draws[[d]] <- list()
+    for (comp in components) {
+      sf <- scale_factors[[comp]]
+      scaled_vc_draws[[d]][[comp]] <- vc_draws[[d]][[comp]] / sf
+    }
+  }
+
   composite_variance_draws <- list()
   for (comp in components) {
     comp_draws <- numeric(n_draws)
@@ -202,7 +240,7 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs) {
 
       for (i in seq_along(dimensions)) {
         d <- dimensions[i]
-        sigma_mat[i, i] <- vc_draws[[d]][[comp]][draw_idx]
+        sigma_mat[i, i] <- scaled_vc_draws[[d]][[comp]][draw_idx]
       }
 
       if (!is.null(cov_draws)) {
@@ -219,7 +257,7 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs) {
             if (length(dims_pair) == 2 && all(dims_pair %in% dimensions)) {
               idx1 <- match(dims_pair[1], dimensions)
               idx2 <- match(dims_pair[2], dimensions)
-              cov_val <- cov_list[[pair_name]][draw_idx]
+              cov_val <- cov_list[[pair_name]][draw_idx] / scale_factors[[comp]]
               sigma_mat[idx1, idx2] <- cov_val
               sigma_mat[idx2, idx1] <- cov_val
             }
@@ -268,7 +306,7 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs) {
     err_abs_d <- rep(0, n_draws)
 
     for (comp in components) {
-      v <- vc_draws[[d]][[comp]]
+      v <- scaled_vc_draws[[d]][[comp]]
 
       if (comp %in% universe_spec) {
         uni_d <- uni_d + v
@@ -339,6 +377,40 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs) {
   }
 
   tibble::as_tibble(base_cols)
+}
+
+#' Compute Scale Factors for Viable Recalculation
+#'
+#' @param components Character vector of variance component names
+#' @param n Named list of sample sizes
+#' @param universe_spec Universe components specification
+#' @param object_spec Object of measurement specification
+#' @keywords internal
+compute_scale_factors_for_viable <- function(components, n, universe_spec, object_spec) {
+  scale_factors <- list()
+
+  for (comp in components) {
+    if (comp %in% object_spec) {
+      scale_factors[[comp]] <- 1
+    } else if (comp == "Residual") {
+      sf <- 1
+      for (facet in names(n)) {
+        sf <- sf * n[[facet]]
+      }
+      scale_factors[[comp]] <- sf
+    } else {
+      facets <- parse_component_facets(comp)
+      sf <- 1
+      for (facet in facets) {
+        if (facet %in% names(n) && !(facet %in% object_spec)) {
+          sf <- sf * n[[facet]]
+        }
+      }
+      scale_factors[[comp]] <- sf
+    }
+  }
+
+  scale_factors
 }
 
 #' Extract Variance Draws from G-Study for Viable Recalculation

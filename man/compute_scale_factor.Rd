@@ -2,21 +2,28 @@
 % Please edit documentation in R/coefficients.R
 \name{compute_scale_factor}
 \alias{compute_scale_factor}
-\title{Compute Scale Factor for D-Study Variance Component}
+\title{Compute Scale Factor for Composite Variance}
 \usage{
-compute_scale_factor(facets, n)
+compute_scale_factor(component, n, object_spec, universe_spec)
 }
 \arguments{
-\item{facets}{Character vector of facet names in the component.}
+\item{component}{The variance component name}
 
-\item{n}{Named list of sample sizes for each facet.}
+\item{n}{Named list of sample sizes}
+
+\item{object_spec}{Object of measurement specification}
+
+\item{universe_spec}{Universe components specification}
 }
 \value{
-The scale factor (numeric).
+The scale factor for this component
 }
 \description{
-Calculates the scaling factor for a variance component based on
-the D-study sample sizes. For main effects, divides by n_facet.
-For interactions, divides by the product of n for each facet.
+Computes the scale factor for scaling covariances in composite variance
+calculation. The scale factor depends on the component type:
+\itemize{
+\item For main effects (e.g., Item): scale_factor = n_facet
+\item For Residual: scale_factor = product of all error facet sample sizes
+}
 }
 \keyword{internal}
