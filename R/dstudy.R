@@ -50,9 +50,9 @@
 #' phi coefficient. For multivariate models, can be a single value applied to all dimensions.
 #' Default is NULL (no phi-cut calculation).
 #' @param ci Character vector specifying which coefficients to compute credible intervals for.
-#'   Options: "g", "phi", "phi-cut", "var_rel", "var_abs". Can specify multiple: `ci = c("g", "phi")`.
-#'   Credible intervals are only available when using the brms backend.
-#'   Default is NULL (no credible intervals computed).
+#' Options: "g", "phi", "phi-cut". Can specify multiple: `ci = c("g", "phi")`.
+#' Credible intervals are only available when using the brms backend.
+#' Default is NULL (no credible intervals computed).
 #' @param probs Numeric vector of length 2 specifying the quantiles for credible interval
 #' calculation. Default is `c(0.025, 0.975)` for a 95% credible interval.
 #' Works like the `quantile()` function. Only used when `ci` is specified.
@@ -263,7 +263,7 @@ backend = "brms"
 
   # 1.9. Validate ci parameter
   if (!is.null(ci)) {
-    ci <- match.arg(ci, c("g", "phi", "phi-cut", "var_rel", "var_abs"), several.ok = TRUE)
+    ci <- match.arg(ci, c("g", "phi", "phi-cut"), several.ok = TRUE)
     if (gstudy_obj$backend != "brms") {
       warning(
         "Credible intervals for 'mom' and 'lme4' backends are not yet implemented. ",
@@ -361,17 +361,69 @@ call. = FALSE
 
 # 4. Calculate n from G-study data if not provided
 n_provided <- length(n) > 0
+n_per_dim <- NULL
+n_tibble <- NULL
+
+# 4.1. Check if we need per-dimension sample sizes
+needs_per_dim_n <- is_multivariate && (
+  !is.null(gstudy_obj$sample_size_info_per_dim) ||
+  !is.null(gstudy_obj$long_format_multivariate) ||
+  (!is.null(gstudy_obj$is_unbalanced) && gstudy_obj$is_unbalanced)
+)
+
 if (length(n) == 0) {
+  if (needs_per_dim_n) {
+    n_tibble <- extract_sample_sizes_per_dim(gstudy_obj)
+    if (!is.null(n_tibble) && nrow(n_tibble) > 0) {
+      n_provided <- TRUE
+      n_per_dim <- expand_n_per_dim(n_tibble, sweep = FALSE)
+      n <- extract_sample_sizes(gstudy_obj)
+      message(
+        "No sample sizes provided in 'n'. Using per-dimension G-study sample sizes."
+      )
+    } else {
+      n <- extract_sample_sizes(gstudy_obj)
+      n_provided <- TRUE
+      message(
+        "No sample sizes provided in 'n'. Using G-study sample sizes: ",
+        paste(names(n), n, sep = " = ", collapse = ", ")
+      )
+    }
+  } else {
+    n <- extract_sample_sizes(gstudy_obj)
+    n_provided <- TRUE
+    message(
+      "No sample sizes provided in 'n'. Using G-study sample sizes: ",
+      paste(names(n), n, sep = " = ", collapse = ", ")
+    )
+  }
+} else if (is.data.frame(n)) {
+  validation <- validate_n_tibble(n, gstudy_obj$dimensions, gstudy_obj$facets)
+  if (!validation$valid) {
+    stop(validation$error, call. = FALSE)
+  }
+  n_tibble <- n
+  n_per_dim <- expand_n_per_dim(n_tibble, sweep = TRUE)
+  n_provided <- TRUE
   n <- extract_sample_sizes(gstudy_obj)
-  n_provided <- TRUE  # n was extracted, so treat as provided
-  message(
-    "No sample sizes provided in 'n'. Using G-study sample sizes: ",
-    paste(names(n), n, sep = " = ", collapse = ", ")
-  )
+} else if (is.list(n) && needs_per_dim_n) {
+  n_tibble <- create_n_tibble_from_list(n, gstudy_obj$dimensions)
+  if (!is.null(n_tibble)) {
+    warning(
+      "For multivariate models, providing n as a simple list will apply ",
+      "the same sample sizes to all dimensions. Consider providing a tibble ",
+      "with columns: dim, facet, n for per-dimension control.",
+      call. = FALSE
+    )
+  }
 }
 
 # 5. Check if n contains vectors (for sweeping)
-is_sweep <- any(sapply(n, length) > 1)
+is_sweep <- if (!is.null(n_per_dim)) {
+  n_per_dim$is_sweep
+} else {
+  any(sapply(n, length) > 1)
+}
 
 # 8. Determine residual composition from formula and data
 residual_composition <- parse_residual_facets(
@@ -435,46 +487,48 @@ n_grid <- expand.grid(n, stringsAsFactors = FALSE)
 # Only calculate both unscaled and scaled estimates when n was not provided by user
 if (!n_provided) {
 # Calculate unscaled estimates using posterior
-posterior_results_unscaled <- calculate_coefficients_posterior(
-    gstudy_obj = gstudy_obj,
-    n = n,
-    object = object,
-    universe = universe_spec,
-    error = error,
-    aggregation = aggregation,
-    residual_is = residual_is_effective,
-    is_sweep = TRUE,
-    n_grid = n_grid,
-    n_provided = n_provided,
-    use_scaled = FALSE,
-    cut_score = cut_score,
-    mu_y = mu_y,
-    ci = ci,
-    probs = probs,
-    weights = weights
-  )
+      posterior_results_unscaled <- calculate_coefficients_posterior(
+        gstudy_obj = gstudy_obj,
+        n = n,
+        object = object,
+        universe = universe_spec,
+        error = error,
+        aggregation = aggregation,
+        residual_is = residual_is_effective,
+        is_sweep = TRUE,
+        n_grid = n_grid,
+        n_provided = n_provided,
+        use_scaled = FALSE,
+        cut_score = cut_score,
+        mu_y = mu_y,
+        ci = ci,
+        probs = probs,
+        weights = weights,
+        n_per_dim = n_per_dim
+      )
     unscaled_coefs <- posterior_results_unscaled$coefficients
     unscaled_coefs$estimate <- "unscaled"
 
 # Calculate scaled estimates using posterior
-  posterior_results_scaled <- calculate_coefficients_posterior(
-    gstudy_obj = gstudy_obj,
-    n = n,
-    object = object,
-    universe = universe_spec,
-    error = error,
-    aggregation = aggregation,
-    residual_is = residual_is_effective,
-    is_sweep = TRUE,
-    n_grid = n_grid,
-    n_provided = n_provided,
-    use_scaled = TRUE,
-    cut_score = cut_score,
-    mu_y = mu_y,
-    ci = ci,
-    probs = probs,
-    weights = weights
-  )
+    posterior_results_scaled <- calculate_coefficients_posterior(
+        gstudy_obj = gstudy_obj,
+        n = n,
+        object = object,
+        universe = universe_spec,
+        error = error,
+        aggregation = aggregation,
+        residual_is = residual_is_effective,
+        is_sweep = TRUE,
+        n_grid = n_grid,
+        n_provided = n_provided,
+        use_scaled = TRUE,
+        cut_score = cut_score,
+        mu_y = mu_y,
+        ci = ci,
+        probs = probs,
+        weights = weights,
+        n_per_dim = n_per_dim
+      )
 scaled_coefs <- posterior_results_scaled$coefficients
 scaled_coefs$estimate <- "scaled"
 
@@ -483,66 +537,72 @@ coef_cols <- intersect(names(unscaled_coefs), names(scaled_coefs))
 n_cols <- setdiff(names(unscaled_coefs), coef_cols)
 n_cols <- n_cols[!n_cols %in% c("estimate")]
 
-coefficients <- rbind(
-unscaled_coefs[, c(n_cols, "estimate", setdiff(coef_cols, c(n_cols, "estimate")))],
-scaled_coefs[, c(n_cols, "estimate", setdiff(coef_cols, c(n_cols, "estimate")))]
-)
-coefficients <- tibble::as_tibble(coefficients)
-# Reorder columns to put estimate first
-coefficients <- coefficients[, c("estimate", setdiff(names(coefficients), "estimate"))]
+	coefficients <- rbind(
+		unscaled_coefs[, c(n_cols, "estimate", setdiff(coef_cols, c(n_cols, "estimate")))],
+		scaled_coefs[, c(n_cols, "estimate", setdiff(coef_cols, c(n_cols, "estimate")))]
+	)
+	coefficients <- tibble::as_tibble(coefficients)
+	# Reorder columns to put dim first (if present), then estimate
+	if ("dim" %in% names(coefficients)) {
+		coefficients <- coefficients[, c("dim", "estimate", setdiff(names(coefficients), c("dim", "estimate")))]
+	} else {
+		coefficients <- coefficients[, c("estimate", setdiff(names(coefficients), "estimate"))]
+	}
 
 posterior <- posterior_results_scaled$posterior
-} else {
-  # When n is provided, only return scaled estimates (no estimate column)
-  posterior_results <- calculate_coefficients_posterior(
-    gstudy_obj = gstudy_obj,
-    n = n,
-    object = object,
-    universe = universe_spec,
-    error = error,
-    aggregation = aggregation,
-    residual_is = residual_is_effective,
-    is_sweep = TRUE,
-    n_grid = n_grid,
-    n_provided = n_provided,
-    use_scaled = TRUE,
-    cut_score = cut_score,
-    mu_y = mu_y,
-    ci = ci,
-    probs = probs,
-    weights = weights
-  )
-  coefficients <- posterior_results$coefficients
-  posterior <- posterior_results$posterior
-}
   } else {
-    # Single sample size
+# When n is provided, only return scaled estimates (no estimate column)
+    posterior_results <- calculate_coefficients_posterior(
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = TRUE,
+      n_grid = n_grid,
+      n_provided = n_provided,
+      use_scaled = TRUE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs,
+      weights = weights,
+      n_per_dim = n_per_dim
+    )
+    coefficients <- posterior_results$coefficients
+    posterior <- posterior_results$posterior
+  }
+} else {
+# Single sample size
 # Only calculate both unscaled and scaled estimates when n was not provided by user
-if (!n_provided) {
-  # Calculate unscaled estimates using posterior
-  posterior_results_unscaled <- calculate_coefficients_posterior(
-    gstudy_obj = gstudy_obj,
-    n = n,
-    object = object,
-    universe = universe_spec,
-    error = error,
-    aggregation = aggregation,
-    residual_is = residual_is_effective,
-    is_sweep = FALSE,
-    n_provided = n_provided,
-    use_scaled = FALSE,
-    cut_score = cut_score,
-    mu_y = mu_y,
-    ci = ci,
-    probs = probs,
-    weights = weights
-  )
-  unscaled_coefs <- posterior_results_unscaled$coefficients
-  unscaled_coefs$estimate <- "unscaled"
+  if (!n_provided) {
+# Calculate unscaled estimates using posterior
+    posterior_results_unscaled <- calculate_coefficients_posterior(
+      gstudy_obj = gstudy_obj,
+      n = n,
+      object = object,
+      universe = universe_spec,
+      error = error,
+      aggregation = aggregation,
+      residual_is = residual_is_effective,
+      is_sweep = FALSE,
+      n_provided = n_provided,
+      use_scaled = FALSE,
+      cut_score = cut_score,
+      mu_y = mu_y,
+      ci = ci,
+      probs = probs,
+      weights = weights,
+      n_per_dim = n_per_dim
+    )
+    unscaled_coefs <- posterior_results_unscaled$coefficients
+    unscaled_coefs$estimate <- "unscaled"
 
-  # Calculate scaled estimates using posterior
-  posterior_results_scaled <- calculate_coefficients_posterior(
-    gstudy_obj = gstudy_obj,
+# Calculate scaled estimates using posterior
+    posterior_results_scaled <- calculate_coefficients_posterior(
+      gstudy_obj = gstudy_obj,
       n = n,
       object = object,
       universe = universe_spec,
@@ -555,7 +615,8 @@ if (!n_provided) {
       cut_score = cut_score,
       mu_y = mu_y,
       ci = ci,
-      probs = probs
+      probs = probs,
+      n_per_dim = n_per_dim
     )
     scaled_coefs <- posterior_results_scaled$coefficients
     scaled_coefs$estimate <- "scaled"
@@ -577,9 +638,9 @@ scaled_coefs[, coef_cols, drop = FALSE]
 
 posterior <- posterior_results_scaled$posterior
 } else {
-    # When n is provided, only return scaled estimates (no estimate column)
-    posterior_results <- calculate_coefficients_posterior(
-gstudy_obj = gstudy_obj,
+# When n is provided, only return scaled estimates (no estimate column)
+  posterior_results <- calculate_coefficients_posterior(
+    gstudy_obj = gstudy_obj,
     n = n,
     object = object,
     universe = universe_spec,
@@ -593,28 +654,32 @@ gstudy_obj = gstudy_obj,
     mu_y = mu_y,
     ci = ci,
     probs = probs,
-    weights = weights
+    weights = weights,
+    n_per_dim = n_per_dim
   )
-      coefficients <- posterior_results$coefficients
-      posterior <- posterior_results$posterior
-  }
+  coefficients <- posterior_results$coefficients
+  posterior <- posterior_results$posterior
+}
 }
 
-# Initialize composite variables for all paths
-composite_vc <- NULL
-composite_post <- NULL
+  # Initialize composite variables for all paths
+  composite_vc <- NULL
+  composite_post <- NULL
+  var_results <- NULL
 
-# Extract composite variance components from posterior_results
-# This is populated by calculate_coefficients_posterior() for multivariate models
-if (estimation == "posterior" && !is_sweep && is_multivariate && length(dimensions) > 1) {
-  if (!n_provided && exists("posterior_results_scaled") && !is.null(posterior_results_scaled)) {
-    composite_vc <- posterior_results_scaled$composite_vc
-    composite_post <- posterior_results_scaled$composite_posterior
-  } else if (n_provided && exists("posterior_results") && !is.null(posterior_results)) {
-    composite_vc <- posterior_results$composite_vc
-    composite_post <- posterior_results$composite_posterior
+  # Extract composite variance components from posterior_results
+  # This is populated by calculate_coefficients_posterior() for multivariate models
+  if (estimation == "posterior" && !is_sweep && is_multivariate && length(dimensions) > 1) {
+    if (!n_provided && exists("posterior_results_scaled") && !is.null(posterior_results_scaled)) {
+      composite_vc <- posterior_results_scaled$composite_vc
+      composite_post <- posterior_results_scaled$composite_posterior
+      var_results <- posterior_results_scaled$var_results
+    } else if (n_provided && exists("posterior_results") && !is.null(posterior_results)) {
+      composite_vc <- posterior_results$composite_vc
+      composite_post <- posterior_results$composite_posterior
+      var_results <- posterior_results$var_results
+    }
   }
-}
 
 # For posterior estimation, composite coefficients are already computed 
 # inside calculate_coefficients_posterior() and included in coefficients
@@ -630,11 +695,14 @@ if (!is_sweep) {
 }
 
 # Append composite variance components for multivariate posterior estimation
-if (!is_sweep && is_multivariate && length(dimensions) > 1 && !is.null(composite_vc)) {
-  d_vc <- dplyr::bind_rows(d_vc, composite_vc)
-}
-  } else if (is_sweep) {
-    # Create grid of all sample size combinations
+  if (!is_sweep && is_multivariate && length(dimensions) > 1 && !is.null(composite_vc)) {
+    d_vc <- dplyr::bind_rows(d_vc, composite_vc)
+  }
+} else if (is_sweep) {
+  # Initialize var_results for sweep path
+  var_results <- NULL
+
+  # Create grid of all sample size combinations
     n_grid <- expand.grid(n, stringsAsFactors = FALSE)
 
     # Calculate coefficients for each combination
@@ -662,17 +730,17 @@ aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
         # Reorder columns to put estimate first (after n columns if sweep)
         combined <- combined[, c("estimate", setdiff(names(combined), "estimate"))]
 
-        # Combine with sample sizes
-        cbind(data.frame(n_current, stringsAsFactors = FALSE), combined)
+    # Combine with sample sizes
+    cbind(data.frame(n_current, stringsAsFactors = FALSE, check.names = FALSE), combined)
       } else {
         # When n is provided: use standard D-study variance calculation
         d_vc <- calculate_dstudy_variance(vc, n_current, object, aggregation, n_provided, residual_is_effective, facet_n = gstudy_obj$facet_n)
 
-        # Calculate coefficients (scaled only, no estimate column)
-scaled_coefs <- calculate_coefficients(d_vc, n_current, object, error,
-aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
-
-        cbind(data.frame(n_current, stringsAsFactors = FALSE), scaled_coefs)
+    # Calculate coefficients (scaled only, no estimate column)
+    scaled_coefs <- calculate_coefficients(d_vc, n_current, object, error, 
+                                           aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
+    
+    cbind(data.frame(n_current, stringsAsFactors = FALSE, check.names = FALSE), scaled_coefs)
       }
     })
 
@@ -708,13 +776,13 @@ d_vc_iter <- calculate_dstudy_variance(vc, n_current, object, aggregation, n_pro
       dimension_var = gstudy_obj$dimension_var
     )
 
-        composite_summary <- composite_coefs$summary
-        if ("estimate" %in% names(coefficients)) {
-          est_type <- coefficients$estimate[1]
-          composite_summary$estimate <- est_type
-        }
-
-        cbind(data.frame(n_current, stringsAsFactors = FALSE), composite_summary)
+    composite_summary <- composite_coefs$summary
+    if ("estimate" %in% names(coefficients)) {
+      est_type <- coefficients$estimate[1]
+      composite_summary$estimate <- est_type
+    }
+    
+    cbind(data.frame(n_current, stringsAsFactors = FALSE, check.names = FALSE), composite_summary)
     })
 
     composite_combined <- do.call(rbind, composite_results)
@@ -723,10 +791,13 @@ d_vc_iter <- calculate_dstudy_variance(vc, n_current, object, aggregation, n_pro
 
   # For sweeping, variance_components is the base (unscaled) version (sweep handles scaling separately)
  # Remove diagnostic columns if present (brms, mom backends)
- d_vc <- vc %>%
- select(-any_of(c('error', 'se', 'lower', 'upper', 'sd', 'Rhat', 'Bulk_ESS', 'Tail_ESS')))
- } else {
-    # 11. Non-sweep path: calculate coefficients
+  d_vc <- vc %>%
+    select(-dplyr::any_of(c('error', 'se', 'lower', 'upper', 'sd', 'Rhat', 'Bulk_ESS', 'Tail_ESS')))
+} else {
+  # Initialize var_results for non-posterior estimation
+  var_results <- NULL
+
+  # 11. Non-sweep path: calculate coefficients
     if (!n_provided) {
       # When n not provided: use divided variance for scaled estimates
       # Scaled: divide variance components by sample sizes of non-object facets
@@ -743,15 +814,15 @@ aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
       unscaled_coefs$estimate <- "unscaled"
       scaled_coefs$estimate <- "scaled"
 
-      has_dim <- "dim" %in% names(scaled_coefs)
-      if (has_dim) {
-        coef_cols <- c("estimate", "dim", "uni", "sigma2_delta", "sigma2_delta_abs",
-                       "g", "phi", "phi_cut", "sem_rel", "sem_abs")
-      } else {
-        coef_cols <- c("estimate", "uni", "sigma2_delta", "sigma2_delta_abs",
-                       "g", "phi", "phi_cut", "sem_rel", "sem_abs")
-      }
-      coef_cols <- intersect(coef_cols, names(scaled_coefs))
+	has_dim <- "dim" %in% names(scaled_coefs)
+	if (has_dim) {
+		coef_cols <- c("dim", "estimate", "uni", "sigma2_delta", "sigma2_delta_abs",
+			"g", "phi", "phi_cut", "sem_rel", "sem_abs")
+	} else {
+		coef_cols <- c("estimate", "uni", "sigma2_delta", "sigma2_delta_abs",
+			"g", "phi", "phi_cut", "sem_rel", "sem_abs")
+	}
+	coef_cols <- intersect(coef_cols, names(scaled_coefs))
 
         coefficients <- tibble::as_tibble(rbind(
       unscaled_coefs[, coef_cols, drop = FALSE],
@@ -829,61 +900,47 @@ correlations = gstudy_obj$correlations,
       dimension_var = gstudy_obj$dimension_var
     )
 
-      composite_summary <- composite_coefs$summary
+    composite_summary <- composite_coefs$summary
 
-      # Add VAR columns to coefficients if not present
-      if (!"var_rel" %in% names(coefficients)) {
-        coefficients$var_rel <- NA_real_
-      }
-      if (!"var_abs" %in% names(coefficients)) {
-        coefficients$var_abs <- NA_real_
-      }
+    var_results <- composite_coefs$var_results
 
-      # Add VAR values to dimension rows
-      if (!is.null(composite_coefs$per_subscale_var)) {
-        for (dim_name in names(composite_coefs$per_subscale_var)) {
-          dim_idx <- which(coefficients$dim == dim_name)
-          if (length(dim_idx) > 0) {
-            coefficients$var_rel[dim_idx] <- composite_coefs$per_subscale_var[[dim_name]]$var_rel
-            coefficients$var_abs[dim_idx] <- composite_coefs$per_subscale_var[[dim_name]]$var_abs
-          }
-        }
-      }
+    # Add estimate column if present in other coefficients
+    if ("estimate" %in% names(coefficients)) {
+      composite_summary$estimate <- coefficients$estimate[1]
+    }
 
-      # Add estimate column if present in other coefficients
-      if ("estimate" %in% names(coefficients)) {
-        composite_summary$estimate <- coefficients$estimate[1]
-      }
-
-      # Append composite row to coefficients
-      coefficients <- dplyr::bind_rows(coefficients, composite_summary)
+    # Append composite row to coefficients
+    coefficients <- dplyr::bind_rows(coefficients, composite_summary)
   }
 }
 }
 
 # 13. Create dstudy object
-result <- list(
-  gstudy = gstudy_obj,
-  variance_components = d_vc,
-  coefficients = coefficients,
-  n = n,
-  object = object,
-  universe = universe_spec,
-  error = error,
-  aggregation = aggregation,
-  residual_is = residual_is,
-  residual_composition = residual_composition,
-  is_sweep = is_sweep,
-  estimation = estimation,
-  posterior = if (estimation == "posterior") posterior else NULL,
-  composite_posterior = composite_post,
-  is_multivariate = is_multivariate,
-  cut_score = cut_score,
-  mu_y = mu_y,
-  ci = ci,
-  probs = if (!is.null(ci)) probs else NULL,
-  weights = weights
-)
+  result <- list(
+    gstudy = gstudy_obj,
+    variance_components = d_vc,
+    coefficients = coefficients,
+    n = n,
+    n_tibble = n_tibble,
+    n_per_dim = n_per_dim,
+    object = object,
+    universe = universe_spec,
+    error = error,
+    aggregation = aggregation,
+    residual_is = residual_is,
+    residual_composition = residual_composition,
+    is_sweep = is_sweep,
+    estimation = estimation,
+    posterior = if (estimation == "posterior") posterior else NULL,
+    composite_posterior = composite_post,
+    var = var_results,
+    is_multivariate = is_multivariate,
+    cut_score = cut_score,
+    mu_y = mu_y,
+    ci = ci,
+    probs = if (!is.null(ci)) probs else NULL,
+    weights = weights
+  )
 
   class(result) <- "dstudy"
   result
@@ -891,24 +948,37 @@ result <- list(
 
 extract_sample_sizes <- function(gstudy_obj) {
   facet_n <- gstudy_obj$facet_n
-  
+
   if (is.null(facet_n) || length(facet_n) == 0) {
     data <- gstudy_obj$data
     facets <- gstudy_obj$facets
-    
+
     if (is.null(data) || is.null(facets)) {
       return(list())
     }
-    
+
     n_list <- list()
     for (facet in facets) {
       if (facet %in% names(data)) {
         n_list[[facet]] <- length(unique(data[[facet]]))
       }
     }
-    
+
     n_list
   } else {
     as.list(facet_n)
   }
+}
+
+extract_sample_sizes_per_dim <- function(gstudy_obj) {
+  if (!inherits(gstudy_obj, "mgstudy")) {
+    return(NULL)
+  }
+  
+  sample_size_info_per_dim <- gstudy_obj$sample_size_info_per_dim
+  if (is.null(sample_size_info_per_dim)) {
+    return(NULL)
+  }
+  
+  calculate_sample_size_tibble_per_dim(sample_size_info_per_dim)
 }
