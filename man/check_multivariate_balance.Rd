@@ -4,7 +4,12 @@
 \alias{check_multivariate_balance}
 \title{Check Multivariate Design Balance}
 \usage{
-check_multivariate_balance(formula, data, is_long_format = FALSE)
+check_multivariate_balance(
+  formula,
+  data,
+  is_long_format = FALSE,
+  unbalanced = FALSE
+)
 }
 \arguments{
 \item{formula}{A formula object (potentially brmsformula or mvbrmsformula).}
@@ -12,6 +17,9 @@ check_multivariate_balance(formula, data, is_long_format = FALSE)
 \item{data}{Data frame containing the variables.}
 
 \item{is_long_format}{Logical indicating if this is a long-format model.}
+
+\item{unbalanced}{Logical indicating whether unbalanced estimation is enabled.
+When TRUE, warnings are suppressed and an informational message is provided.}
 }
 \value{
 A list with:

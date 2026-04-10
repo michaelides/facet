@@ -6,11 +6,6 @@
 \usage{
 recalculate_var_with_weights(dstudy_obj, weights, dims, ci, probs, n = NULL)
 }
-\arguments{
-\item{n}{Optional named list of sample sizes. If NULL, uses sample sizes
-from the dstudy object. For sweep mode, this should be the actual
-sample sizes from the G-study.}
-}
 \description{
 Recalculate VAR with Alternative Weights
 }

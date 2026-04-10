@@ -5,35 +5,33 @@
 \title{Compute VAR Using Haberman Formula (Per Draw)}
 \usage{
 compute_var_haberman_draws(
-  subscale_g_draws,
-  subscale_phi_draws,
-  composite_g_draws,
-  composite_phi_draws,
-  obs_var,
-  obs_cov,
-  obs_var_C,
-  dimensions
+  uni_cov_draws,
+  total_rel_cov_draws,
+  total_abs_cov_draws,
+  dimensions,
+  weights
 )
 }
 \arguments{
-\item{subscale_g_draws}{Matrix \link{n_draws x n_dims} of subscale G coefficients.}
+\item{uni_cov_draws}{3D array \link{n_draws, n_dims, n_dims} of universe score covariances.}
 
-\item{subscale_phi_draws}{Matrix \link{n_draws x n_dims} of subscale Phi coefficients.}
+\item{total_rel_cov_draws}{3D array \link{n_draws, n_dims, n_dims} of total observed covariances for relative error.}
 
-\item{composite_g_draws}{Vector \link{n_draws} of composite G coefficients.}
-
-\item{composite_phi_draws}{Vector \link{n_draws} of composite Phi coefficients.}
-
-\item{obs_var}{Named vector of observed score variances per dimension.}
-
-\item{obs_cov}{Matrix of observed score covariances between dimensions.}
-
-\item{obs_var_C}{Observed variance of the composite.}
+\item{total_abs_cov_draws}{3D array \link{n_draws, n_dims, n_dims} of total observed covariances for absolute error.}
 
 \item{dimensions}{Character vector of dimension names.}
+
+\item{weights}{Named numeric vector of weights for the composite scores.}
 }
 \value{
-List with var_rel_draws and var_abs_draws matrices \link{n_draws x n_dims}.
+A list containing:
+\describe{
+\item{prmse_s_rel, prmse_s_abs}{Univariate subscale reliabilities.}
+\item{prmse_c_rel, prmse_c_abs}{PRMSE when projecting from weighted composite.}
+\item{prmse_p_rel, prmse_p_abs}{PRMSE when projecting from entire profile (diagonal slice).}
+\item{var_rel, var_abs}{Value Added Ratios (PRMSE_S / PRMSE_C).}
+\item{prmse_mv_rel, prmse_mv_abs}{Global multivariate PRMSE (trace formula).}
+}
 }
 \description{
 Computes the Value Added Ratio (VAR) for each subscale using the

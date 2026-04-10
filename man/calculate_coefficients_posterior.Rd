@@ -20,7 +20,8 @@ calculate_coefficients_posterior(
   mu_y = NULL,
   ci = NULL,
   probs = c(0.025, 0.975),
-  weights = NULL
+  weights = NULL,
+  n_per_dim = NULL
 )
 }
 \arguments{

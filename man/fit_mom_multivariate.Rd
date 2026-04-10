@@ -4,7 +4,16 @@
 \alias{fit_mom_multivariate}
 \title{Fit Multivariate Model Using Method of Moments}
 \usage{
-fit_mom_multivariate(formula, data, ...)
+fit_mom_multivariate(formula, data, unbalanced = FALSE, ...)
+}
+\arguments{
+\item{formula}{A formula for the model}
+
+\item{data}{A data frame containing the variables}
+
+\item{unbalanced}{Logical. If TRUE, uses Henderson's Method III for unbalanced designs}
+
+\item{...}{Additional arguments}
 }
 \description{
 Fit Multivariate Model Using Method of Moments

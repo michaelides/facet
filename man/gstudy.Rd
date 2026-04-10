@@ -10,6 +10,7 @@ gstudy(
   backend = c("auto", "lme4", "brms", "mom"),
   facets = NULL,
   nested = NULL,
+  unbalanced = FALSE,
   ci_method = c("none", "profile", "boot"),
   nsim = 1000,
   boot.type = c("perc", "basic", "norm"),
@@ -35,6 +36,19 @@ For multivariate models, use brms syntax: \code{mvbind(y1, y2) ~ (1|person)}.}
 Names are nested facets and values are nesting facets.
 For example, \code{list(task = "rater")} means task is nested within rater.
 If NULL (default), nesting is auto-detected from the data structure.}
+
+\item{unbalanced}{Logical indicating whether to enable unbalanced multivariate
+estimation. Default is FALSE. When TRUE:
+\itemize{
+\item For \strong{mom backend}: Each dimension is analyzed with its available
+data using Henderson's Method III for variance component estimation.
+Correlations are computed using pairwise complete cases.
+\item For \strong{brms backend}: Not implemented. Use long-format specification
+with \code{bf(Score ~ 0 + Dimension + (0+Dimension|Facet), sigma ~ 0 + Dimension)}
+for sparse multivariate data.
+\item For \strong{lme4 backend}: Not applicable (lme4 does not support
+multivariate models).
+}}
 
 \item{ci_method}{Character string specifying the method for confidence intervals
 for the lme4 backend. One of "none" (default, no CIs), "profile" (more accurate,

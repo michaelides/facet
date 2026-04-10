@@ -4,12 +4,16 @@
 \alias{fit_mom}
 \title{Fit a Model Using Method of Moments}
 \usage{
-fit_mom(formula, data, ...)
+fit_mom(formula, data, unbalanced = FALSE, ...)
 }
 \arguments{
 \item{formula}{A formula for the model (lme4 style), e.g., \code{y ~ (1 | facet1) + (1 | facet2)}.}
 
 \item{data}{A data frame containing the variables in the formula.}
+
+\item{unbalanced}{Logical. If TRUE, enables unbalanced multivariate estimation
+using Henderson's Method III. Each dimension is analyzed with its available data.
+Default is FALSE.}
 
 \item{...}{Additional arguments (currently unused).}
 }
