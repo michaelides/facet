@@ -163,7 +163,7 @@ fit_brms <- function(formula, data, prior = NULL, ...) {
     args$iter <- 2000
   }
   if (is.null(args$refresh)) {
-    args$refresh <- args$iter/10
+    args$refresh <- args$iter / 10
   }
 
   args$formula <- formula
@@ -220,8 +220,8 @@ extract_variance_components <- function(model, backend, ci_method = "none",
                                         formula = NULL, ...) {
   if (backend == "lme4") {
     extract_vc_lme4(model,
-                    ci_method = ci_method, nsim = nsim,
-                    boot.type = boot.type, formula = formula, ...
+      ci_method = ci_method, nsim = nsim,
+      boot.type = boot.type, formula = formula, ...
     )
   } else if (backend == "brms") {
     extract_vc_brms(model, formula = formula)

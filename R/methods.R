@@ -16,28 +16,28 @@ NULL
 #' @export
 #' @rdname print.gstudy
 print.gstudy <- function(x, digits = 3, scale = c("variance", "sd"), ...) {
-scale <- match.arg(scale)
+  scale <- match.arg(scale)
 
-cat("Generalizability Study (G-Study)\n")
-cat("================================\n\n")
+  cat("Generalizability Study (G-Study)\n")
+  cat("================================\n\n")
 
-cat("Backend:", x$backend, "\n")
-cat("Formula:", deparse(x$formula), "\n")
-cat("Number of observations:", x$n_obs, "\n")
-cat("Multivariate:", if (x$is_multivariate) "Yes" else "No", "\n\n")
+  cat("Backend:", x$backend, "\n")
+  cat("Formula:", deparse(x$formula), "\n")
+  cat("Number of observations:", x$n_obs, "\n")
+  cat("Multivariate:", if (x$is_multivariate) "Yes" else "No", "\n\n")
 
-cat("Object of measurement:", x$object, "\n")
-cat("Facets:", paste(x$facets, collapse = ", "), "\n")
+  cat("Object of measurement:", x$object, "\n")
+  cat("Facets:", paste(x$facets, collapse = ", "), "\n")
 
   cat("\n")
-  
+
   ssi <- x$sample_size_info
   ss_tibble <- x$sample_size_tibble
-  
+
   if (!is.null(ss_tibble) && nrow(ss_tibble) > 0) {
     cat("Sample Sizes:\n")
     print(ss_tibble, row.names = FALSE)
-    
+
     # Add nested footnote if exists
     if (!is.null(ssi$nested) && length(ssi$nested) > 0) {
       cat("\nNested details:\n")
@@ -50,26 +50,26 @@ cat("Facets:", paste(x$facets, collapse = ", "), "\n")
   } else {
     if (!is.null(ssi)) {
       cat("Sample Sizes:\n")
-      
+
       if (length(ssi$main) > 0) {
         cat(" Main Effects:\n")
         for (i in seq_along(ssi$main)) {
           cat(sprintf("  %s: %.0f\n", names(ssi$main)[i], ssi$main[i]))
         }
       }
-      
+
       if (length(ssi$interactions) > 0) {
         cat(" Interactions:\n")
         for (i in seq_along(ssi$interactions)) {
           cat(sprintf("  %s: %.0f\n", names(ssi$interactions)[i], ssi$interactions[i]))
         }
       }
-      
+
       if (!is.null(ssi$residual) && ssi$residual$facets != "" && !is.na(ssi$residual$n)) {
         cat(" Residual:\n")
         cat(sprintf("  %s: %.0f\n", ssi$residual$facets, ssi$residual$n))
       }
-      
+
       if (!is.null(ssi$nested) && length(ssi$nested) > 0) {
         cat(" Nested Effects:\n")
         nested_lines <- format_nested_info(ssi$nested, indent = 2)
@@ -87,15 +87,66 @@ cat("Facets:", paste(x$facets, collapse = ", "), "\n")
     }
   }
 
-cat("Variance Components:\n")
-vc_summary <- summarize_vc(x$variance_components, digits = digits, scale = scale)
-print(vc_summary, row.names = FALSE, ...)
+  cat("Variance Components:\n")
+  vc_summary <- summarize_vc(x$variance_components, digits = digits, scale = scale)
+  print(vc_summary, row.names = FALSE, ...)
 
   invisible(x)
 }
 
-print_correlations <- function(correlations, digits = 3, format = c("long", "matrix")) {
+print_correlations <- function(correlations, digits = 3, format = c("long", "matrix"),
+                               type = c("correlation", "covariance"), model = NULL) {
   format <- match.arg(format)
+  type <- match.arg(type)
+
+  if (type == "covariance" && !is.null(model)) {
+    if (inherits(model, "brmsfit")) {
+      covariances <- extract_covariances_brms(model)
+    } else if (inherits(model, "momfit")) {
+      covariances <- extract_covariances_mom(model)
+    } else {
+      warning("Covariance extraction not supported for this model type.", call. = FALSE)
+      return(invisible(NULL))
+    }
+
+    if (format == "matrix") {
+      if (!is.null(covariances$random_effect_cov_matrix) && length(covariances$random_effect_cov_matrix) > 0) {
+        for (facet_name in names(covariances$random_effect_cov_matrix)) {
+          cat(sprintf("Random Effect Covariances (%s):\n", facet_name))
+          cov_mat <- round(covariances$random_effect_cov_matrix[[facet_name]], digits)
+          print(cov_mat, quote = FALSE)
+          cat("\n")
+        }
+      }
+
+      if (!is.null(covariances$residual_cov_matrix)) {
+        cat("Residual Covariances:\n")
+        cov_mat <- round(covariances$residual_cov_matrix, digits)
+        print(cov_mat, quote = FALSE)
+        cat("\n")
+      }
+    } else {
+      if (!is.null(covariances$random_effect_cov) && length(covariances$random_effect_cov) > 0) {
+        for (facet_name in names(covariances$random_effect_cov)) {
+          if (!is.null(covariances$random_effect_cov[[facet_name]]) &&
+            nrow(covariances$random_effect_cov[[facet_name]]) > 0) {
+            cat(sprintf("Random Effect Covariances (%s):\n", facet_name))
+            cov_summary <- summarize_cov(covariances$random_effect_cov[[facet_name]], digits)
+            print(cov_summary, row.names = FALSE)
+            cat("\n")
+          }
+        }
+      }
+
+      if (!is.null(covariances$residual_cov) && nrow(covariances$residual_cov) > 0) {
+        cat("Residual Covariances:\n")
+        cov_summary <- summarize_cov(covariances$residual_cov, digits)
+        print(cov_summary, row.names = FALSE)
+        cat("\n")
+      }
+    }
+    return(invisible(NULL))
+  }
 
   if (format == "matrix") {
     if (!is.null(correlations$random_effect_cor_matrix) && length(correlations$random_effect_cor_matrix) > 0) {
@@ -117,7 +168,7 @@ print_correlations <- function(correlations, digits = 3, format = c("long", "mat
     if (!is.null(correlations$random_effect_cor) && length(correlations$random_effect_cor) > 0) {
       for (facet_name in names(correlations$random_effect_cor)) {
         if (!is.null(correlations$random_effect_cor[[facet_name]]) &&
-            nrow(correlations$random_effect_cor[[facet_name]]) > 0) {
+          nrow(correlations$random_effect_cor[[facet_name]]) > 0) {
           cat(sprintf("Correlated Random Effects (%s):\n", facet_name))
           cor_summary <- summarize_cor(correlations$random_effect_cor[[facet_name]], digits)
           print(cor_summary, row.names = FALSE)
@@ -140,19 +191,22 @@ print_correlations <- function(correlations, digits = 3, format = c("long", "mat
 #' @param x An mgstudy object.
 #' @param digits Number of digits to display.
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
-#' @param cor_format Format for displaying correlations: "long" (default) or "matrix".
+#' @param cor_format Format for displaying correlations/covariances: "long" (default) or "matrix".
 #' @param vc_format Format for displaying variance components: "dimension" (default) or "facet".
-#'   When "facet", variance components are grouped by facet with inline correlations.
+#' When "facet", variance components are grouped by facet with inline correlations.
+#' @param type Type of association to display: "correlation" (default) or "covariance".
 #' @param ... Additional arguments (ignored).
 #' @return Invisibly returns x.
 #' @export
 #' @rdname print.mgstudy
 print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
-                           cor_format = c("long", "matrix"),
-                           vc_format = c("dimension", "facet"), ...) {
+                          cor_format = c("long", "matrix"),
+                          vc_format = c("dimension", "facet"),
+                          type = c("correlation", "covariance"), ...) {
   scale <- match.arg(scale)
   cor_format <- match.arg(cor_format)
   vc_format <- match.arg(vc_format)
+  type <- match.arg(type)
 
   if (isTRUE(x$long_format_multivariate)) {
     cat("Multivariate Generalizability Study (MG-Study)\n")
@@ -178,35 +232,34 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
 
   ssi <- x$sample_size_info
   ss_tibble <- x$sample_size_tibble
-  
+
   if (!is.null(ss_tibble) && nrow(ss_tibble) > 0) {
     cat("\nSample Sizes:\n")
     print(ss_tibble, row.names = FALSE)
-    
-    # Add nested footnote if exists
+
     if (!is.null(ssi$nested) && length(ssi$nested) > 0) {
       cat("\nNested details:\n")
       footnote_lines <- format_nested_footnote(ssi$nested)
       for (line in footnote_lines) {
-        cat("  ", line, "\n", sep = "")
+        cat(" ", line, "\n", sep = "")
       }
     }
     cat("\n")
   } else {
     if (!is.null(ssi)) {
       cat("\nSample Sizes:\n")
-      
+
       if (length(ssi$main) > 0) {
         cat(" Main Effects:\n")
         for (i in seq_along(ssi$main)) {
-          cat(sprintf("  %s: %.0f\n", names(ssi$main)[i], ssi$main[i]))
+          cat(sprintf(" %s: %.0f\n", names(ssi$main)[i], ssi$main[i]))
         }
       }
       cat("\n")
     } else if (!is.null(x$facet_n) && length(x$facet_n) > 0) {
       cat("Facet Sample Sizes:\n")
       for (i in seq_along(x$facet_n)) {
-        cat(sprintf("  %s: %.0f\n", names(x$facet_n)[i], x$facet_n[i]))
+        cat(sprintf(" %s: %.0f\n", names(x$facet_n)[i], x$facet_n[i]))
       }
       cat("\n")
     }
@@ -220,32 +273,64 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
       vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
       print(vc_summary, row.names = FALSE, ...)
     }
-    
+
     if (!is.null(x$correlations)) {
       cat("\n")
-      print_correlations(x$correlations, digits = digits, format = cor_format)
+      print_correlations(x$correlations, digits = digits, format = cor_format,
+        type = type, model = x$model)
     }
   } else {
     cat("Variance Components (by facet):\n")
     unique_components <- unique(x$variance_components$component)
-    
+
+    if (type == "covariance" && !is.null(x$model)) {
+      if (inherits(x$model, "brmsfit")) {
+        covariances <- extract_covariances_brms(x$model)
+      } else if (inherits(x$model, "momfit")) {
+        covariances <- extract_covariances_mom(x$model)
+      } else {
+        covariances <- NULL
+      }
+    } else {
+      covariances <- NULL
+    }
+
     for (comp in unique_components) {
       cat(sprintf("\nFacet: %s\n", comp))
       vc_comp <- x$variance_components[x$variance_components$component == comp, ]
       vc_summary <- summarize_vc(vc_comp, digits = digits, scale = scale)
       print(vc_summary, row.names = FALSE, ...)
-      
-      if (!is.null(x$correlations$random_effect_cor) &&
-          !is.null(x$correlations$random_effect_cor[[comp]])) {
+
+      if (type == "covariance" && !is.null(covariances) &&
+        !is.null(covariances$random_effect_cov) &&
+        !is.null(covariances$random_effect_cov[[comp]])) {
+        cat(sprintf("Covariances (%s):\n", comp))
+        cov_summary <- summarize_cov(covariances$random_effect_cov[[comp]], digits)
+        print(cov_summary, row.names = FALSE)
+        cat("\n")
+      } else if (!is.null(x$correlations$random_effect_cor) &&
+        !is.null(x$correlations$random_effect_cor[[comp]])) {
         cat(sprintf("Correlations (%s):\n", comp))
         cor_summary <- summarize_cor(x$correlations$random_effect_cor[[comp]], digits)
         print(cor_summary, row.names = FALSE)
         cat("\n")
       }
     }
-    
-    if (!is.null(x$correlations$residual_cor) &&
-        nrow(x$correlations$residual_cor) > 0) {
+
+    if (type == "covariance" && !is.null(covariances) &&
+      !is.null(covariances$residual_cov) && nrow(covariances$residual_cov) > 0) {
+      cat("\nResidual Covariances:\n")
+      if (cor_format == "matrix") {
+        if (!is.null(covariances$residual_cov_matrix)) {
+          cov_mat <- round(covariances$residual_cov_matrix, digits)
+          print(cov_mat, quote = FALSE)
+        }
+      } else {
+        cov_summary <- summarize_cov(covariances$residual_cov, digits)
+        print(cov_summary, row.names = FALSE)
+      }
+    } else if (!is.null(x$correlations$residual_cor) &&
+      nrow(x$correlations$residual_cor) > 0) {
       cat("\nResidual Correlations:\n")
       if (cor_format == "matrix") {
         if (!is.null(x$correlations$residual_cor_matrix)) {
@@ -276,42 +361,54 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
 print.dstudy <- function(x, digits = 3, scale = c("variance", "sd"), sem = FALSE, ...) {
   scale <- match.arg(scale)
 
-cat("Decision Study (D-Study)\n")
-cat("========================\n\n")
+  cat("Decision Study (D-Study)\n")
+  cat("========================\n\n")
 
-cat("Based on G-Study with", x$gstudy$backend, "backend\n")
-cat("Object of measurement:", x$object, "\n")
+  cat("Based on G-Study with", x$gstudy$backend, "backend\n")
+  cat("Object of measurement:", x$object, "\n")
 
-# Display universe components
-if (!is.null(x$universe) && length(x$universe) > 0) {
-cat("Universe components:", paste(x$universe, collapse = ", "), "\n")
-}
+  # Display universe components
+  if (!is.null(x$universe) && length(x$universe) > 0) {
+    cat("Universe components:", paste(x$universe, collapse = ", "), "\n")
+  }
 
-error_components <- identify_error_components(
-x$variance_components, x$universe, x$error,
-x$residual_composition
-)
+  error_components <- identify_error_components(
+    x$variance_components, x$universe, x$error,
+    x$residual_composition
+  )
   cat("Error components for relative error (sigma2_delta):",
     paste(error_components$relative, collapse = ", "), "\n")
   cat("Error components for absolute error (sigma2_delta_abs):",
     paste(error_components$absolute, collapse = ", "), "\n\n")
 
-if (x$is_sweep) {
+  if (x$is_sweep) {
     has_dim <- "dim" %in% names(x$coefficients)
     has_estimate <- "estimate" %in% names(x$coefficients)
 
     if (has_dim) {
       dims <- unique(x$coefficients$dim)
+      dim_coeffs <- x$coefficients[x$coefficients$dim != "Composite", ]
+      composite_coeffs <- x$coefficients[x$coefficients$dim == "Composite", ]
       cat("Sample Size Sweep (by dimension):\n\n")
-      for (d in dims) {
+      for (d in setdiff(dims, "Composite")) {
         cat(sprintf("Dimension: %s\n", d))
         cat(paste(rep("-", 40), collapse = ""), "\n")
-        coefs <- x$coefficients[x$coefficients$dim == d, ]
+        coefs <- dim_coeffs[dim_coeffs$dim == d, ]
 
         if (!sem && all(c("sem_rel", "sem_abs") %in% names(coefs))) {
           coefs <- coefs[, !names(coefs) %in% c("sem_rel", "sem_abs"), drop = FALSE]
         }
         print(coefs, digits = digits, row.names = FALSE, ...)
+        cat("\n")
+      }
+      if (nrow(composite_coeffs) > 0) {
+        weights_str <- paste(round(x$weights, digits), collapse = ", ")
+        cat(sprintf("Composite (weights: %s)\n", weights_str))
+        cat(paste(rep("-", 40), collapse = ""), "\n")
+        if (!sem && all(c("sem_rel", "sem_abs") %in% names(composite_coeffs))) {
+          composite_coeffs <- composite_coeffs[, !names(composite_coeffs) %in% c("sem_rel", "sem_abs"), drop = FALSE]
+        }
+        print(composite_coeffs, digits = digits, row.names = FALSE, ...)
         cat("\n")
       }
     } else {
@@ -323,46 +420,61 @@ if (x$is_sweep) {
       }
       print(coefs, digits = digits, ...)
     }
- } else {
- cat("Sample Sizes:\n")
- for (name in names(x$n)) {
- cat(sprintf(" %s: %.0f\n", name, x$n[[name]]))
- }
- cat("\n")
+  } else {
+    # Display per-dimension sample sizes if available
+    if (!is.null(x$n_tibble) && nrow(x$n_tibble) > 0) {
+      cat("Sample Sizes (per dimension):\n")
+      dims <- unique(x$n_tibble$dim)
+      for (d in dims) {
+        dim_n <- x$n_tibble[x$n_tibble$dim == d, ]
+        n_str <- paste(sprintf("%s = %s", dim_n$facet, dim_n$n), collapse = ", ")
+        cat(sprintf("  %s: %s\n", d, n_str))
+      }
+      cat("\n")
+    } else {
+      cat("Sample Sizes:\n")
+      for (name in names(x$n)) {
+        cat(sprintf(" %s: %.0f\n", name, x$n[[name]]))
+      }
+      cat("\n")
+    }
 
- cat("Variance Components:\n")
- vc_summary <- summarize_vc(x$variance_components, digits = digits, scale = scale)
- print(vc_summary, row.names = FALSE, ...)
- cat("\n")
+    cat("Variance Components:\n")
+    vc_summary <- summarize_vc(x$variance_components, digits = digits, scale = scale)
+    print(vc_summary, row.names = FALSE, ...)
+    cat("\n")
 
- cat("Coefficients:\n")
- coefs <- x$coefficients
+    cat("Coefficients:\n")
+    coefs <- x$coefficients
 
- if (!sem && all(c("sem_rel", "sem_abs") %in% names(coefs))) {
- coefs <- coefs[, !names(coefs) %in% c("sem_rel", "sem_abs")]
- }
- print(coefs, digits = digits, row.names = FALSE, ...)
+    if ("dim" %in% names(coefs) && "Composite" %in% coefs$dim) {
+      coefs <- coefs[order(coefs$dim == "Composite"), ]
+    }
+    if (!sem && all(c("sem_rel", "sem_abs") %in% names(coefs))) {
+      coefs <- coefs[, !names(coefs) %in% c("sem_rel", "sem_abs")]
+    }
+    print(coefs, digits = digits, row.names = FALSE, ...)
 
- invisible(x)
- }
- }
+    invisible(x)
+  }
+}
 
 identify_error_components <- function(vc, universe_spec, error_spec, residual_composition = NULL) {
-universe_parsed <- parse_specification_internal(universe_spec)
+  universe_parsed <- parse_specification_internal(universe_spec)
 
-if (!is.null(error_spec)) {
-error_parsed <- parse_specification_internal(error_spec)
-relative_components <- error_parsed
-absolute_components <- error_parsed
-} else {
-relative_components <- vc$component[
-sapply(vc$component, function(comp) {
-is_rel_error_component(comp, universe_parsed)
-})
-]
+  if (!is.null(error_spec)) {
+    error_parsed <- parse_specification_internal(error_spec)
+    relative_components <- error_parsed
+    absolute_components <- error_parsed
+  } else {
+    relative_components <- unique(vc$component[
+      sapply(vc$component, function(comp) {
+        is_rel_error_component(comp, universe_parsed)
+      })
+    ])
 
-absolute_components <- vc$component[!(vc$component %in% universe_parsed)]
-}
+    absolute_components <- unique(vc$component[!(vc$component %in% universe_parsed)])
+  }
 
   if (!is.null(residual_composition) && residual_composition != "") {
     relative_components <- sapply(relative_components, function(comp) {
@@ -434,17 +546,17 @@ parse_specification_internal <- function(x) {
 }
 
 is_rel_error_component <- function(component, universe_spec) {
-if (component %in% universe_spec) {
-return(FALSE)
-}
+  if (component %in% universe_spec) {
+    return(FALSE)
+  }
 
-if (component == "Residual") {
-return(TRUE)
-}
+  if (component == "Residual") {
+    return(TRUE)
+  }
 
-facets <- strsplit(component, ":")[[1]]
+  facets <- strsplit(component, ":")[[1]]
 
-any(universe_spec %in% facets)
+  any(universe_spec %in% facets)
 }
 
 #' Summary Method for gstudy Objects
@@ -457,27 +569,27 @@ any(universe_spec %in% facets)
 #' @export
 #' @rdname summary.gstudy
 summary.gstudy <- function(object, scale = c("variance", "sd"), digits = 3, ...) {
-scale <- match.arg(scale)
+  scale <- match.arg(scale)
 
-cat("=== G-Study Summary ===\n\n")
+  cat("=== G-Study Summary ===\n\n")
 
-cat("Design Information:\n")
-cat(" Backend:", object$backend, "\n")
-cat(" Formula:", deparse(object$formula), "\n")
-cat(" Observations:", object$n_obs, "\n")
-cat(" Multivariate:", if (object$is_multivariate) "Yes" else "No", "\n\n")
+  cat("Design Information:\n")
+  cat(" Backend:", object$backend, "\n")
+  cat(" Formula:", deparse(object$formula), "\n")
+  cat(" Observations:", object$n_obs, "\n")
+  cat(" Multivariate:", if (object$is_multivariate) "Yes" else "No", "\n\n")
 
-cat("Facet Information:\n")
-cat(" Object of measurement:", object$object, "\n")
-cat(" Facets:", paste(object$facets, collapse = ", "), "\n")
+  cat("Facet Information:\n")
+  cat(" Object of measurement:", object$object, "\n")
+  cat(" Facets:", paste(object$facets, collapse = ", "), "\n")
 
   ssi <- object$sample_size_info
   ss_tibble <- object$sample_size_tibble
-  
+
   if (!is.null(ss_tibble) && nrow(ss_tibble) > 0) {
     cat("\nSample Sizes:\n")
     print(ss_tibble, row.names = FALSE)
-    
+
     # Add nested footnote if exists
     if (!is.null(ssi$nested) && length(ssi$nested) > 0) {
       cat("\nNested details:\n")
@@ -490,26 +602,26 @@ cat(" Facets:", paste(object$facets, collapse = ", "), "\n")
   } else {
     if (!is.null(ssi)) {
       cat("\nSample Sizes:\n")
-      
+
       if (length(ssi$main) > 0) {
         cat(" Main Effects:\n")
         for (i in seq_along(ssi$main)) {
           cat(sprintf("  %s: %.0f\n", names(ssi$main)[i], ssi$main[i]))
         }
       }
-      
+
       if (length(ssi$interactions) > 0) {
         cat(" Interactions:\n")
         for (i in seq_along(ssi$interactions)) {
           cat(sprintf("  %s: %.0f\n", names(ssi$interactions)[i], ssi$interactions[i]))
         }
       }
-      
+
       if (!is.null(ssi$residual) && ssi$residual$facets != "" && !is.na(ssi$residual$n)) {
         cat(" Residual:\n")
         cat(sprintf("  %s: %.0f\n", ssi$residual$facets, ssi$residual$n))
       }
-      
+
       if (!is.null(ssi$nested) && length(ssi$nested) > 0) {
         cat(" Nested Effects:\n")
         nested_lines <- format_nested_info(ssi$nested, indent = 2)
@@ -527,11 +639,11 @@ cat(" Facets:", paste(object$facets, collapse = ", "), "\n")
     }
   }
 
-cat("Variance Components:\n")
-vc_summary <- summarize_vc(object$variance_components, digits = digits, scale = scale)
-print(vc_summary, row.names = FALSE, ...)
+  cat("Variance Components:\n")
+  vc_summary <- summarize_vc(object$variance_components, digits = digits, scale = scale)
+  print(vc_summary, row.names = FALSE, ...)
 
-cat("\nTotal variance:", sum(object$variance_components$var, na.rm = TRUE), "\n")
+  cat("\nTotal variance:", sum(object$variance_components$var, na.rm = TRUE), "\n")
 
   invisible(object)
 }
@@ -541,37 +653,40 @@ cat("\nTotal variance:", sum(object$variance_components$var, na.rm = TRUE), "\n"
 #' @param object An mgstudy object.
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
 #' @param digits Number of digits to display (default 3).
-#' @param cor_format Format for displaying correlations: "long" (default) or "matrix".
+#' @param cor_format Format for displaying correlations/covariances: "long" (default) or "matrix".
 #' @param vc_format Format for displaying variance components: "dimension" (default) or "facet".
-#'   When "facet", variance components are grouped by facet with inline correlations.
+#' When "facet", variance components are grouped by facet with inline correlations.
+#' @param type Type of association to display: "correlation" (default) or "covariance".
 #' @param ... Additional arguments (ignored).
 #' @return Invisibly returns object.
 #' @export
 #' @rdname summary.mgstudy
 summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
                             cor_format = c("long", "matrix"),
-                            vc_format = c("dimension", "facet"), ...) {
+                            vc_format = c("dimension", "facet"),
+                            type = c("correlation", "covariance"), ...) {
   scale <- match.arg(scale)
   cor_format <- match.arg(cor_format)
   vc_format <- match.arg(vc_format)
+  type <- match.arg(type)
 
   if (isTRUE(object$long_format_multivariate)) {
     cat("=== Multivariate G-Study Summary ===\n")
     cat("(Long-Format - Unbalanced)\n\n")
 
     cat("Design Information:\n")
-    cat("  Backend:", object$backend, "\n")
-    cat("  Dimension Variable:", object$dimension_var, "\n")
-    cat("  Observations:", object$n_obs, "\n")
-    cat("  Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
+    cat(" Backend:", object$backend, "\n")
+    cat(" Dimension Variable:", object$dimension_var, "\n")
+    cat(" Observations:", object$n_obs, "\n")
+    cat(" Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
   } else {
     cat("=== Multivariate G-Study Summary ===\n\n")
 
     cat("Design Information:\n")
-    cat("  Backend:", object$backend, "\n")
-    cat("  Formula:", deparse(object$formula), "\n")
-    cat("  Observations:", object$n_obs, "\n")
-    cat("  Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
+    cat(" Backend:", object$backend, "\n")
+    cat(" Formula:", deparse(object$formula), "\n")
+    cat(" Observations:", object$n_obs, "\n")
+    cat(" Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
   }
 
   cat("Facet Information:\n")
@@ -580,35 +695,34 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
 
   ssi <- object$sample_size_info
   ss_tibble <- object$sample_size_tibble
-  
+
   if (!is.null(ss_tibble) && nrow(ss_tibble) > 0) {
     cat("\nSample Sizes:\n")
     print(ss_tibble, row.names = FALSE)
-    
-    # Add nested footnote if exists
+
     if (!is.null(ssi$nested) && length(ssi$nested) > 0) {
       cat("\nNested details:\n")
       footnote_lines <- format_nested_footnote(ssi$nested)
       for (line in footnote_lines) {
-        cat("  ", line, "\n", sep = "")
+        cat(" ", line, "\n", sep = "")
       }
     }
     cat("\n")
   } else {
     if (!is.null(ssi)) {
       cat("\nSample Sizes:\n")
-      
+
       if (length(ssi$main) > 0) {
         cat(" Main Effects:\n")
         for (i in seq_along(ssi$main)) {
-          cat(sprintf("  %s: %.0f\n", names(ssi$main)[i], ssi$main[i]))
+          cat(sprintf(" %s: %.0f\n", names(ssi$main)[i], ssi$main[i]))
         }
       }
       cat("\n")
     } else if (!is.null(object$facet_n) && length(object$facet_n) > 0) {
       cat(" Facet Sample Sizes:\n")
       for (i in seq_along(object$facet_n)) {
-        cat(sprintf("  %s: %.0f\n", names(object$facet_n)[i], object$facet_n[i]))
+        cat(sprintf(" %s: %.0f\n", names(object$facet_n)[i], object$facet_n[i]))
       }
       cat("\n")
     }
@@ -622,32 +736,64 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
       vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
       print(vc_summary, row.names = FALSE, ...)
     }
-    
+
     if (!is.null(object$correlations)) {
       cat("\n")
-      print_correlations(object$correlations, digits = digits, format = cor_format)
+      print_correlations(object$correlations, digits = digits, format = cor_format,
+        type = type, model = object$model)
     }
   } else {
     cat("Variance Components (by facet):\n")
     unique_components <- unique(object$variance_components$component)
-    
+
+    if (type == "covariance" && !is.null(object$model)) {
+      if (inherits(object$model, "brmsfit")) {
+        covariances <- extract_covariances_brms(object$model)
+      } else if (inherits(object$model, "momfit")) {
+        covariances <- extract_covariances_mom(object$model)
+      } else {
+        covariances <- NULL
+      }
+    } else {
+      covariances <- NULL
+    }
+
     for (comp in unique_components) {
       cat(sprintf("\nFacet: %s\n", comp))
       vc_comp <- object$variance_components[object$variance_components$component == comp, ]
       vc_summary <- summarize_vc(vc_comp, digits = digits, scale = scale)
       print(vc_summary, row.names = FALSE, ...)
-      
-      if (!is.null(object$correlations$random_effect_cor) &&
-          !is.null(object$correlations$random_effect_cor[[comp]])) {
+
+      if (type == "covariance" && !is.null(covariances) &&
+        !is.null(covariances$random_effect_cov) &&
+        !is.null(covariances$random_effect_cov[[comp]])) {
+        cat(sprintf("Covariances (%s):\n", comp))
+        cov_summary <- summarize_cov(covariances$random_effect_cov[[comp]], digits)
+        print(cov_summary, row.names = FALSE)
+        cat("\n")
+      } else if (!is.null(object$correlations$random_effect_cor) &&
+        !is.null(object$correlations$random_effect_cor[[comp]])) {
         cat(sprintf("Correlations (%s):\n", comp))
         cor_summary <- summarize_cor(object$correlations$random_effect_cor[[comp]], digits)
         print(cor_summary, row.names = FALSE)
         cat("\n")
       }
     }
-    
-    if (!is.null(object$correlations$residual_cor) &&
-        nrow(object$correlations$residual_cor) > 0) {
+
+    if (type == "covariance" && !is.null(covariances) &&
+      !is.null(covariances$residual_cov) && nrow(covariances$residual_cov) > 0) {
+      cat("\nResidual Covariances:\n")
+      if (cor_format == "matrix") {
+        if (!is.null(covariances$residual_cov_matrix)) {
+          cov_mat <- round(covariances$residual_cov_matrix, digits)
+          print(cov_mat, quote = FALSE)
+        }
+      } else {
+        cov_summary <- summarize_cov(covariances$residual_cov, digits)
+        print(cov_summary, row.names = FALSE)
+      }
+    } else if (!is.null(object$correlations$residual_cor) &&
+      nrow(object$correlations$residual_cor) > 0) {
       cat("\nResidual Correlations:\n")
       if (cor_format == "matrix") {
         if (!is.null(object$correlations$residual_cor_matrix)) {
@@ -697,7 +843,7 @@ summary.dstudy <- function(object, scale = c("variance", "sd"), digits = 3, sem 
           coefs <- coefs[, !names(coefs) %in% c("sem_rel", "sem_abs")]
         }
         print(coefs, row.names = FALSE, ...)
-        
+
         if ("g" %in% names(coefs)) {
           best_g <- coefs[which.max(coefs$g), ]
           cat("\nHighest G coefficient for", d, ":\n")
@@ -722,25 +868,25 @@ summary.dstudy <- function(object, scale = c("variance", "sd"), digits = 3, sem 
     }
   } else {
     cat("Sample Sizes:\n")
- for (name in names(object$n)) {
- cat(sprintf(" %s: %.0f\n", name, object$n[[name]]))
- }
- cat("\n")
+    for (name in names(object$n)) {
+      cat(sprintf(" %s: %.0f\n", name, object$n[[name]]))
+    }
+    cat("\n")
 
- cat("Variance Components:\n")
- vc_summary <- summarize_vc(object$variance_components, digits = digits, scale = scale)
- print(vc_summary, row.names = FALSE, ...)
- cat("\n")
+    cat("Variance Components:\n")
+    vc_summary <- summarize_vc(object$variance_components, digits = digits, scale = scale)
+    print(vc_summary, row.names = FALSE, ...)
+    cat("\n")
 
- cat("Coefficients:\n")
- coefs <- object$coefficients
- if (!sem && all(c("sem_rel", "sem_abs") %in% names(coefs))) {
- coefs <- coefs[, !names(coefs) %in% c("sem_rel", "sem_abs")]
- }
- print(coefs, ...)
- }
+    cat("Coefficients:\n")
+    coefs <- object$coefficients
+    if (!sem && all(c("sem_rel", "sem_abs") %in% names(coefs))) {
+      coefs <- coefs[, !names(coefs) %in% c("sem_rel", "sem_abs")]
+    }
+    print(coefs, ...)
+  }
 
- invisible(object)
+  invisible(object)
 }
 
 #' Plot Method for gstudy Objects
@@ -923,7 +1069,7 @@ plot.dstudy <- function(x, type = c("coefficients", "sweep"), coefficient = c("b
 
     x_var <- sweeping_facets[1]
     group_var <- if (length(sweeping_facets) > 1) sweeping_facets[2] else NULL
-    
+
     is_multivariate <- x$is_multivariate && "dim" %in% names(coefs)
 
     if (coefficient == "both") {
@@ -964,7 +1110,7 @@ plot.dstudy <- function(x, type = c("coefficients", "sweep"), coefficient = c("b
           ) +
           ggplot2::theme_minimal()
       }
-      
+
       if (is_multivariate) {
         p <- p + ggplot2::facet_grid(coefficient_type ~ dim)
       } else {
@@ -998,7 +1144,7 @@ plot.dstudy <- function(x, type = c("coefficients", "sweep"), coefficient = c("b
           ) +
           ggplot2::theme_minimal()
       }
-      
+
       if (is_multivariate) {
         p <- p + ggplot2::facet_wrap(~dim)
       }
@@ -1201,26 +1347,26 @@ VarCorr.gstudy <- function(x, ...) {
   } else if (x$backend == "mom") {
     # VarCorr for method of moments backend
     model <- x$model
-    
+
     # Extract variance components
     vc <- model$variance_components
-    
+
     # Check if multivariate
     if (x$is_multivariate) {
       # Multivariate method of moments
       dimensions <- x$dimensions
-      
+
       result <- list()
-      
+
       for (dim in dimensions) {
         # Filter VC for this dimension
         vc_dim <- vc[vc$dim == dim, ]
-        
+
         # Build data frame with Group, Std.Dev., Var.
         groups <- character()
         std_dev <- numeric()
         var_est <- numeric()
-        
+
         # Add random effects
         random_effects <- vc_dim[vc_dim$component != "Residual", ]
         for (i in seq_len(nrow(random_effects))) {
@@ -1229,7 +1375,7 @@ VarCorr.gstudy <- function(x, ...) {
           var_est <- c(var_est, var_val)
           std_dev <- c(std_dev, sqrt(var_val))
         }
-        
+
         # Add residual
         resid_vc <- vc_dim[vc_dim$component == "Residual", ]
         if (nrow(resid_vc) > 0) {
@@ -1238,7 +1384,7 @@ VarCorr.gstudy <- function(x, ...) {
           var_est <- c(var_est, resid_var)
           std_dev <- c(std_dev, sqrt(resid_var))
         }
-        
+
         result[[dim]] <- data.frame(
           Group = groups,
           "Std.Dev." = std_dev,
@@ -1247,13 +1393,13 @@ VarCorr.gstudy <- function(x, ...) {
           check.names = FALSE
         )
       }
-      
+
       # Add correlation info if available
       if (!is.null(model$correlations)) {
         result$random_effect_cor <- model$correlations$random_effect_cor
         result$residual_cor <- model$correlations$residual_cor
       }
-      
+
       return(result)
     } else {
       # Univariate method of moments
@@ -1261,7 +1407,7 @@ VarCorr.gstudy <- function(x, ...) {
       groups <- character()
       std_dev <- numeric()
       var_est <- numeric()
-      
+
       # Add random effects
       random_effects <- vc[vc$component != "Residual", ]
       for (i in seq_len(nrow(random_effects))) {
@@ -1270,7 +1416,7 @@ VarCorr.gstudy <- function(x, ...) {
         var_est <- c(var_est, var_val)
         std_dev <- c(std_dev, sqrt(var_val))
       }
-      
+
       # Add residual variance
       resid_vc <- vc[vc$component == "Residual", ]
       if (nrow(resid_vc) > 0) {
@@ -1279,7 +1425,7 @@ VarCorr.gstudy <- function(x, ...) {
         var_est <- c(var_est, resid_var)
         std_dev <- c(std_dev, sqrt(resid_var))
       }
-      
+
       result <- data.frame(
         Group = groups,
         "Std.Dev." = std_dev,
@@ -1287,7 +1433,7 @@ VarCorr.gstudy <- function(x, ...) {
         stringsAsFactors = FALSE,
         check.names = FALSE
       )
-      
+
       return(result)
     }
   } else {
@@ -1309,7 +1455,7 @@ VarCorr.mgstudy <- VarCorr.gstudy
 #' @return Random effects from the fitted model.
 #' @export
 ranef <- function(object, ...) {
-UseMethod("ranef")
+  UseMethod("ranef")
 }
 
 #' Extract Random Effects from gstudy Objects
@@ -1328,9 +1474,9 @@ UseMethod("ranef")
 #' @method ranef gstudy
 #' @export
 ranef.gstudy <- function(object, ...) {
-if (!inherits(object, "gstudy") && !inherits(object, "mgstudy")) {
-stop("object must be a gstudy object", call. = FALSE)
-}
+  if (!inherits(object, "gstudy") && !inherits(object, "mgstudy")) {
+    stop("object must be a gstudy object", call. = FALSE)
+  }
 
   model <- object$model
 
@@ -1342,21 +1488,21 @@ stop("object must be a gstudy object", call. = FALSE)
     # Empirical BLUPs for method of moments
     model <- object$model
     data <- object$data
-    
+
     # Check if multivariate
     if (object$is_multivariate) {
       # Multivariate method of moments - empirical BLUPs
       responses <- model$responses
       random_facet_specs <- model$random_facet_specs
-      
+
       result <- list()
-      
+
       for (resp in responses) {
         # Compute grand mean for this response
         grand_mean <- mean(data[[resp]], na.rm = TRUE)
-        
+
         resp_result <- list()
-        
+
         for (facet_spec in random_facet_specs) {
           # Check if this is an interaction term (contains ":")
           if (grepl(":", facet_spec)) {
@@ -1364,13 +1510,13 @@ stop("object must be a gstudy object", call. = FALSE)
             # e.g., "rater:item" -> paste rater and item values
             facet_parts <- strsplit(facet_spec, ":")[[1]]
             facet_parts <- trimws(facet_parts)
-            
+
             # Check if all parts exist in data
             if (!all(facet_parts %in% names(data))) next
-            
+
             # Create combined factor
             combined_factor <- interaction(data[, facet_parts, drop = FALSE], drop = TRUE)
-            
+
             # Compute means by combined factor level
             resp_data <- data[[resp]]
             facet_means <- aggregate(
@@ -1381,7 +1527,7 @@ stop("object must be a gstudy object", call. = FALSE)
           } else {
             # Simple facet
             if (!facet_spec %in% names(data)) next
-            
+
             # Compute means by facet level
             facet_means <- aggregate(
               data[[resp]],
@@ -1389,43 +1535,43 @@ stop("object must be a gstudy object", call. = FALSE)
               FUN = mean, na.rm = TRUE
             )
           }
-          
+
           # Empirical BLUPs = level mean - grand mean
           eblup <- setNames(
             facet_means$x - grand_mean,
             facet_means$facet
           )
-          
+
           resp_result[[facet_spec]] <- eblup
         }
-        
+
         result[[resp]] <- resp_result
       }
-      
+
       return(result)
     } else {
       # Univariate method of moments
       response <- model$response
       random_facet_specs <- model$random_facet_specs
-      
+
       # Compute grand mean
       grand_mean <- mean(data[[response]], na.rm = TRUE)
-      
+
       result <- list()
-      
+
       for (facet_spec in random_facet_specs) {
         # Check if this is an interaction term (contains ":")
         if (grepl(":", facet_spec)) {
           # Interaction term: create combined factor
           facet_parts <- strsplit(facet_spec, ":")[[1]]
           facet_parts <- trimws(facet_parts)
-          
+
           # Check if all parts exist in data
           if (!all(facet_parts %in% names(data))) next
-          
+
           # Create combined factor
           combined_factor <- interaction(data[, facet_parts, drop = TRUE], drop = TRUE)
-          
+
           # Compute means by combined factor level
           facet_means <- aggregate(
             data[[response]],
@@ -1435,7 +1581,7 @@ stop("object must be a gstudy object", call. = FALSE)
         } else {
           # Simple facet
           if (!facet_spec %in% names(data)) next
-          
+
           # Compute means by facet level
           facet_means <- aggregate(
             data[[response]],
@@ -1443,16 +1589,16 @@ stop("object must be a gstudy object", call. = FALSE)
             FUN = mean, na.rm = TRUE
           )
         }
-        
+
         # Empirical BLUPs = level mean - grand mean
         eblup <- setNames(
           facet_means$x - grand_mean,
           facet_means$facet
         )
-        
+
         result[[facet_spec]] <- eblup
       }
-      
+
       return(result)
     }
   } else {
@@ -1475,7 +1621,7 @@ ranef.mgstudy <- ranef.gstudy
 #' @export
 #' @rdname pairs.gstudy
 pairs.gstudy <- function(x, ...) {
-if (x$backend != "brms") {
+  if (x$backend != "brms") {
     stop("pairs.gstudy only works with gstudy objects fit with the brms backend", call. = FALSE)
   }
 

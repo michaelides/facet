@@ -28,6 +28,18 @@
 #' @param prior A brmsprior object or list of priors created by [set_prior()]
 #' or related functions. Only applicable when using brms backend.
 #' Use [default_prior()] to see available parameters for priors.
+#' @param unbalanced Logical indicating whether to enable unbalanced multivariate
+#' estimation. Default is FALSE. When TRUE:
+#' \itemize{
+#' \item For \strong{mom backend}: Each dimension is analyzed with its available
+#' data using Henderson's Method III for variance component estimation.
+#' Correlations are computed using pairwise complete cases.
+#' \item For \strong{brms backend}: Not implemented. Use long-format specification
+#' with \code{bf(Score ~ 0 + Dimension + (0+Dimension|Facet), sigma ~ 0 + Dimension)}
+#' for sparse multivariate data.
+#' \item For \strong{lme4 backend}: Not applicable (lme4 does not support
+#' multivariate models).
+#' }
 #' @param ... Additional arguments passed to the backend fitting function
 #' (e.g., `lmer()` or `brm()`) and to `confint.merMod` for confidence intervals.
 #'
@@ -49,9 +61,9 @@
 #'
 #' @examples
 #' # Basic univariate G-study with lme4 (default)
-#' g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
-#'             (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-#'   data = brennan
+#' g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#'   (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+#' data = brennan
 #' )
 #'
 #' # G-study with profile confidence intervals
@@ -61,14 +73,14 @@
 #'   ci_method = "profile"
 #' )
 #' }
-#' 
+#'
 #' # Method of moments G-study (ANOVA-based)
-#' g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
-#'                 (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-#'   data = brennan,
-#'   backend = "mom"
+#' g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#'   (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+#' data = brennan,
+#' backend = "mom"
 #' )
-#' 
+#'
 #' \donttest{
 #' # Bayesian G-study with brms
 #' g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task),
@@ -86,18 +98,17 @@
 #'
 #' # Multivariate G-study (automatically uses brms)
 #' # Formatting data for multivariate example
-#' b_wide <- tidyr::pivot_wider(brennan, names_from = Task, values_from = Score, 
-#'                              names_prefix = "Task")
+#' b_wide <- tidyr::pivot_wider(brennan, names_from = Task, values_from = Score,
+#'   names_prefix = "Task")
 #' g_multi <- gstudy(mvbind(Task1, Task2) ~ (1 | Person) + (1 | Rater),
 #'   data = b_wide
 #' )
 #' }
 gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
-facets = NULL, nested = NULL,
-ci_method = c("none", "profile", "boot"),
-nsim = 1000,
-boot.type = c("perc", "basic", "norm"),
-prior = NULL, ...) {
+                   facets = NULL, nested = NULL, unbalanced = FALSE,
+                   ci_method = c("none", "profile", "boot"),
+                   nsim = 1000, boot.type = c("perc", "basic", "norm"),
+                   prior = NULL, ...) {
   # 1. Match backend argument
   backend <- match.arg(backend)
 
@@ -126,8 +137,52 @@ prior = NULL, ...) {
     is_mv <- TRUE
   }
 
+  # 5.6. Check multivariate balance for wide-format models
+  if (is_mv && !long_format_info$is_long) {
+    balance_info <- check_multivariate_balance(formula, data, FALSE, unbalanced = unbalanced)
+
+    # Only show warning if NOT in unbalanced mode (user explicitly opted in)
+    if (!unbalanced && !is.null(balance_info$warning_message)) {
+      warning(balance_info$warning_message, call. = FALSE)
+    }
+
+    if (!is.null(balance_info$info_message)) {
+      message(balance_info$info_message)
+    }
+  }
+
   # 6. Select backend
   selected_backend <- select_backend(formula, backend)
+
+  # 6.1. Validate unbalanced parameter for selected backend
+  if (unbalanced) {
+    if (selected_backend == "lme4") {
+      if (is_mv) {
+        stop(
+          "Multivariate models are not supported by lme4 backend. ",
+          "Use backend = 'brms' or backend = 'mom'.",
+          call. = FALSE
+        )
+      } else {
+        warning(
+          "The 'unbalanced' parameter is only applicable to multivariate models. ",
+          "It will be ignored for this univariate model.",
+          call. = FALSE
+        )
+      }
+    } else if (selected_backend == "brms") {
+      warning(
+        "unbalanced = TRUE is not implemented for brms backend. ",
+        "For sparse/unbalanced multivariate data, use long-format specification:\n",
+        "  bf(Score ~ 0 + Dimension + (0+Dimension|Facet), sigma ~ 0 + Dimension)\n",
+        "See ?gstudy for long-format multivariate examples.",
+        call. = FALSE
+      )
+    }
+  }
+
+  # 6.5. Validate interaction levels for lme4 backend
+  validate_interaction_levels(formula, data, selected_backend)
 
   # 7. Warn if ci_method specified for brms backend
   if (ci_method != "none" && selected_backend == "brms") {
@@ -160,7 +215,7 @@ prior = NULL, ...) {
   model <- if (selected_backend == "lme4") {
     fit_lme4(formula, data, ...)
   } else if (selected_backend == "mom") {
-    fit_mom(formula, data, ...)
+    fit_mom(formula, data, unbalanced = unbalanced, ...)
   } else {
     fit_brms(formula, data, prior = prior, ...)
   }
@@ -184,17 +239,23 @@ prior = NULL, ...) {
       data = data
     )
 
+    # Extract facet specifications FIRST (preserves formula order)
+    facet_specs <- extract_facet_specs(formula)
+
     # Determine facets from variance components
     facets <- unique(vc$component[vc$component != "Residual"])
 
-    # Determine object of measurement
-    object <- if (length(facets) > 0) facets[1] else NULL
+    # Determine object of measurement from formula order (first random effect)
+    # For long-format models, facet_specs preserves the order from the formula
+    object <- if (length(facet_specs) > 0) facet_specs[1] else if (length(facets) > 0) facets[1] else NULL
 
-    # Extract facet specifications
-    facet_specs <- extract_facet_specs(formula)
+    # Extract covariances for long-format multivariate models
+    # This is needed for composite coefficient calculation
+    covariances <- extract_covariances_brms_long_format(model, dimension_var, data, vc)
 
-    # Extract correlations (placeholder - Task 6 will implement properly)
-    correlations <- NULL
+    # For backward compatibility, also store in correlations slot
+    # The build_component_covariance_matrix function uses the covariances structure
+    correlations <- covariances
 
     # Detect estimation issues
     estimation_issues <- detect_brms_issues(model, vc)
@@ -260,27 +321,41 @@ prior = NULL, ...) {
 
   # 10.7. Calculate comprehensive sample size information
   sample_size_info <- calculate_sample_size_info(formula, data, nested)
-  
+
   # 10.8. Convert to tibble format for display
   sample_size_tibble <- calculate_single_sample_size_tibble(sample_size_info)
 
-# 11. Determine object of measurement (always first facet)
-object <- if (length(facets) > 0) facets[1] else NULL
+  # 11. Determine object of measurement (always first facet)
+  object <- if (length(facets) > 0) facets[1] else NULL
 
   # 12. Extract dimension names
   dimensions <- unique(vc$dim)
 
-# 13. Extract correlations for multivariate models
+  # 13. Extract correlations and covariances for multivariate models
+  # Covariances are needed for composite coefficient calculation
+  # Correlations are needed for display in summary()
   correlations <- NULL
   if (is_mv) {
     if (selected_backend == "brms") {
-      correlations <- extract_correlations_brms(model)
+      cov_result <- extract_covariances_brms(model)
+      cor_result <- extract_correlations_brms(model)
+
+      correlations <- list(
+        residual_cov = cov_result$residual_cov,
+        residual_cov_matrix = cov_result$residual_cov_matrix,
+        random_effect_cov = cov_result$random_effect_cov,
+        random_effect_cov_matrix = cov_result$random_effect_cov_matrix,
+        residual_cor = cor_result$residual_cor,
+        residual_cor_matrix = cor_result$residual_cor_matrix,
+        random_effect_cor = cor_result$random_effect_cor,
+        random_effect_cor_matrix = cor_result$random_effect_cor_matrix
+      )
     } else if (selected_backend == "mom" && !is.null(model$correlations)) {
       correlations <- model$correlations
     }
   }
 
-# 13.5. Detect and store estimation issues
+  # 13.5. Detect and store estimation issues
   estimation_issues <- NULL
   if (selected_backend == "lme4") {
     estimation_issues <- detect_lme4_issues(model)
@@ -290,7 +365,7 @@ object <- if (length(facets) > 0) facets[1] else NULL
     estimation_issues <- detect_brms_issues(model, vc)
   }
 
-# 14. Create gstudy or mgstudy object
+  # 14. Create gstudy or mgstudy object
   result <- list(
     model = model,
     variance_components = vc,

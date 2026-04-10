@@ -20,7 +20,7 @@ NULL
 #' @rdname bf
 #' @export
 bf <- function(formula, ...) {
-    brms::bf(formula, ...)
+  brms::bf(formula, ...)
 }
 
 #' Bind response variables for multivariate models
@@ -36,7 +36,7 @@ bf <- function(formula, ...) {
 #' @rdname mvbind
 #' @export
 mvbind <- function(...) {
-    brms::mvbind(...)
+  brms::mvbind(...)
 }
 
 #' Set residual correlation between response variables
@@ -52,5 +52,5 @@ mvbind <- function(...) {
 #' @rdname set_rescor
 #' @export
 set_rescor <- function(rescor) {
-    brms::set_rescor(rescor)
+  brms::set_rescor(rescor)
 }

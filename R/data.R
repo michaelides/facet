@@ -16,7 +16,7 @@
 #' Brennan's (2001) Generalizability Theory Example Data
 #'
 #' A classic dataset from Brennan (2001) illustrating a Person crossed with Task
-#' and Rater design (p x t x r). Commonly used to demonstrate complex 
+#' and Rater design (p x t x r). Commonly used to demonstrate complex
 #' generalizability theory analyses.
 #'
 #' @format A data frame with 120 rows and 5 variables:
@@ -32,7 +32,7 @@
 
 #' Rajaratnam, Cronbach, & Gleser (1965) Example Data
 #'
-#' A classic dataset illustrating a 
+#' A classic dataset illustrating a
 #' Person crossed with Subtest and Item design.
 #'
 #' @format A data frame with 64 rows and 4 variables:
@@ -42,6 +42,6 @@
 #'   \item{Item}{Factor with 4 levels indicating the item within subtest}
 #'   \item{Score}{Integer score}
 #' }
-#' @source Rajaratnam, N., Cronbach, L. J., & Gleser, G. C. (1965). 
+#' @source Rajaratnam, N., Cronbach, L. J., & Gleser, G. C. (1965).
 #' \emph{Generalizability of stratified-parallel tests.} Psychometrika, 30(1), 39-56.
 "rajaratnam"

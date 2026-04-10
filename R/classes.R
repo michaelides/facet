@@ -105,8 +105,8 @@ validate_gstudy <- function(x) {
   missing_vc_cols <- setdiff(required_vc_cols, names(x$variance_components))
   if (length(missing_vc_cols) > 0) {
     stop("variance_components is missing required columns: ",
-         paste(missing_vc_cols, collapse = ", "),
-         call. = FALSE)
+      paste(missing_vc_cols, collapse = ", "),
+      call. = FALSE)
   }
 
   if (!"dim" %in% names(x$variance_components)) {
@@ -245,8 +245,8 @@ validate_mgstudy <- function(x) {
 
   if (length(missing) > 0) {
     stop("mgstudy object is missing required components: ",
-         paste(missing, collapse = ", "),
-         call. = FALSE)
+      paste(missing, collapse = ", "),
+      call. = FALSE)
   }
 
   if (!tibble::is_tibble(x$variance_components)) {
@@ -257,8 +257,8 @@ validate_mgstudy <- function(x) {
   missing_vc_cols <- setdiff(required_vc_cols, names(x$variance_components))
   if (length(missing_vc_cols) > 0) {
     stop("variance_components is missing required columns: ",
-         paste(missing_vc_cols, collapse = ", "),
-         call. = FALSE)
+      paste(missing_vc_cols, collapse = ", "),
+      call. = FALSE)
   }
 
   if (!x$backend %in% c("lme4", "brms", "mom")) {
@@ -267,7 +267,7 @@ validate_mgstudy <- function(x) {
 
   if (!is.character(x$dimensions) || length(x$dimensions) < 2) {
     stop("dimensions must be a character vector with at least 2 response names",
-         call. = FALSE)
+      call. = FALSE)
   }
 
   TRUE

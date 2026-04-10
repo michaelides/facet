@@ -64,12 +64,16 @@ NULL
 #' fit_mom(score ~ (1 | person) + (1 | item), data)
 #' }
 #'
+#' @param unbalanced Logical. If TRUE, enables unbalanced multivariate estimation
+#' using Henderson's Method III. Each dimension is analyzed with its available data.
+#' Default is FALSE.
+#'
 #' @export
 #' @rdname fit_mom
-fit_mom <- function(formula, data, ...) {
+fit_mom <- function(formula, data, unbalanced = FALSE, ...) {
   # Check if formula is multivariate
   if (is_multivariate(formula)) {
-    return(fit_mom_multivariate(formula, data, ...))
+    return(fit_mom_multivariate(formula, data, unbalanced = unbalanced, ...))
   }
 
   # Parse the formula
@@ -220,7 +224,7 @@ extract_anova_from_aovlist <- function(aov_model, random_facets) {
             df = as.numeric(table_df$Df[k]),
             ss = as.numeric(table_df$"Sum Sq"[k]),
             ms = as.numeric(table_df$"Mean Sq"[k]),
-            stratum = NA_character_
+            stratum = paste0("stratum_", i)
           )
         }
       }
@@ -444,6 +448,9 @@ compute_mom_vc_from_results <- function(anova_results, data, response, random_fa
   # Detect crossing patterns from the data
   crossing_info <- detect_crossing_patterns_from_data(data, random_facet_specs)
 
+  # Build residual MS/DF mapping using stratum information
+  resid_map <- build_source_resid_map(anova_results)
+
   # Process each result
   for (i in seq_along(anova_results)) {
     item <- anova_results[[i]]
@@ -470,15 +477,16 @@ compute_mom_vc_from_results <- function(anova_results, data, response, random_fa
     n_effective <- compute_n_effective(source, n_total, facet_n, random_facets, crossing_info)
 
     # Method of moments estimate: var = (MS_effect - MS_residual) / n_effective
-    # We need to find the residual MS for this stratum
-    resid_ms <- find_residual_ms(anova_results, source)
+    # Use stratum-aware residual MS and df from the mapping
+    resid_ms <- if (!is.null(resid_map$ms[[source]])) resid_map$ms[[source]] else 0
+    resid_df <- if (!is.null(resid_map$df[[source]])) resid_map$df[[source]] else df
 
     var_est <- max(0, (ms - resid_ms) / n_effective)
 
-    # Compute approximate degrees of freedom
+    # Satterthwaite approximate degrees of freedom for the variance component
     if (var_est > 0 && ms > resid_ms) {
       num <- (ms - resid_ms)^2
-      denom <- (ms^2 / df) + (resid_ms^2 / max(df - 1, 1))
+      denom <- (ms^2 / df) + (resid_ms^2 / max(resid_df, 1))
       approx_df <- max(num / denom, 1)
     } else {
       approx_df <- df
@@ -563,6 +571,86 @@ build_facet_name_mapping <- function(random_facet_specs, anova_results) {
   mapping
 }
 
+#' Build Residual MS/DF Mapping for Each Source
+#'
+#' Builds a mapping from each ANOVA source to the appropriate residual MS and df,
+#' using stratum information to select the correct residual when multiple strata
+#' contain "Residuals" entries (common in nested and crossed designs with Error() terms).
+#'
+#' @keywords internal
+build_source_resid_map <- function(anova_results) {
+  sources <- sapply(anova_results, function(x) x$source)
+  strata <- sapply(anova_results, function(x) x$stratum)
+  unique_strata <- unique(strata[!is.na(strata)])
+
+  # Get all non-Intercept, non-Residuals sources
+  effect_idx <- which(sources != "Intercept" & sources != "Residuals")
+  effect_sources <- sources[effect_idx]
+
+  # Collect Residuals entries with their strata
+  resid_idx <- which(sources == "Residuals")
+  resid_strata <- strata[resid_idx]
+  resid_ms_vals <- sapply(resid_idx, function(i) anova_results[[i]]$ms)
+  resid_df_vals <- sapply(resid_idx, function(i) anova_results[[i]]$df)
+
+  # Build a list of interaction sources (non-main effects) with their MS and strata
+  interaction_sources <- effect_sources[grepl(":", effect_sources)]
+
+  resid_map <- list()
+  resid_df_map <- list()
+
+  for (src in effect_sources) {
+    src_stratum <- strata[which(sources == src)[1]]
+    src_facets <- unlist(strsplit(src, ":"))
+
+    # Step 1: look for a higher-order interaction containing this source
+    best_match <- NULL
+    best_len <- Inf
+
+    for (other in interaction_sources) {
+      if (other == src) next
+      other_facets <- unlist(strsplit(other, ":"))
+      if (all(src_facets %in% other_facets) && length(other_facets) > length(src_facets)) {
+        if (length(other_facets) < best_len) {
+          best_match <- other
+          best_len <- length(other_facets)
+        }
+      }
+    }
+
+    if (!is.null(best_match)) {
+      for (item in anova_results) {
+        if (item$source == best_match) {
+          resid_map[[src]] <- item$ms
+          resid_df_map[[src]] <- item$df
+          break
+        }
+      }
+    }
+
+    if (!is.null(resid_map[[src]])) next
+
+    # Step 2: no interaction found; pick Residuals from the appropriate stratum.
+    # The correct residual is from a stratum "below" this source's stratum.
+    # If only one Residuals exists, use it. If multiple exist, prefer the one
+    # from the last (innermost) stratum, which represents the within-cell error.
+    if (length(resid_idx) == 0) {
+      resid_map[[src]] <- 0
+      resid_df_map[[src]] <- 1
+    } else if (length(resid_idx) == 1) {
+      resid_map[[src]] <- resid_ms_vals[1]
+      resid_df_map[[src]] <- resid_df_vals[1]
+    } else {
+      # Multiple Residuals from different strata (nested/crossed design).
+      # Use the last Residuals (innermost stratum = within-cell error).
+      resid_map[[src]] <- resid_ms_vals[length(resid_ms_vals)]
+      resid_df_map[[src]] <- resid_df_vals[length(resid_df_vals)]
+    }
+  }
+
+  list(ms = resid_map, df = resid_df_map)
+}
+
 #' Find Residual MS for a Given Source
 #'
 #' For nested designs, the residual for a given effect is the next interaction
@@ -570,111 +658,45 @@ build_facet_name_mapping <- function(random_facet_specs, anova_results) {
 #'
 #' @keywords internal
 find_residual_ms <- function(anova_results, source) {
-  # Get all sources except Intercept and Residuals
-  sources <- sapply(anova_results, function(x) x$source)
-  sources <- sources[sources != "Intercept" & sources != "Residuals"]
-
-  # Parse the source into facets
-  source_facets <- unlist(strsplit(source, ":"))
-
-  # For a main effect (single factor), find the interaction that contains this factor
-  # and all other random factors
-  if (length(source_facets) == 1) {
-    # For Person, look for Person:Task or Person:Task:Rater, etc.
-    # The residual should be the smallest interaction containing this factor
-
-    # Get all other factors (excluding this one)
-    other_sources <- sources[sources != source]
-
-    # Find the interaction that contains our source facet
-    # Priority: shortest matching interaction
-    best_match <- NULL
-    best_len <- Inf
-
-    for (other in other_sources) {
-      other_facets <- unlist(strsplit(other, ":"))
-      if (source_facets[1] %in% other_facets) {
-        # This interaction contains our source
-        if (length(other_facets) < best_len) {
-          best_match <- other
-          best_len <- length(other_facets)
-        }
-      }
-    }
-
-    if (!is.null(best_match)) {
-      for (item in anova_results) {
-        if (item$source == best_match) {
-          return(item$ms)
-        }
-      }
-    }
+  map <- build_source_resid_map(anova_results)
+  if (!is.null(map$ms[[source]])) {
+    return(map$ms[[source]])
   }
-
-  # For interaction effects, find the next level interaction
-  # e.g., Person:Task should use Person:Task:Rater or Residuals
-  if (length(source_facets) > 1) {
-    other_sources <- sources[sources != source]
-
-    # Find an interaction that contains all facets from source plus one more
-    best_match <- NULL
-    best_len <- Inf
-
-    for (other in other_sources) {
-      other_facets <- unlist(strsplit(other, ":"))
-      # Check if 'source' is a subset of 'other' (other contains source facets)
-      if (all(source_facets %in% other_facets) && length(other_facets) > length(source_facets)) {
-        if (length(other_facets) < best_len) {
-          best_match <- other
-          best_len <- length(other_facets)
-        }
-      }
-    }
-
-    if (!is.null(best_match)) {
-      for (item in anova_results) {
-        if (item$source == best_match) {
-          return(item$ms)
-        }
-      }
-    }
-
-    # If no higher-level interaction found, use Residuals
-    for (item in anova_results) {
-      if (item$source == "Residuals") {
-        return(item$ms)
-      }
-    }
-  }
-
-  # Fallback: look for Residuals
-  for (item in anova_results) {
-    if (item$source == "Residuals") {
-      return(item$ms)
-    }
-  }
-
-  # If no residual found, return 0 (no adjustment)
   0
 }
 
 #' Find Residual Item
 #'
+#' Returns the Residuals entry from the innermost (last) stratum.
+#' This is the within-cell error, which is the correct residual variance
+#' for G-study estimates.
+#'
 #' @keywords internal
 find_residual_item <- function(anova_results) {
+  # In designs with Error() terms, there can be multiple "Residuals" entries
+  # from different strata. The last one is from the innermost (within-cell) stratum.
+  last_resid <- NULL
   for (i in seq_along(anova_results)) {
     item <- anova_results[[i]]
     if (item$source == "Residuals") {
-      return(item)
+      last_resid <- item
     }
   }
-  NULL
+  last_resid
 }
 
 #' Fit Multivariate Model Using Method of Moments
 #'
+#' @param formula A formula for the model
+#' @param data A data frame containing the variables
+#' @param unbalanced Logical. If TRUE, uses Henderson's Method III for unbalanced designs
+#' @param ... Additional arguments
 #' @keywords internal
-fit_mom_multivariate <- function(formula, data, ...) {
+fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, ...) {
+  if (unbalanced) {
+    return(fit_mom_multivariate_unbalanced(formula, data, ...))
+  }
+
   # Parse the formula to get responses
   formula_char <- deparse(formula)
 
@@ -804,6 +826,397 @@ fit_mom_multivariate <- function(formula, data, ...) {
   )
 
   result
+}
+
+#' Fit Unbalanced Multivariate Model Using Method of Moments (Henderson's Method III)
+#'
+#' Implements Henderson's Method III for variance component estimation in
+#' unbalanced multivariate designs. Each dimension is analyzed separately
+#' using its available data, and correlations are computed using pairwise
+#' complete cases.
+#'
+#' @param formula A formula for the model
+#' @param data A data frame containing the variables
+#' @param ... Additional arguments
+#' @return A momfit object with unbalanced estimation
+#' @keywords internal
+fit_mom_multivariate_unbalanced <- function(formula, data, ...) {
+  # Parse the formula to get responses
+  formula_char <- deparse(formula)
+
+  # Extract response variables from mvbind
+  resp_match <- regmatches(formula_char, regexpr("mvbind\\s*\\([^)]+\\)", formula_char))
+  if (length(resp_match) == 0 || resp_match == "") {
+    stop("Could not parse multivariate formula for method of moments", call. = FALSE)
+  }
+
+  # Extract variable names from mvbind(...)
+  resp_str <- sub("mvbind\\s*\\(", "", resp_match)
+  resp_str <- sub("\\)\\s*$", "", resp_str)
+  responses <- unlist(strsplit(resp_str, "\\s*,\\s*"))
+  responses <- trimws(responses)
+
+  # Parse random facets from formula
+  parsed <- parse_g_formula(formula)
+  random_facets <- parsed$random_facets
+  random_facet_specs <- parsed$random_facet_specs
+
+  # Extract set_rescor setting from formula (default FALSE)
+  rescor_setting <- extract_rescor_setting(formula)
+
+  # Extract random effect correlation specifications
+  random_effect_cors <- extract_random_effect_cor(formula)
+
+  # Check that we have random effects
+  if (length(random_facets) == 0) {
+    stop("Method of moments requires at least one random effect term.", call. = FALSE)
+  }
+
+  # Build aov formula template
+  aov_formula_template <- build_aov_formula(formula, data)
+  rhs_formula <- sub("^[^~]+~", "", aov_formula_template)
+  rhs_formula <- sub("^\\s+", "", rhs_formula)
+
+  # Track observations per dimension
+  n_per_dim <- list()
+
+  # Fit each response separately using its available data (Henderson's Method III)
+  all_vc <- list()
+  aov_models <- list()
+  data_per_dim <- list()
+  formulas_by_response <- list()
+
+  for (resp in responses) {
+    # Subset to non-missing for THIS response only
+    dim_data <- data[!is.na(data[[resp]]), , drop = FALSE]
+    n_per_dim[[resp]] <- nrow(dim_data)
+    data_per_dim[[resp]] <- dim_data
+
+    # Build formula for this response
+    resp_aov_formula <- paste(resp, "~", rhs_formula)
+
+    # Fit ANOVA model for this response using its available data
+    aov_model <- tryCatch(
+      {
+        aov(as.formula(resp_aov_formula), data = dim_data)
+      },
+      error = function(e) {
+        stop("Error fitting model with method of moments for response ", resp, ": ",
+          e$message, call. = FALSE)
+      }
+    )
+
+    aov_models[[resp]] <- aov_model
+    formulas_by_response[[resp]] <- resp_aov_formula
+
+    # Extract ANOVA results
+    anova_results <- extract_anova_from_aovlist(aov_model, random_facets)
+
+    # Compute variance components using this dimension's data
+    vc <- compute_mom_vc_from_results(
+      anova_results, dim_data, resp, random_facets, random_facet_specs
+    )
+
+    # Add dimension column
+    vc$dim <- resp
+    all_vc[[resp]] <- vc
+  }
+
+  # Combine variance components
+  combined_vc <- do.call(rbind, all_vc)
+
+  # Compute correlations using pairwise complete cases
+  correlations <- NULL
+  compute_rescor <- rescor_setting
+  compute_re_cors <- length(random_effect_cors) > 0
+
+  if (compute_rescor || compute_re_cors) {
+    correlations <- compute_mom_correlations_unbalanced(
+      data, responses, random_facets, aov_models, data_per_dim,
+      formulas_by_response, random_effect_cors, compute_rescor, compute_re_cors
+    )
+  }
+
+  # Create result object
+  result <- structure(
+    list(
+      formula = formula,
+      data = data,
+      aov_models = aov_models,
+      variance_components = combined_vc,
+      responses = responses,
+      random_facets = random_facets,
+      random_facet_specs = random_facet_specs,
+      correlations = correlations,
+      rescor_used = rescor_setting,
+      random_effect_cors = random_effect_cors,
+      n_per_dim = n_per_dim,
+      is_unbalanced = TRUE,
+      is_multivariate = TRUE
+    ),
+    class = "momfit"
+  )
+
+  result
+}
+
+#' Compute Correlations for Unbalanced Multivariate Mom Model
+#'
+#' Computes residual and random effect correlations using pairwise complete cases
+#' for unbalanced multivariate designs.
+#'
+#' @param data Original data frame
+#' @param responses Character vector of response variable names
+#' @param random_facets Character vector of random effect facet names
+#' @param aov_models List of fitted aov models (one per response variable)
+#' @param data_per_dim List of data frames used for each dimension
+#' @param aov_formulas List of aov formula strings per response (with Error terms)
+#' @param random_effect_cors List of random effect correlation specifications
+#' @param compute_rescor Whether to compute residual correlations
+#' @param compute_re_cors Whether to compute random effect correlations
+#' @return List with residual and random effect correlations
+#' @keywords internal
+compute_mom_correlations_unbalanced <- function(data, responses, random_facets,
+                                                aov_models, data_per_dim,
+                                                aov_formulas = list(),
+                                                random_effect_cors = list(),
+                                                compute_rescor = FALSE,
+                                                compute_re_cors = FALSE) {
+  if (length(responses) < 2) {
+    return(NULL)
+  }
+
+  result <- list(
+    residual_cor = NULL,
+    random_effect_cor = list(),
+    residual_cor_matrix = NULL,
+    random_effect_cor_matrix = list(),
+    n_pairwise = list()
+  )
+
+  # Compute residual correlations using pairwise complete cases
+  if (compute_rescor) {
+    cor_list <- list()
+    cor_matrix <- matrix(NA, length(responses), length(responses))
+    rownames(cor_matrix) <- responses
+    colnames(cor_matrix) <- responses
+    diag(cor_matrix) <- 1
+
+    for (i in seq_along(responses)) {
+      for (j in seq_along(responses)) {
+        if (i < j) {
+          resp_i <- responses[i]
+          resp_j <- responses[j]
+
+          # Use pairwise complete cases for this pair of responses
+          pairwise_idx <- !is.na(data[[resp_i]]) & !is.na(data[[resp_j]])
+          pairwise_data <- data[pairwise_idx, , drop = FALSE]
+          n_pairwise <- nrow(pairwise_data)
+
+          if (n_pairwise < 3) {
+            warning("Not enough pairwise complete cases for correlation between ",
+              resp_i, " and ", resp_j, " (n = ", n_pairwise, ")", call. = FALSE)
+            next
+          }
+
+          # Get residuals from models (need to refit on pairwise data if necessary)
+          resp_formula_i <- if (!is.null(aov_formulas[[resp_i]])) aov_formulas[[resp_i]] else NULL
+          resp_formula_j <- if (!is.null(aov_formulas[[resp_j]])) aov_formulas[[resp_j]] else NULL
+          resids_i <- get_aov_residuals_for_pair(aov_models[[resp_i]], pairwise_data, resp_i, data_per_dim[[resp_i]], resp_formula_i)
+          resids_j <- get_aov_residuals_for_pair(aov_models[[resp_j]], pairwise_data, resp_j, data_per_dim[[resp_j]], resp_formula_j)
+
+          # Compute correlation
+          cor_ij <- cor(resids_i, resids_j, use = "complete.obs")
+
+          if (!is.na(cor_ij)) {
+            # Standard error and CI using Fisher's z transformation
+            se_ij <- sqrt((1 - cor_ij^2) / (n_pairwise - 2))
+            z_ij <- atanh(cor_ij)
+            se_z <- 1 / sqrt(n_pairwise - 3)
+            z_lower <- z_ij - 1.96 * se_z
+            z_upper <- z_ij + 1.96 * se_z
+            lower <- tanh(z_lower)
+            upper <- tanh(z_upper)
+
+            cor_list[[length(cor_list) + 1]] <- data.frame(
+              dim1 = resp_i,
+              dim2 = resp_j,
+              estimate = cor_ij,
+              se = se_ij,
+              lower = lower,
+              upper = upper,
+              n_pairwise = n_pairwise,
+              stringsAsFactors = FALSE
+            )
+
+            cor_matrix[i, j] <- cor_ij
+            cor_matrix[j, i] <- cor_ij
+          }
+        }
+      }
+    }
+
+    if (length(cor_list) > 0) {
+      result$residual_cor <- do.call(rbind, cor_list)
+      result$residual_cor_matrix <- cor_matrix
+    }
+  }
+
+  # Compute random effect correlations using pairwise complete cases per facet
+  if (compute_re_cors) {
+    for (facet in names(random_effect_cors)) {
+      if (!facet %in% random_facets) next
+      if (!facet %in% names(data)) next
+
+      facet_cor_list <- list()
+
+      for (i in seq_along(responses)) {
+        for (j in seq_along(responses)) {
+          if (i < j) {
+            resp_i <- responses[i]
+            resp_j <- responses[j]
+
+            # Use pairwise complete cases
+            pairwise_idx <- !is.na(data[[resp_i]]) & !is.na(data[[resp_j]])
+            pairwise_data <- data[pairwise_idx, , drop = FALSE]
+
+            if (!facet %in% names(pairwise_data)) next
+
+            # Compute facet means for each response using pairwise data
+            facet_means_i <- aggregate(
+              pairwise_data[[resp_i]],
+              by = list(facet = pairwise_data[[facet]]),
+              FUN = mean,
+              na.rm = TRUE
+            )
+            facet_means_j <- aggregate(
+              pairwise_data[[resp_j]],
+              by = list(facet = pairwise_data[[facet]]),
+              FUN = mean,
+              na.rm = TRUE
+            )
+
+            # Match facet levels
+            common_facets <- intersect(facet_means_i$facet, facet_means_j$facet)
+            if (length(common_facets) < 3) next
+
+            y_i <- facet_means_i$x[facet_means_i$facet %in% common_facets]
+            y_j <- facet_means_j$x[facet_means_j$facet %in% common_facets]
+
+            n_facet <- length(common_facets)
+            cor_ij <- cor(y_i, y_j)
+
+            if (!is.na(cor_ij)) {
+              se_ij <- sqrt((1 - cor_ij^2) / (n_facet - 2))
+              z_ij <- atanh(cor_ij)
+              se_z <- 1 / sqrt(n_facet - 3)
+              z_lower <- z_ij - 1.96 * se_z
+              z_upper <- z_ij + 1.96 * se_z
+              lower <- tanh(z_lower)
+              upper <- tanh(z_upper)
+
+              facet_cor_list[[length(facet_cor_list) + 1]] <- data.frame(
+                dim1 = resp_i,
+                dim2 = resp_j,
+                estimate = cor_ij,
+                se = se_ij,
+                lower = lower,
+                upper = upper,
+                n_facet = n_facet,
+                stringsAsFactors = FALSE
+              )
+            }
+          }
+        }
+      }
+
+      if (length(facet_cor_list) > 0) {
+        result$random_effect_cor[[facet]] <- do.call(rbind, facet_cor_list)
+
+        # Build matrix
+        n_resp <- length(responses)
+        cor_matrix <- matrix(NA, n_resp, n_resp)
+        rownames(cor_matrix) <- responses
+        colnames(cor_matrix) <- responses
+        for (k in seq_len(nrow(result$random_effect_cor[[facet]]))) {
+          r <- result$random_effect_cor[[facet]][k, ]
+          cor_matrix[r$dim1, r$dim2] <- r$estimate
+          cor_matrix[r$dim2, r$dim1] <- r$estimate
+        }
+        diag(cor_matrix) <- 1
+        result$random_effect_cor_matrix[[facet]] <- cor_matrix
+      }
+    }
+  }
+
+  result
+}
+
+#' Get AOv Residuals for Pairwise Correlation
+#'
+#' Extracts residuals from an aov model, handling the case where the model
+#' was fit on a different subset of data than the pairwise data.
+#'
+#' @param aov_model Fitted aov model
+#' @param pairwise_data Data frame with pairwise complete cases
+#' @param resp Response variable name
+#' @param orig_data Original data used to fit the model
+#' @param resp_aov_formula The original aov formula string (with Error terms)
+#'   used to fit the model. When provided, the model is refit on pairwise data
+#'   using this formula to preserve the Error() structure.
+#' @return Vector of residuals aligned with pairwise_data
+#' @keywords internal
+get_aov_residuals_for_pair <- function(aov_model, pairwise_data, resp, orig_data,
+                                       resp_aov_formula = NULL) {
+  resids <- NULL
+
+  if (inherits(aov_model, "aovlist")) {
+    if (!is.null(aov_model[["Within"]])) {
+      resids_raw <- aov_model[["Within"]]$residuals
+      if (is.matrix(resids_raw)) {
+        resids <- as.vector(resids_raw)
+      } else {
+        resids <- resids_raw
+      }
+    }
+  } else {
+    resids <- residuals(aov_model)
+  }
+
+  if (is.null(resids)) {
+    return(rep(NA, nrow(pairwise_data)))
+  }
+
+  # For unbalanced designs, we need to refit on pairwise data
+  # because residuals length won't match pairwise_data
+  if (length(resids) != nrow(pairwise_data)) {
+    # Need to refit model on pairwise data
+    # Use the original formula (with Error terms) if available,
+    # otherwise fall back to a simple model
+    tryCatch(
+      {
+        if (!is.null(resp_aov_formula)) {
+          # Refit with the original formula (preserves Error() structure)
+          refit_model <- aov(as.formula(resp_aov_formula), data = pairwise_data)
+          if (inherits(refit_model, "aovlist") && !is.null(refit_model[["Within"]])) {
+            resids_raw <- refit_model[["Within"]]$residuals
+            resids <- if (is.matrix(resids_raw)) as.vector(resids_raw) else resids_raw
+          } else {
+            resids <- residuals(refit_model)
+          }
+        } else {
+          # Fallback: simple model without Error() terms
+          formula_str <- paste(resp, "~ .")
+          refit_model <- aov(as.formula(formula_str), data = pairwise_data)
+          resids <- residuals(refit_model)
+        }
+      },
+      error = function(e) {
+        resids <<- rep(NA, nrow(pairwise_data))
+      })
+  }
+
+  resids
 }
 
 #' Compute Correlations for Multivariate Mom Model
@@ -956,9 +1369,12 @@ compute_mom_multivariate_correlations <- function(data, responses, random_facets
     resid_clean <- resid_matrix
     n_clean <- n_clean_orig
 
-    if (n_clean < 2) {
+    if (n_clean < 2 || is.null(resid_clean) || ncol(resid_clean) < 2) {
       warning("Not enough complete cases to compute residual correlations", call. = FALSE)
     } else {
+      # Use the actual response columns that were successfully extracted
+      valid_responses <- names(resid_clean)
+
       # Compute covariance matrix of residuals
       cov_matrix <- cov(resid_clean, use = "complete.obs")
 
@@ -966,8 +1382,8 @@ compute_mom_multivariate_correlations <- function(data, responses, random_facets
       # r_ij = sigma_ij / sqrt(sigma_ii * sigma_jj)
       sd_vec <- sqrt(diag(cov_matrix))
       cor_matrix <- cov_matrix
-      for (i in seq_along(responses)) {
-        for (j in seq_along(responses)) {
+      for (i in seq_along(valid_responses)) {
+        for (j in seq_along(valid_responses)) {
           if (i != j && !is.na(cov_matrix[i, j])) {
             cor_matrix[i, j] <- cov_matrix[i, j] / (sd_vec[i] * sd_vec[j])
           }
@@ -977,11 +1393,11 @@ compute_mom_multivariate_correlations <- function(data, responses, random_facets
 
       # Store as data frame for compatibility
       resid_cor_list <- list()
-      for (i in seq_along(responses)) {
-        for (j in seq_along(responses)) {
+      for (i in seq_along(valid_responses)) {
+        for (j in seq_along(valid_responses)) {
           if (i < j) {
-            resp_i <- responses[i]
-            resp_j <- responses[j]
+            resp_i <- valid_responses[i]
+            resp_j <- valid_responses[j]
             cor_ij <- cor_matrix[i, j]
 
             if (!is.na(cor_ij)) {
@@ -1011,8 +1427,8 @@ compute_mom_multivariate_correlations <- function(data, responses, random_facets
       }
 
       # Set up matrix format
-      rownames(cor_matrix) <- responses
-      colnames(cor_matrix) <- responses
+      rownames(cor_matrix) <- valid_responses
+      colnames(cor_matrix) <- valid_responses
       result$residual_cor_matrix <- cor_matrix
 
       # Also store as data frame
@@ -1051,8 +1467,7 @@ compute_mom_multivariate_correlations <- function(data, responses, random_facets
               # Compute correlation of facet means
               y_i <- facet_means[[resp_i]]
               y_j <- facet_means[[resp_j]]
-              cor_ij <- sum((y_i - mean(y_i)) * (y_j - mean(y_j))) /
-                sqrt(sum((y_i - mean(y_i))^2) * sum((y_j - mean(y_j))^2))
+              cor_ij <- cor(y_i, y_j)
 
               n_facet <- nrow(facet_means)
               se_ij <- sqrt((1 - cor_ij^2) / (n_facet - 2))
@@ -1259,10 +1674,17 @@ extract_vc_mom <- function(model, conf_level = 0.95, formula = NULL) {
 
   for (i in seq_len(nrow(vc))) {
     var_est <- vc$var[i]
-    df <- vc$df[i]
-    ms <- vc$ms[i]
 
-    se_var <- sqrt(2 * ms^2 / df)
+    # Use Satterthwaite approximate df if available, otherwise fall back to df
+    approx_df <- if ("approx_df" %in% names(vc)) vc$approx_df[i] else vc$df[i]
+
+    # SE of variance component using Satterthwaite approximation
+    # Var(sigma^2) ≈ 2 * sigma^4 / df_approx
+    if (!is.na(var_est) && var_est > 0 && !is.na(approx_df) && approx_df > 0) {
+      se_var <- sqrt(2 * var_est^2 / approx_df)
+    } else {
+      se_var <- NA_real_
+    }
 
     vc$se[i] <- se_var
 
@@ -1291,7 +1713,17 @@ extract_vc_mom <- function(model, conf_level = 0.95, formula = NULL) {
   output_cols <- c("component", "dim", "type", "var", "pct", "lower", "upper", "se")
   output_cols <- output_cols[output_cols %in% names(vc)]
 
-  vc[, output_cols, drop = FALSE]
+  vc_out <- vc[, output_cols, drop = FALSE]
+
+  # Round numeric columns to 3 decimal places for consistent display
+  numeric_cols <- c("var", "pct", "lower", "upper", "se")
+  for (col in numeric_cols) {
+    if (col %in% names(vc_out)) {
+      vc_out[[col]] <- round(vc_out[[col]], 3)
+    }
+  }
+
+  vc_out
 }
 
 #' Summary Method for momfit Objects

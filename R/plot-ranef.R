@@ -45,7 +45,7 @@ plot_ranef <- function(x, which = NULL, ci_level = 0.95,
 
 #' @export
 plot_ranef.gstudy <- function(x, which = NULL, ci_level = 0.95,
-                                sort = TRUE, colors = NULL, ncol = NULL, ...) {
+                              sort = TRUE, colors = NULL, ncol = NULL, ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
   }
@@ -144,7 +144,7 @@ prepare_ranef_lme4 <- function(model, ci_level = 0.95) {
     post_var <- attr(re_mat, "postVar")
     if (is.null(post_var)) {
       stop("Conditional variances not available. Ensure condVar = TRUE.",
-           call. = FALSE)
+        call. = FALSE)
     }
 
     n_levels <- nrow(re_mat)

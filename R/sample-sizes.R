@@ -343,8 +343,8 @@ format_sample_size_info <- function(sample_size_info, indent = 1) {
   }
 
   if (!is.null(sample_size_info$residual) &&
-      !is.null(sample_size_info$residual$facets) &&
-      sample_size_info$residual$facets != "") {
+    !is.null(sample_size_info$residual$facets) &&
+    sample_size_info$residual$facets != "") {
     residual_text <- paste0("Residual (", sample_size_info$residual$facets, ")")
     if (!is.na(sample_size_info$residual$n)) {
       lines <- c(lines, paste0(indent_str, residual_text, ": ", sample_size_info$residual$n))
@@ -423,9 +423,9 @@ calculate_single_sample_size_tibble <- function(sample_size_info) {
       n = numeric()
     ))
   }
-  
+
   rows <- list()
-  
+
   # Main effects
   if (length(sample_size_info$main) > 0) {
     for (i in seq_along(sample_size_info$main)) {
@@ -439,7 +439,7 @@ calculate_single_sample_size_tibble <- function(sample_size_info) {
       }
     }
   }
-  
+
   # Interactions
   if (length(sample_size_info$interactions) > 0) {
     for (i in seq_along(sample_size_info$interactions)) {
@@ -453,18 +453,18 @@ calculate_single_sample_size_tibble <- function(sample_size_info) {
       }
     }
   }
-  
+
   # Residual
-  if (!is.null(sample_size_info$residual) && 
-      sample_size_info$residual$facets != "" && 
-      !is.na(sample_size_info$residual$n)) {
+  if (!is.null(sample_size_info$residual) &&
+    sample_size_info$residual$facets != "" &&
+    !is.na(sample_size_info$residual$n)) {
     rows[[length(rows) + 1]] <- tibble::tibble(
       effect = paste0(sample_size_info$residual$facets, " (res)"),
       type = "residual",
       n = sample_size_info$residual$n
     )
   }
-  
+
   # Nested effects
   if (!is.null(sample_size_info$nested) && length(sample_size_info$nested) > 0) {
     for (key in names(sample_size_info$nested)) {
@@ -477,7 +477,7 @@ calculate_single_sample_size_tibble <- function(sample_size_info) {
       )
     }
   }
-  
+
   if (length(rows) == 0) {
     return(tibble::tibble(
       effect = character(),
@@ -485,7 +485,7 @@ calculate_single_sample_size_tibble <- function(sample_size_info) {
       n = numeric()
     ))
   }
-  
+
   dplyr::bind_rows(rows)
 }
 
@@ -617,4 +617,131 @@ calculate_sample_size_tibble_per_dim <- function(sample_size_info_per_dim) {
 
   dplyr::bind_rows(rows) %>%
     dplyr::select(dim, effect, type, n)
+}
+
+validate_n_tibble <- function(n, dimensions, facets) {
+  if (!is.data.frame(n)) {
+    return(list(valid = FALSE, error = "n must be a data frame or tibble"))
+  }
+
+  required_cols <- c("dim", "facet", "n")
+  missing_cols <- setdiff(required_cols, names(n))
+  if (length(missing_cols) > 0) {
+    return(list(valid = FALSE, error = paste0(
+      "n tibble must have columns: dim, facet, n. Missing: ",
+      paste(missing_cols, collapse = ", ")
+    )))
+  }
+
+  n_dims <- unique(n$dim)
+  missing_dims <- setdiff(dimensions, n_dims)
+  if (length(missing_dims) > 0) {
+    return(list(valid = FALSE, error = paste0(
+      "n tibble missing dimensions: ", paste(missing_dims, collapse = ", ")
+    )))
+  }
+
+  extra_dims <- setdiff(n_dims, dimensions)
+  if (length(extra_dims) > 0) {
+    return(list(valid = FALSE, error = paste0(
+      "n tibble has unknown dimensions: ", paste(extra_dims, collapse = ", ")
+    )))
+  }
+
+  n_facets <- unique(n$facet)
+  unknown_facets <- setdiff(n_facets, facets)
+  if (length(unknown_facets) > 0) {
+    return(list(valid = FALSE, error = paste0(
+      "n tibble has unknown facets: ", paste(unknown_facets, collapse = ", ")
+    )))
+  }
+
+  if (any(is.na(n$n)) || any(!is.numeric(n$n))) {
+    return(list(valid = FALSE, error = "n values must be non-missing numeric values"))
+  }
+
+  if (any(n$n <= 0)) {
+    return(list(valid = FALSE, error = "n values must be positive"))
+  }
+
+  list(valid = TRUE, error = NULL)
+}
+
+expand_n_per_dim <- function(n_tibble, sweep = TRUE) {
+  if (!is.data.frame(n_tibble)) {
+    stop("n_tibble must be a data frame", call. = FALSE)
+  }
+
+  dims <- unique(n_tibble$dim)
+
+  if (!sweep) {
+    return(list(
+      is_sweep = FALSE,
+      n_list = split(n_tibble, n_tibble$dim),
+      grid = NULL
+    ))
+  }
+
+  facet_values <- unique(n_tibble$facet)
+
+  unique_n_per_facet <- lapply(facet_values, function(f) {
+    unique(n_tibble$n[n_tibble$facet == f])
+  })
+  names(unique_n_per_facet) <- facet_values
+
+  is_sweep <- any(sapply(unique_n_per_facet, length) > 1)
+
+  if (!is_sweep) {
+    n_list <- lapply(dims, function(d) {
+      dim_data <- n_tibble[n_tibble$dim == d, ]
+      stats::setNames(as.list(dim_data$n), dim_data$facet)
+    })
+    names(n_list) <- dims
+    return(list(is_sweep = FALSE, n_list = n_list, grid = NULL))
+  }
+
+  grid_list <- lapply(facet_values, function(f) {
+    unique(n_tibble$n[n_tibble$facet == f])
+  })
+  names(grid_list) <- facet_values
+
+  grid <- expand.grid(grid_list, stringsAsFactors = FALSE)
+
+  n_expanded <- lapply(dims, function(d) {
+    dim_data <- n_tibble[n_tibble$dim == d, ]
+    facet_n <- stats::setNames(as.list(dim_data$n), dim_data$facet)
+    list(dimension = d, facet_n = facet_n)
+  })
+  names(n_expanded) <- dims
+
+  list(
+    is_sweep = TRUE,
+    n_list = n_expanded,
+    grid = grid,
+    dimensions = dims,
+    facets = facet_values
+  )
+}
+
+create_n_tibble_from_list <- function(n_list, dimensions) {
+  if (!is.list(n_list) || any(sapply(n_list, length) > 1)) {
+    return(NULL)
+  }
+
+  facets <- names(n_list)
+  n_vals <- unlist(n_list)
+
+  rows <- list()
+  for (d in dimensions) {
+    for (i in seq_along(facets)) {
+      rows[[length(rows) + 1]] <- data.frame(
+        dim = d,
+        facet = facets[i],
+        n = n_vals[i],
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  do.call(rbind, rows)
 }

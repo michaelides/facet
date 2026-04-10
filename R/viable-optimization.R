@@ -197,7 +197,7 @@ solve_generalized_eigenvalue <- function(Sigma_tau, Sigma_total, dimensions) {
   if (length(valid_idx) == 0) {
     warning("No positive eigenvalues found, using equal weights", call. = FALSE)
     return(list(
-      weights = setNames(rep(1/k, k), dimensions),
+      weights = setNames(rep(1 / k, k), dimensions),
       eigenvalue = NA_real_,
       method = "fallback"
     ))
@@ -295,9 +295,9 @@ generate_weight_grid <- function(k, resolution = 0.1, min_weight = 0.01) {
   }
 
   grid <- expand.grid(
-    lapply(1:(k-1), function(i) seq(min_weight, 1 - (k-1)*min_weight, by = resolution))
+    lapply(1:(k - 1), function(i) seq(min_weight, 1 - (k - 1) * min_weight, by = resolution))
   )
-  names(grid) <- paste0("w", 1:(k-1))
+  names(grid) <- paste0("w", 1:(k - 1))
 
   grid <- grid %>%
     dplyr::rowwise() %>%

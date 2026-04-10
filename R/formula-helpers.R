@@ -57,7 +57,7 @@ extract_rescor_setting <- function(formula) {
       return(formula$rescor)
     }
   }
-  
+
   # Parse from character representation
   # Collapse multiple lines into single string for pattern matching
   formula_char <- paste(deparse(formula), collapse = " ")
@@ -66,11 +66,11 @@ extract_rescor_setting <- function(formula) {
   if (grepl("set_rescor\\s*\\(\\s*TRUE\\s*\\)", formula_char, ignore.case = TRUE)) {
     return(TRUE)
   }
-  
+
   if (grepl("set_rescor\\s*\\(\\s*FALSE\\s*\\)", formula_char, ignore.case = TRUE)) {
     return(FALSE)
   }
-  
+
   # Default: no residual correlations
   FALSE
 }
@@ -83,36 +83,36 @@ extract_rescor_setting <- function(formula) {
 #'
 #' @param formula A formula object.
 #' @return Named list where names are facet names and values are correlation matrix names.
-#'   For example: list(person = "cor_p", item = "cor_i")
+#' For example: list(person = "cor_p", item = "cor_i")
 #'
 #' @keywords internal
 extract_random_effect_cor <- function(formula) {
   # Collapse multiple lines into single string for pattern matching
   formula_char <- paste(deparse(formula), collapse = " ")
-  
+
   # Split formula by + to get individual terms
   # This prevents matching across multiple terms
   rhs <- sub(".*~", "", formula_char)
   terms <- strsplit(rhs, "\\+")[[1]]
-  
+
   result <- list()
-  
+
   # Pattern to match (1|cor_name|facet) - random effect with correlation
   # This requires exactly 2 pipe characters in the term
   pattern <- "^\\s*\\(\\s*1\\s*\\|\\s*(.+)\\s*\\|\\s*(.+)\\s*\\)\\s*$"
-  
+
   for (term in terms) {
     term <- trimws(term)
-    
+
     # Count pipes - correlation syntax has exactly 2 pipes
     pipe_count <- length(gregexpr("\\|", term)[[1]])
-    
+
     if (pipe_count == 2) {
       # Extract the two parts
       # Remove leading ( and trailing )
       term_clean <- sub("^\\s*\\(\\s*1\\s*\\|\\s*", "", term)
       term_clean <- sub("\\s*\\)\\s*$", "", term_clean)
-      
+
       parts <- strsplit(term_clean, "\\s*\\|\\s*")[[1]]
       if (length(parts) == 2) {
         cor_name <- trimws(parts[1])
@@ -121,7 +121,7 @@ extract_random_effect_cor <- function(formula) {
       }
     }
   }
-  
+
   result
 }
 
@@ -132,11 +132,11 @@ extract_random_effect_cor <- function(formula) {
 #'
 #' @param formula A formula object.
 #' @return A list with components:
-#'   \item{response}{Character string naming the response variable}
-#'   \item{fixed}{Character vector of fixed effect terms}
-#'   \item{random}{Character vector of random effect terms (as parsed)}
-#'   \item{random_facets}{Character vector of individual facet names from random effects}
-#'   \item{random_facet_specs}{Character vector of facet specifications as user specified (e.g., "Rater:Task")}
+#' \item{response}{Character string naming the response variable}
+#' \item{fixed}{Character vector of fixed effect terms}
+#' \item{random}{Character vector of random effect terms (as parsed)}
+#' \item{random_facets}{Character vector of individual facet names from random effects}
+#' \item{random_facet_specs}{Character vector of facet specifications as user specified (e.g., "Rater:Task")}
 #'
 #' @keywords internal
 parse_g_formula <- function(formula) {
@@ -274,22 +274,22 @@ validate_formula <- function(formula, backend = "auto") {
 #' @keywords internal
 detect_facets <- function(formula, data = NULL) {
   parsed <- parse_g_formula(formula)
-  
+
   # Get unique facet names from random effects
   facets <- unique(parsed$random_facets)
-  
+
   # Validate against data if provided
   if (!is.null(data)) {
     missing_facets <- setdiff(facets, names(data))
     if (length(missing_facets) > 0) {
       stop(
-        "Facet(s) not found in data: ", 
+        "Facet(s) not found in data: ",
         paste(missing_facets, collapse = ", "),
         call. = FALSE
       )
     }
   }
-  
+
   facets
 }
 
@@ -310,7 +310,7 @@ convert_formula <- function(formula, backend) {
       # Extract the base formula
       formula <- formula$formula
     }
-    
+
     # Check for multivariate syntax and warn
     if (is_multivariate(formula)) {
       warning(
@@ -320,7 +320,7 @@ convert_formula <- function(formula, backend) {
       )
     }
   }
-  
+
   formula
 }
 
@@ -335,13 +335,13 @@ convert_formula <- function(formula, backend) {
 #' @keywords internal
 extract_facets <- function(formula = NULL, vc = NULL) {
   facets <- character()
-  
+
   # Try to extract from formula first
   if (!is.null(formula)) {
     parsed <- parse_g_formula(formula)
     facets <- parsed$random_facets
   }
-  
+
   # If no facets from formula, try variance components
   if (length(facets) == 0 && !is.null(vc)) {
     if ("facet" %in% names(vc)) {
@@ -352,7 +352,7 @@ extract_facets <- function(formula = NULL, vc = NULL) {
       facets <- facets[facets != "Residual" & facets != ""]
     }
   }
-  
+
   unique(facets)
 }
 
@@ -381,10 +381,14 @@ extract_facet_specs <- function(formula = NULL) {
 #'
 #' @param formula A formula or brmsformula object.
 #' @return Character vector of response variable names. For univariate formulas,
-#'   returns a single name. For multivariate formulas, returns all response names.
+#' returns a single name. For multivariate formulas, returns all response names.
 #'
 #' @keywords internal
 extract_response_names <- function(formula) {
+  if (inherits(formula, "mvbrmsformula") && !is.null(formula$responses)) {
+    return(formula$responses)
+  }
+
   formula_char <- deparse(formula)
 
   if (is_multivariate(formula)) {
@@ -398,13 +402,12 @@ extract_response_names <- function(formula) {
       resp_names <- trimws(resp_names)
     }
 
-    if (length(resp_names) == 0 && inherits(formula, "brmsformula")) {
+    if (length(resp_names) == 0 && inherits(formula, c("brmsformula", "bform"))) {
       if (requireNamespace("brms", quietly = TRUE)) {
-        tryCatch({
-          resp_names <- brms::response_names(formula)
-        }, error = function(e) {
-          resp_names <- character()
-        })
+        resp_names <- tryCatch(
+          brms::response_names(formula),
+          error = function(e) character()
+        )
       }
     }
 
@@ -414,10 +417,14 @@ extract_response_names <- function(formula) {
 
     return(resp_names)
   } else {
-    if (inherits(formula, "brmsformula") && requireNamespace("brms", quietly = TRUE)) {
-      tryCatch({
-        return(brms::response_names(formula))
-      }, error = function(e) {})
+    if (inherits(formula, c("brmsformula", "bform")) && requireNamespace("brms", quietly = TRUE)) {
+      resp <- tryCatch(
+        brms::response_names(formula),
+        error = function(e) NULL
+      )
+      if (!is.null(resp) && length(resp) > 0) {
+        return(resp)
+      }
     }
 
     all_vars <- all.vars(formula)
@@ -467,7 +474,7 @@ is_long_format_multivariate <- function(formula) {
   }
   dimension_var <- dimension_vars[1]
 
-  formula_char <- deparse(formula$formula)
+  formula_char <- paste(deparse(formula$formula), collapse = " ")
   pattern <- paste0("0\\s*\\+\\s*", dimension_var, "\\s*\\|")
   has_in_random <- grepl(pattern, formula_char)
 
@@ -513,7 +520,7 @@ is_long_format_multivariate <- function(formula) {
 #'
 #' @examples
 #' # Fully crossed design: p, i, d all crossed with each other
-#' f1 <- score ~ (1|p) + (1|i) + (1|d)
+#' f1 <- score ~ (1 | p) + (1 | i) + (1 | d)
 #' parse_residual_facets(f1) # Returns "p:i:d"
 #'
 #' # With nested data: i nested in d
@@ -523,7 +530,7 @@ is_long_format_multivariate <- function(formula) {
 #'   i = factor(rep(1:5, each = 20)), # i levels repeat within d
 #'   d = factor(rep(1:2, each = 50))
 #' )
-#' f2 <- score ~ (1|p) + (1|i:d) + (1|d)
+#' f2 <- score ~ (1 | p) + (1 | i:d) + (1 | d)
 #' parse_residual_facets(f2, nested_data) # May return "p:i" if i nested in d
 #'
 #' @seealso
@@ -583,4 +590,227 @@ parse_residual_facets <- function(formula, data = NULL) {
   }
 
   paste(residual_facets, collapse = ":")
+}
+
+validate_interaction_levels <- function(formula, data, backend = "lme4") {
+  if (backend != "lme4") {
+    return(invisible(NULL))
+  }
+
+  parsed <- parse_g_formula(formula)
+  facet_specs <- parsed$random_facet_specs
+  n_obs <- nrow(data)
+
+  problematic_terms <- character()
+  problematic_levels <- integer()
+  problematic_max_possible <- integer()
+
+  for (spec in facet_specs) {
+    if (grepl(":", spec)) {
+      facet_names <- trimws(strsplit(spec, ":")[[1]])
+      facet_names <- facet_names[facet_names %in% names(data)]
+
+      if (length(facet_names) > 0) {
+        n_levels_per_facet <- sapply(facet_names, function(fn) {
+          length(unique(data[[fn]]))
+        })
+        max_possible_levels <- prod(n_levels_per_facet)
+
+        interaction_var <- interaction(data[facet_names], drop = TRUE)
+        actual_levels <- length(levels(interaction_var))
+
+        if (actual_levels >= n_obs) {
+          problematic_terms <- c(problematic_terms, spec)
+          problematic_levels <- c(problematic_levels, actual_levels)
+          problematic_max_possible <- c(problematic_max_possible, max_possible_levels)
+        }
+      }
+    }
+  }
+
+  if (length(problematic_terms) > 0) {
+    term_details <- paste0(
+      " - ", problematic_terms, ": ", problematic_levels, " levels (",
+      n_obs, " observations)"
+    )
+    stop(
+      "Interaction term(s) have as many or more levels than observations, ",
+      "making them confounded with the residual:\n",
+      paste(term_details, collapse = "\n"), "\n\n",
+      "This occurs when an interaction has a unique combination for each observation, ",
+      "meaning the interaction variance cannot be distinguished from residual variance.\n\n",
+      "Solutions:\n",
+      " 1. Remove the problematic interaction term from your model\n",
+      " 2. Use method = \"mom\" for ANOVA-based estimation which handles this differently\n",
+      " 3. Use backend = \"brms\" for Bayesian estimation\n\n",
+      "Note: In a fully crossed design where all facets are crossed with each other, ",
+      "the highest-order interaction is typically confounded with the residual and should not be included.",
+      call. = FALSE
+    )
+  }
+
+  invisible(NULL)
+}
+
+#' Check Multivariate Design Balance
+#'
+#' Detects and reports unbalanced designs in wide-format multivariate models.
+#' An unbalanced design occurs when facet levels differ across dimensions
+#' after missing value handling.
+#'
+#' @param formula A formula object (potentially brmsformula or mvbrmsformula).
+#' @param data Data frame containing the variables.
+#' @param is_long_format Logical indicating if this is a long-format model.
+#' @param unbalanced Logical indicating whether unbalanced estimation is enabled.
+#' When TRUE, warnings are suppressed and an informational message is provided.
+#'
+#' @return A list with:
+#' \itemize{
+#' \item is_balanced: TRUE if no missing values OR missing values with consistent levels
+#' \item has_missing: TRUE if any missing values in response variables
+#' \item has_different_levels: TRUE if facet levels differ across dimensions
+#' \item is_genuine_missing: TRUE if missing values present but levels consistent
+#' \item n_original: Original number of observations
+#' \item n_complete: Number of complete cases
+#' \item n_removed: Number of rows removed
+#' \item dimensions: Dimension/response names
+#' \item facet_levels_per_dim: Named list of facet levels per dimension
+#' \item warning_message: Warning message for unbalanced design (or NULL)
+#' \item info_message: Informational message for genuine missing (or NULL)
+#' }
+#'
+#' @keywords internal
+check_multivariate_balance <- function(formula, data, is_long_format = FALSE, unbalanced = FALSE) {
+  if (is_long_format) {
+    return(list(
+      is_balanced = TRUE,
+      has_missing = FALSE,
+      has_different_levels = FALSE,
+      is_genuine_missing = FALSE,
+      n_original = nrow(data),
+      n_complete = nrow(data),
+      n_removed = 0,
+      dimensions = character(),
+      facet_levels_per_dim = list(),
+      warning_message = NULL,
+      info_message = NULL
+    ))
+  }
+
+  dimensions <- extract_response_names(formula)
+
+  if (length(dimensions) <= 1) {
+    return(list(
+      is_balanced = TRUE,
+      has_missing = FALSE,
+      has_different_levels = FALSE,
+      is_genuine_missing = FALSE,
+      n_original = nrow(data),
+      n_complete = nrow(data),
+      n_removed = 0,
+      dimensions = dimensions,
+      facet_levels_per_dim = list(),
+      warning_message = NULL,
+      info_message = NULL
+    ))
+  }
+
+  n_original <- nrow(data)
+
+  missing_per_dim <- sapply(dimensions, function(d) {
+    sum(is.na(data[[d]]))
+  })
+  has_missing <- any(missing_per_dim > 0)
+
+  complete_cases_idx <- complete.cases(data[, dimensions, drop = FALSE])
+  n_complete <- sum(complete_cases_idx)
+  n_removed <- n_original - n_complete
+
+  parsed <- parse_g_formula(formula)
+  facets <- unique(parsed$random_facets)
+  facets <- facets[facets %in% names(data)]
+
+  facet_levels_per_dim <- list()
+  for (dim in dimensions) {
+    dim_data <- data[!is.na(data[[dim]]), , drop = FALSE]
+    facet_levels_per_dim[[dim]] <- sapply(facets, function(f) {
+      length(unique(dim_data[[f]]))
+    }, USE.NAMES = TRUE)
+  }
+
+  has_different_levels <- FALSE
+  different_facets <- character()
+
+  if (length(facets) > 0 && length(dimensions) > 1) {
+    for (f in facets) {
+      levels_per_dim <- sapply(dimensions, function(d) {
+        facet_levels_per_dim[[d]][f]
+      })
+      if (length(unique(levels_per_dim)) > 1) {
+        has_different_levels <- TRUE
+        different_facets <- c(different_facets, f)
+      }
+    }
+  }
+
+  is_genuine_missing <- has_missing && !has_different_levels
+
+  is_balanced <- !has_different_levels
+
+  warning_message <- NULL
+  info_message <- NULL
+
+  if (has_different_levels) {
+    level_details <- character()
+    for (f in different_facets) {
+      levels_str <- paste(sapply(dimensions, function(d) {
+        paste0(facet_levels_per_dim[[d]][f], " (", d, ")")
+      }), collapse = ", ")
+      level_details <- c(level_details, paste0(" - ", f, ": ", levels_str))
+    }
+
+    if (unbalanced) {
+      info_message <- paste0(
+        "Unbalanced multivariate estimation enabled.\n\n",
+        "Each dimension will be analyzed with its available data using Henderson's Method III.\n",
+        "Correlations will be computed using pairwise complete cases.\n\n",
+        "Dimensions and observations:\n",
+        paste(sapply(dimensions, function(d) {
+          paste0(" - ", d, ": ", sum(!is.na(data[[d]])), " observations")
+        }), collapse = "\n")
+      )
+    } else {
+      warning_message <- paste0(
+        "Unbalanced multivariate design detected.\n\n",
+        "The following facets have different numbers of levels across dimensions:\n",
+        paste(level_details, collapse = "\n"), "\n\n",
+        "Sparse data have been treated as missing values and removed before analysis.\n",
+        "To preserve all observations, use long-format specification with bf():\n\n",
+        " bf(Score ~ 0 + Dimension + (0+Dimension|Facet) + ..., \n",
+        " sigma ~ 0 + Dimension)\n\n",
+        "See ?gstudy for long-format multivariate examples."
+      )
+    }
+  } else if (has_missing) {
+    info_message <- paste0(
+      "Missing values detected in response variables.\n\n",
+      " - Original observations: ", n_original, "\n",
+      " - Complete cases used: ", n_complete, " (", n_removed, " rows removed)\n\n",
+      "Facet levels remain consistent across all dimensions."
+    )
+  }
+
+  list(
+    is_balanced = is_balanced,
+    has_missing = has_missing,
+    has_different_levels = has_different_levels,
+    is_genuine_missing = is_genuine_missing,
+    n_original = n_original,
+    n_complete = n_complete,
+    n_removed = n_removed,
+    dimensions = dimensions,
+    facet_levels_per_dim = facet_levels_per_dim,
+    warning_message = warning_message,
+    info_message = info_message
+  )
 }

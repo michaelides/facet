@@ -165,6 +165,14 @@ extract_vc_lme4 <- function(model, ci_method = "none", conf_level = 0.95,
     )
   }
 
+  # Round numeric columns to 3 decimal places for consistent display
+  numeric_cols <- c("var", "pct", "lower", "upper")
+  for (col in numeric_cols) {
+    if (col %in% names(vc_tibble)) {
+      vc_tibble[[col]] <- round(vc_tibble[[col]], 3)
+    }
+  }
+
   vc_tibble
 }
 
@@ -302,13 +310,13 @@ extract_vc_brms <- function(model, conf_level = 0.95, formula = NULL) {
 
   if (length(expected_facet_specs) > 0) {
     processed_components <- vapply(results, function(r) r$component[1], character(1))
-    
+
     for (spec in expected_facet_specs) {
       if (!(spec %in% processed_components)) {
         grp_to_try <- spec
-        
+
         type <- if (grepl(":", spec)) "interaction" else "main"
-        
+
         if (is_mv) {
           for (resp in resp_names) {
             result <- extract_single_variance_from_draws(
@@ -350,11 +358,19 @@ extract_vc_brms <- function(model, conf_level = 0.95, formula = NULL) {
   total_var <- sum(vc_tibble$var, na.rm = TRUE)
   vc_tibble$pct <- (vc_tibble$var / total_var) * 100
 
+  # Round numeric columns to 3 decimal places for consistent display
+  numeric_cols <- c("var", "pct", "error", "lower", "upper", "sd", "Rhat")
+  for (col in numeric_cols) {
+    if (col %in% names(vc_tibble)) {
+      vc_tibble[[col]] <- round(vc_tibble[[col]], 3)
+    }
+  }
+
   vc_tibble
 }
 
 extract_single_variance_from_draws <- function(draws, grp, resp, type,
-                                                random_summary, spec_pars, is_mv) {
+                                               random_summary, spec_pars, is_mv) {
   if (grp == "residual__") {
     if (is_mv && resp != "response") {
       param_name <- paste0("sigma_", resp)
@@ -373,7 +389,7 @@ extract_single_variance_from_draws <- function(draws, grp, resp, type,
 
   if (!param_name %in% colnames(draws)) {
     param_candidates <- character()
-    
+
     if (grp != "residual__") {
       grp_double_underscore <- gsub(":", "__", grp)
       if (is_mv && resp != "response") {
@@ -391,7 +407,7 @@ extract_single_variance_from_draws <- function(draws, grp, resp, type,
     } else {
       param_candidates <- if (is_mv && resp != "response") paste0("sigma_", resp) else "sigma"
     }
-    
+
     found <- FALSE
     for (cand in param_candidates) {
       if (cand %in% colnames(draws)) {
@@ -400,7 +416,7 @@ extract_single_variance_from_draws <- function(draws, grp, resp, type,
         break
       }
     }
-    
+
     if (!found) {
       base_name <- if (grp == "residual__") {
         if (is_mv && resp != "response") paste0("sigma_", resp) else "sigma"
@@ -455,23 +471,23 @@ extract_single_variance_from_draws <- function(draws, grp, resp, type,
         rhat_val <- grp_rand[param_name, "Rhat"]
         bulk_ess_val <- grp_rand[param_name, "Bulk_ESS"]
         tail_ess_val <- grp_rand[param_name, "Tail_ESS"]
+      } else {
+        alt_row <- gsub("^sd_", "sd(", param_name)
+        alt_row <- paste0(alt_row, ")")
+        if (alt_row %in% rownames(grp_rand)) {
+          rhat_val <- grp_rand[alt_row, "Rhat"]
+          bulk_ess_val <- grp_rand[alt_row, "Bulk_ESS"]
+          tail_ess_val <- grp_rand[alt_row, "Tail_ESS"]
         } else {
-          alt_row <- gsub("^sd_", "sd(", param_name)
-          alt_row <- paste0(alt_row, ")")
-          if (alt_row %in% rownames(grp_rand)) {
-            rhat_val <- grp_rand[alt_row, "Rhat"]
-            bulk_ess_val <- grp_rand[alt_row, "Bulk_ESS"]
-            tail_ess_val <- grp_rand[alt_row, "Tail_ESS"]
-          } else {
-            mv_row <- gsub("^sd_[^_]+__", "sd(", param_name)
-            mv_row <- paste0(mv_row, ")")
-            if (mv_row %in% rownames(grp_rand)) {
-              rhat_val <- grp_rand[mv_row, "Rhat"]
-              bulk_ess_val <- grp_rand[mv_row, "Bulk_ESS"]
-              tail_ess_val <- grp_rand[mv_row, "Tail_ESS"]
-            }
+          mv_row <- gsub("^sd_[^_]+__", "sd(", param_name)
+          mv_row <- paste0(mv_row, ")")
+          if (mv_row %in% rownames(grp_rand)) {
+            rhat_val <- grp_rand[mv_row, "Rhat"]
+            bulk_ess_val <- grp_rand[mv_row, "Bulk_ESS"]
+            tail_ess_val <- grp_rand[mv_row, "Tail_ESS"]
           }
         }
+      }
     }
   }
 
@@ -534,15 +550,20 @@ compute_vc_percentages <- function(vc) {
 #' @keywords internal
 summarize_vc_dstudy <- function(vc, digits = 3) {
   required_cols <- c("component", "var_unscaled", "pct_unscaled",
-                     "var_scaled", "pct_scaled")
+    "var_scaled", "pct_scaled")
   missing_cols <- setdiff(required_cols, names(vc))
   if (length(missing_cols) > 0) {
     stop("dstudy variance components tibble is missing columns: ",
-         paste(missing_cols, collapse = ", "), call. = FALSE)
+      paste(missing_cols, collapse = ", "), call. = FALSE)
   }
 
-  summary_df <- vc[, c("component", "var_unscaled", "pct_unscaled",
-                       "var_scaled", "pct_scaled")]
+  if ("dim" %in% names(vc)) {
+    summary_df <- vc[, c("component", "dim", "var_unscaled", "pct_unscaled",
+      "var_scaled", "pct_scaled")]
+  } else {
+    summary_df <- vc[, c("component", "var_unscaled", "pct_unscaled",
+      "var_scaled", "pct_scaled")]
+  }
 
   summary_df$var_unscaled <- round(summary_df$var_unscaled, digits)
   summary_df$pct_unscaled <- round(summary_df$pct_unscaled, digits)
@@ -574,8 +595,8 @@ summarize_vc <- function(vc, digits = 3, scale = c("variance", "sd")) {
   missing_cols <- setdiff(required_cols, names(vc))
   if (length(missing_cols) > 0) {
     stop("Variance components tibble is missing columns: ",
-         paste(missing_cols, collapse = ", "),
-         call. = FALSE)
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE)
   }
 
   summary_df <- vc[, c("component", "var", "pct")]
@@ -767,7 +788,7 @@ reorder_variance_components <- function(vc, facet_specs) {
       parts <- trimws(parts)
       alt_ordering <- paste(rev(parts), collapse = ":")
       if (alt_ordering %in% unique(non_residual$component) &&
-          !(spec %in% unique(non_residual$component))) {
+        !(spec %in% unique(non_residual$component))) {
         name_mapping[[alt_ordering]] <- spec
       }
     }
@@ -1178,32 +1199,32 @@ extract_covariances_brms <- function(model) {
     rownames(cov_mat) <- resp_names
     colnames(cov_mat) <- resp_names
 
-for (i in 2:n_resp) {
-  for (j in 1:(i - 1)) {
-    cor_draws <- NULL
-    possible_names <- c(
-      paste0("rescor(", resp_names[j], ",", resp_names[i], ")"),
-      paste0("rescor(", resp_names[i], ",", resp_names[j], ")"),
-      paste0("rescor__", resp_names[j], "__", resp_names[i]),
-      paste0("rescor__", resp_names[i], "__", resp_names[j])
-    )
-    for (pname in possible_names) {
-      if (pname %in% colnames(draws)) {
-        cor_draws <- posterior::extract_variable(draws, pname)
-        break
+    for (i in 2:n_resp) {
+      for (j in 1:(i - 1)) {
+        cor_draws <- NULL
+        possible_names <- c(
+          paste0("rescor(", resp_names[j], ",", resp_names[i], ")"),
+          paste0("rescor(", resp_names[i], ",", resp_names[j], ")"),
+          paste0("rescor__", resp_names[j], "__", resp_names[i]),
+          paste0("rescor__", resp_names[i], "__", resp_names[j])
+        )
+        for (pname in possible_names) {
+          if (pname %in% colnames(draws)) {
+            cor_draws <- posterior::extract_variable(draws, pname)
+            break
+          }
+        }
+
+        if (!is.null(cor_draws) && length(cor_draws) > 0) {
+          sd_i <- sigma_draws[[resp_names[i]]]
+          sd_j <- sigma_draws[[resp_names[j]]]
+          cov_draws <- cor_draws * sd_i * sd_j
+          cov_draws_list[[paste0(resp_names[j], "_", resp_names[i])]] <- cov_draws
+          cov_mat[resp_names[j], resp_names[i]] <- mean(cov_draws, na.rm = TRUE)
+          cov_mat[resp_names[i], resp_names[j]] <- mean(cov_draws, na.rm = TRUE)
+        }
       }
     }
-
-    if (!is.null(cor_draws) && length(cor_draws) > 0) {
-      sd_i <- sigma_draws[[resp_names[i]]]
-      sd_j <- sigma_draws[[resp_names[j]]]
-      cov_draws <- cor_draws * sd_i * sd_j
-      cov_draws_list[[paste0(resp_names[j], "_", resp_names[i])]] <- cov_draws
-      cov_mat[resp_names[j], resp_names[i]] <- mean(cov_draws, na.rm = TRUE)
-      cov_mat[resp_names[i], resp_names[j]] <- mean(cov_draws, na.rm = TRUE)
-    }
-  }
-}
 
     for (i in seq_len(n_resp)) {
       var_draws <- sigma_draws[[resp_names[i]]]^2
@@ -1258,8 +1279,8 @@ for (i in 2:n_resp) {
         cor_draws <- extract_cor_draws(draws, cor_param_base, resp_names[j], resp_names[i])
 
         if (!is.null(cor_draws) && length(cor_draws) > 0 &&
-            !is.null(sd_draws_list[[resp_names[i]]]) &&
-            !is.null(sd_draws_list[[resp_names[j]]])) {
+          !is.null(sd_draws_list[[resp_names[i]]]) &&
+          !is.null(sd_draws_list[[resp_names[j]]])) {
           cov_draws <- cor_draws * sd_draws_list[[resp_names[i]]] * sd_draws_list[[resp_names[j]]]
           cov_draws_list[[paste0(resp_names[j], "_", resp_names[i])]] <- cov_draws
           cov_mat[resp_names[j], resp_names[i]] <- mean(cov_draws, na.rm = TRUE)
@@ -1313,7 +1334,7 @@ extract_covariance_draws <- function(model, dimensions) {
   if (!requireNamespace("posterior", quietly = TRUE)) {
     stop("Package 'posterior' is required.", call. = FALSE)
   }
-  
+
   if (!inherits(model, "brmsfit")) {
     stop("model must be a brmsfit object", call. = FALSE)
   }
@@ -1332,9 +1353,20 @@ extract_covariance_draws <- function(model, dimensions) {
 
   sigma_draws <- list()
   for (d in dimensions) {
-    param_name <- paste0("sigma_", d)
-    if (param_name %in% colnames(draws)) {
-      sigma_draws[[d]] <- posterior::extract_variable(draws, param_name)
+    param_candidates <- c(
+      paste0("sigma_", d),
+      paste0("sigma_", gsub(" ", "_", d)),
+      paste0("b_sigma_", d)
+    )
+    for (param_name in param_candidates) {
+      if (param_name %in% colnames(draws)) {
+        sd_vals <- posterior::extract_variable(draws, param_name)
+        if (grepl("^b_sigma_", param_name)) {
+          sd_vals <- exp(sd_vals)
+        }
+        sigma_draws[[d]] <- sd_vals
+        break
+      }
     }
   }
 
@@ -1366,28 +1398,47 @@ extract_covariance_draws <- function(model, dimensions) {
 
     for (i in 2:n_dim) {
       for (j in 1:(i - 1)) {
-        param_name <- paste0("cor_", grp, "(", dimensions[j], "_Intercept,", dimensions[i], "_Intercept)")
-        alt_name <- paste0("cor_", grp, "(", dimensions[i], "_Intercept,", dimensions[j], "_Intercept)")
-
         cor_draws <- NULL
-        if (param_name %in% colnames(draws)) {
-          cor_draws <- posterior::extract_variable(draws, param_name)
-        } else if (alt_name %in% colnames(draws)) {
-          cor_draws <- posterior::extract_variable(draws, alt_name)
+
+        param_wide <- paste0("cor_", grp, "(", dimensions[j], "_Intercept,", dimensions[i], "_Intercept)")
+        alt_wide <- paste0("cor_", grp, "(", dimensions[i], "_Intercept,", dimensions[j], "_Intercept)")
+        param_long <- paste0("cor_", grp, "[", dimensions[j], ",", dimensions[i], "]")
+        alt_long <- paste0("cor_", grp, "[", dimensions[i], ",", dimensions[j], "]")
+
+        if (param_wide %in% colnames(draws)) {
+          cor_draws <- posterior::extract_variable(draws, param_wide)
+        } else if (alt_wide %in% colnames(draws)) {
+          cor_draws <- posterior::extract_variable(draws, alt_wide)
+        } else if (param_long %in% colnames(draws)) {
+          cor_draws <- posterior::extract_variable(draws, param_long)
+        } else if (alt_long %in% colnames(draws)) {
+          cor_draws <- posterior::extract_variable(draws, alt_long)
         }
 
         if (!is.null(cor_draws)) {
-          sd_param1 <- paste0("sd_", grp, "__", dimensions[i], "_Intercept")
-          sd_param2 <- paste0("sd_", grp, "__", dimensions[j], "_Intercept")
+          sd_param1_candidates <- c(
+            paste0("sd_", grp, "__", dimensions[i], "_Intercept"),
+            paste0("sd_", grp, "__", dimensions[i])
+          )
+          sd_param2_candidates <- c(
+            paste0("sd_", grp, "__", dimensions[j], "_Intercept"),
+            paste0("sd_", grp, "__", dimensions[j])
+          )
 
           sd_draws1 <- NULL
           sd_draws2 <- NULL
 
-          if (sd_param1 %in% colnames(draws)) {
-            sd_draws1 <- posterior::extract_variable(draws, sd_param1)
+          for (sd_param in sd_param1_candidates) {
+            if (sd_param %in% colnames(draws)) {
+              sd_draws1 <- posterior::extract_variable(draws, sd_param)
+              break
+            }
           }
-          if (sd_param2 %in% colnames(draws)) {
-            sd_draws2 <- posterior::extract_variable(draws, sd_param2)
+          for (sd_param in sd_param2_candidates) {
+            if (sd_param %in% colnames(draws)) {
+              sd_draws2 <- posterior::extract_variable(draws, sd_param)
+              break
+            }
           }
 
           if (!is.null(sd_draws1) && !is.null(sd_draws2)) {
@@ -1628,6 +1679,10 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
     stop("Package 'posterior' is required.", call. = FALSE)
   }
 
+  if (is.null(dimension_var) || is.null(data)) {
+    stop("dimension_var and data must be provided for long-format multivariate models.", call. = FALSE)
+  }
+
   draws <- brms::as_draws_matrix(model)
   model_summary <- suppressWarnings(summary(model))
   random_summary <- model_summary$random
@@ -1636,6 +1691,10 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
   # Get dimension levels from data
   dimension_levels <- unique(data[[dimension_var]])
   dimension_levels <- sort(as.character(dimension_levels))
+
+  if (length(dimension_levels) == 0) {
+    stop("No dimension levels found in data for variable: ", dimension_var, call. = FALSE)
+  }
 
   # Detect if sigma uses log link
   is_log_link <- detect_sigma_log_link(model)
@@ -1650,9 +1709,37 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
     gsub("__", ":", name)
   }
 
+  # Build dimension suffix mapping for parameter names
+  # Parameter names use format like "Subtest1", "Subtest2" but dimension levels may be "1", "2"
+  param_names <- colnames(draws)
+  dim_suffixes <- character(length(dimension_levels))
+  names(dim_suffixes) <- dimension_levels
+
+  for (dim in dimension_levels) {
+    # Try to find matching sigma parameter to get the actual suffix
+    possible_suffixes <- c(
+      dim,
+      paste0(dimension_var, dim),
+      gsub(" ", "_", dim),
+      paste0(dimension_var, gsub(" ", "_", dim))
+    )
+    for (suffix in possible_suffixes) {
+      sigma_pattern <- paste0("sigma_", suffix, "$|b_sigma_", suffix, "$")
+      if (any(grepl(sigma_pattern, param_names))) {
+        dim_suffixes[dim] <- suffix
+        break
+      }
+    }
+    if (is.na(dim_suffixes[dim]) || dim_suffixes[dim] == "") {
+      dim_suffixes[dim] <- dim
+    }
+  }
+
   results <- list()
 
   for (dim in dimension_levels) {
+    dim_suffix <- dim_suffixes[dim]
+
     # Extract random effect variances for this dimension
     for (facet in facet_names) {
       normalized_facet <- normalize_group_name(facet)
@@ -1661,7 +1748,7 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
       result <- extract_single_variance_from_draws_long_format(
         draws = draws,
         grp = facet,
-        resp = dim,
+        resp = dim_suffix,
         type = type,
         random_summary = random_summary,
         spec_pars = spec_pars,
@@ -1671,6 +1758,7 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
 
       if (!is.null(result)) {
         result$component <- normalized_facet
+        result$dim <- dim  # Use original dimension name
         results[[length(results) + 1]] <- result
       }
     }
@@ -1679,7 +1767,7 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
     result <- extract_single_variance_from_draws_long_format(
       draws = draws,
       grp = "residual__",
-      resp = dim,
+      resp = dim_suffix,
       type = "residual",
       random_summary = random_summary,
       spec_pars = spec_pars,
@@ -1688,13 +1776,29 @@ extract_vc_brms_long_format <- function(model, conf_level = 0.95, formula = NULL
     )
 
     if (!is.null(result)) {
+      result$dim <- dim  # Use original dimension name
       results[[length(results) + 1]] <- result
     }
   }
 
   # Combine results
+  if (length(results) == 0) {
+    stop("No variance components could be extracted from the model. ",
+      "This may be due to mismatched parameter naming in the brms model. ",
+      "Please check that your model has the expected random effects structure.",
+      call. = FALSE)
+  }
+
   vc_df <- do.call(rbind, results)
   vc_tibble <- tibble::as_tibble(vc_df)
+
+  # Handle case where no variance components were extracted
+  if (nrow(vc_tibble) == 0 || !"dim" %in% names(vc_tibble)) {
+    stop("No variance components could be extracted from the model. ",
+      "This may be due to mismatched parameter naming in the brms model. ",
+      "Please check that your model has the expected random effects structure.",
+      call. = FALSE)
+  }
 
   # Calculate percentages
   vc_tibble <- vc_tibble %>%
@@ -1746,68 +1850,53 @@ detect_sigma_log_link <- function(model) {
 #'
 #' @keywords internal
 extract_single_variance_from_draws_long_format <- function(draws, grp, resp, type,
-                                                            random_summary, spec_pars, is_mv,
-                                                            is_log_link = FALSE) {
+                                                           random_summary, spec_pars, is_mv,
+                                                           is_log_link = FALSE) {
   if (grp == "residual__") {
-    if (is_log_link) {
-      param_name <- paste0("b_sigma_", resp)
-    } else {
-      param_name <- paste0("sigma_", resp)
-    }
+    param_candidates <- c(
+      paste0("sigma_", resp),
+      paste0("b_sigma_", resp)
+    )
     component <- "Residual"
   } else {
-    param_name <- paste0("sd_", grp, "__", resp, "_Intercept")
+    param_candidates <- c(
+      paste0("sd_", grp, "__", resp),
+      paste0("sd_", grp, "__", resp, "_Intercept"),
+      paste0("sd_", gsub(":", "__", grp), "__", resp),
+      paste0("sd_", gsub(":", "__", grp), "__", resp, "_Intercept")
+    )
+    param_candidates <- unique(param_candidates)
     component <- grp
   }
 
-  if (!param_name %in% colnames(draws)) {
-    param_candidates <- character()
+  found <- FALSE
+  param_name <- NULL
+  for (cand in param_candidates) {
+    if (cand %in% colnames(draws)) {
+      param_name <- cand
+      found <- TRUE
+      break
+    }
+  }
 
-    if (grp != "residual__") {
-      grp_double_underscore <- gsub(":", "__", grp)
-      param_candidates <- c(
-        paste0("sd_", grp_double_underscore, "__", resp, "_Intercept"),
-        paste0("sd_", grp, "__", resp, "_Intercept")
-      )
-      param_candidates <- unique(param_candidates)
+  if (!found) {
+    base_name <- if (grp == "residual__") {
+      paste0("sigma_", resp)
     } else {
-      if (is_log_link) {
-        param_candidates <- c(
-          paste0("b_sigma_", resp),
-          paste0("sigma_", resp)
-        )
-      } else {
-        param_candidates <- paste0("sigma_", resp)
-      }
+      paste0("sd_", gsub(":", "__", grp), "__", resp)
     }
-
-    found <- FALSE
-    for (cand in param_candidates) {
-      if (cand %in% colnames(draws)) {
-        param_name <- cand
-        found <- TRUE
-        break
-      }
-    }
-
-    if (!found) {
-      base_name <- if (grp == "residual__") {
-        if (is_log_link) paste0("b_sigma_", resp) else paste0("sigma_", resp)
-      } else {
-        paste0("sd_", gsub(":", "__", grp), "__", resp)
-      }
-      matching_params <- grep(paste0("^", base_name), colnames(draws), value = TRUE)
-      if (length(matching_params) > 0) {
-        param_name <- matching_params[1]
-      } else {
-        return(NULL)
-      }
+    matching_params <- grep(paste0("^", base_name), colnames(draws), value = TRUE)
+    if (length(matching_params) > 0) {
+      param_name <- matching_params[1]
+      found <- TRUE
+    } else {
+      return(NULL)
     }
   }
 
   draws_values <- posterior::extract_variable(draws, param_name)
 
-  if (grp == "residual__" && is_log_link) {
+  if (grp == "residual__" && grepl("^b_sigma_", param_name)) {
     sd_draws <- exp(draws_values)
   } else {
     sd_draws <- draws_values
@@ -1837,106 +1926,106 @@ extract_single_variance_from_draws_long_format <- function(draws, grp, resp, typ
   } else {
     if (!is.null(random_summary) && grp %in% names(random_summary)) {
       grp_rand <- random_summary[[grp]]
-        if (param_name %in% rownames(grp_rand)) {
-          rhat_val <- grp_rand[param_name, "Rhat"]
-          bulk_ess_val <- grp_rand[param_name, "Bulk_ESS"]
-          tail_ess_val <- grp_rand[param_name, "Tail_ESS"]
-        }
+      if (param_name %in% rownames(grp_rand)) {
+        rhat_val <- grp_rand[param_name, "Rhat"]
+        bulk_ess_val <- grp_rand[param_name, "Bulk_ESS"]
+        tail_ess_val <- grp_rand[param_name, "Tail_ESS"]
       }
     }
-
-    data.frame(
-      component = component,
-      dim = resp,
-      type = type,
-      var = estimate,
-      error = se,
-      lower = lower,
-      upper = upper,
-      sd = sd_mean,
-      Rhat = rhat_val,
-      Bulk_ESS = bulk_ess_val,
-      Tail_ESS = tail_ess_val,
-      stringsAsFactors = FALSE
-    )
   }
 
-  extract_correlations_brms_long_format <- function(model, dimension_var, data) {
-    if (!requireNamespace("brms", quietly = TRUE)) {
-      return(NULL)
-    }
+  data.frame(
+    component = component,
+    dim = resp,
+    type = type,
+    var = estimate,
+    error = se,
+    lower = lower,
+    upper = upper,
+    sd = sd_mean,
+    Rhat = rhat_val,
+    Bulk_ESS = bulk_ess_val,
+    Tail_ESS = tail_ess_val,
+    stringsAsFactors = FALSE
+  )
+}
 
-    draws <- tryCatch(
-      brms::as_draws_matrix(model),
-      error = function(e) NULL
-    )
+extract_correlations_brms_long_format <- function(model, dimension_var, data) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    return(NULL)
+  }
 
-    if (is.null(draws)) {
-      return(list(random_effect_cor = list()))
-    }
+  draws <- tryCatch(
+    brms::as_draws_matrix(model),
+    error = function(e) NULL
+  )
 
-    dimension_levels <- unique(data[[dimension_var]])
-    dimension_levels <- sort(as.character(dimension_levels))
+  if (is.null(draws)) {
+    return(list(random_effect_cor = list()))
+  }
 
-    cor_params <- grep("^cor_", colnames(draws), value = TRUE)
+  dimension_levels <- unique(data[[dimension_var]])
+  dimension_levels <- sort(as.character(dimension_levels))
 
-    if (length(cor_params) == 0) {
-      return(list(random_effect_cor = list()))
-    }
+  cor_params <- grep("^cor_", colnames(draws), value = TRUE)
 
-    cor_by_facet <- list()
+  if (length(cor_params) == 0) {
+    return(list(random_effect_cor = list()))
+  }
 
-    for (param in cor_params) {
-      match_result <- regmatches(param, regexec("cor_([^\\[]+)\\[([^,]+),([^\\]]+)\\]", param))[[1]]
+  cor_by_facet <- list()
 
-      if (length(match_result) == 4) {
-        facet <- match_result[2]
-        dim1 <- match_result[3]
-        dim2 <- match_result[4]
+  for (param in cor_params) {
+    match_result <- regmatches(param, regexec("cor_([^\\[]+)\\[([^,]+),([^\\]]+)\\]", param))[[1]]
 
-        if (is.null(cor_by_facet[[facet]])) {
-          cor_by_facet[[facet]] <- list()
-        }
+    if (length(match_result) == 4) {
+      facet <- match_result[2]
+      dim1 <- match_result[3]
+      dim2 <- match_result[4]
 
-        cor_draws <- tryCatch(
-          posterior::extract_variable(draws, param),
-          error = function(e) NULL
+      if (is.null(cor_by_facet[[facet]])) {
+        cor_by_facet[[facet]] <- list()
+      }
+
+      cor_draws <- tryCatch(
+        posterior::extract_variable(draws, param),
+        error = function(e) NULL
+      )
+
+      if (!is.null(cor_draws)) {
+        cor_by_facet[[facet]] <- c(
+          cor_by_facet[[facet]],
+          list(list(
+            dim1 = dim1,
+            dim2 = dim2,
+            estimate = mean(cor_draws),
+            se = sd(cor_draws),
+            lower = as.numeric(quantile(cor_draws, 0.025)),
+            upper = as.numeric(quantile(cor_draws, 0.975))
+          ))
         )
-
-        if (!is.null(cor_draws)) {
-          cor_by_facet[[facet]] <- c(
-            cor_by_facet[[facet]],
-            list(list(
-              dim1 = dim1,
-              dim2 = dim2,
-              estimate = mean(cor_draws),
-              se = sd(cor_draws),
-              lower = as.numeric(quantile(cor_draws, 0.025)),
-              upper = as.numeric(quantile(cor_draws, 0.975))
-            ))
-          )
-        }
       }
     }
+  }
 
-    random_effect_cor <- list()
+  random_effect_cor <- list()
 
-    for (facet in names(cor_by_facet)) {
-      cor_list <- cor_by_facet[[facet]]
+  for (facet in names(cor_by_facet)) {
+    cor_list <- cor_by_facet[[facet]]
 
-      cor_tibble <- dplyr::bind_rows(lapply(cor_list, function(x) {
-        tibble::tibble(
-          dim1 = x$dim1,
-          dim2 = x$dim2,
-          estimate = x$estimate,
-          se = x$se,
-          lower = x$lower,
-          upper = x$upper
-        )
-      }))
+    cor_tibble <- dplyr::bind_rows(lapply(cor_list, function(x) {
+      tibble::tibble(
+        dim1 = x$dim1,
+        dim2 = x$dim2,
+        estimate = x$estimate,
+        se = x$se,
+        lower = x$lower,
+        upper = x$upper
+      )
+    }))
 
-      random_effect_cor[[facet]] <- cor_tibble
-    }
+    random_effect_cor[[facet]] <- cor_tibble
+  }
 
   list(
     random_effect_cor = random_effect_cor,
@@ -1997,17 +2086,46 @@ extract_covariances_brms_long_format <- function(model, dimension_var, data, vc 
     random_effect_cov_matrix = list()
   )
 
+  # Build dimension suffix mapping
+  param_names <- colnames(draws)
+  dim_suffixes <- character(length(dimension_levels))
+  names(dim_suffixes) <- dimension_levels
+
+  for (dim in dimension_levels) {
+    possible_suffixes <- c(
+      dim,
+      paste0(dimension_var, dim),
+      gsub(" ", "_", dim),
+      paste0(dimension_var, gsub(" ", "_", dim))
+    )
+    for (suffix in possible_suffixes) {
+      sigma_pattern <- paste0("sigma_", suffix, "$|b_sigma_", suffix, "$")
+      if (any(grepl(sigma_pattern, param_names))) {
+        dim_suffixes[dim] <- suffix
+        break
+      }
+    }
+    if (is.na(dim_suffixes[dim]) || dim_suffixes[dim] == "") {
+      dim_suffixes[dim] <- dim
+    }
+  }
+
   # Extract sigma (residual SD) parameters for each dimension
   sigma_draws_list <- list()
   for (dim in dimension_levels) {
+    dim_suffix <- dim_suffixes[dim]
     possible_names <- c(
-      paste0("sigma_", dim),
-      paste0("sigma_", dim, "_Intercept"),
-      paste0("sigma_", gsub(" ", "_", dim))
+      paste0("sigma_", dim_suffix),
+      paste0("b_sigma_", dim_suffix),
+      paste0("sigma_", gsub(" ", "_", dim_suffix))
     )
     for (pname in possible_names) {
       if (pname %in% colnames(draws)) {
-        sigma_draws_list[[dim]] <- posterior::extract_variable(draws, pname)
+        sd_vals <- posterior::extract_variable(draws, pname)
+        if (grepl("^b_sigma_", pname)) {
+          sd_vals <- exp(sd_vals)
+        }
+        sigma_draws_list[[dim]] <- sd_vals
         break
       }
     }
@@ -2020,8 +2138,8 @@ extract_covariances_brms_long_format <- function(model, dimension_var, data, vc 
   for (param in rescor_params) {
     match_result <- regmatches(param, regexec("rescor\\(([^,]+),([^)]+)\\)", param))[[1]]
     if (length(match_result) == 3) {
-      dim1 <- match_result[1]
-      dim2 <- match_result[2]
+      dim1 <- match_result[2]
+      dim2 <- match_result[3]
       key <- paste0(dim1, "_", dim2)
       rescor_draws_list[[key]] <- posterior::extract_variable(draws, param)
     }
@@ -2054,8 +2172,8 @@ extract_covariances_brms_long_format <- function(model, dimension_var, data, vc 
         if (is.null(cor_draws)) cor_draws <- rescor_draws_list[[key2]]
 
         if (!is.null(cor_draws) &&
-            !is.null(sigma_draws_list[[dim1]]) &&
-            !is.null(sigma_draws_list[[dim2]])) {
+          !is.null(sigma_draws_list[[dim1]]) &&
+          !is.null(sigma_draws_list[[dim2]])) {
           cov_draws <- cor_draws * sigma_draws_list[[dim1]] * sigma_draws_list[[dim2]]
 
           estimate <- mean(cov_draws, na.rm = TRUE)
@@ -2093,12 +2211,56 @@ extract_covariances_brms_long_format <- function(model, dimension_var, data, vc 
     sd_by_facet <- list()
 
     for (param in cor_params) {
-      match_result <- regmatches(param, regexec("cor_([^\\[]+)\\[([^,]+),([^\\]]+)\\]", param))[[1]]
+      # Try different parameter name patterns
+      # Pattern 1: cor_Facet__dim1__dim2 (long-format style)
+      match1 <- regmatches(param, regexec("cor_([^_]+)__(.+)__(.+)", param))[[1]]
+      # Pattern 2: cor_Facet[dim1,dim2] (bracket style)
+      match2 <- regmatches(param, regexec("cor_([^\\[]+)\\[([^,]+),([^\\]]+)\\]", param))[[1]]
 
-      if (length(match_result) == 4) {
-        facet <- match_result[2]
-        dim1 <- match_result[3]
-        dim2 <- match_result[4]
+      if (length(match1) == 4) {
+        facet <- match1[2]
+        dim1_raw <- match1[3]
+        dim2_raw <- match1[4]
+
+        # Map back to dimension names
+        dim1 <- NULL
+        dim2 <- NULL
+        for (d in names(dim_suffixes)) {
+          if (dim_suffixes[d] == dim1_raw || dim1_raw == d) dim1 <- d
+          if (dim_suffixes[d] == dim2_raw || dim2_raw == d) dim2 <- d
+        }
+        if (is.null(dim1)) dim1 <- dim1_raw
+        if (is.null(dim2)) dim2 <- dim2_raw
+
+        if (is.null(cor_by_facet[[facet]])) {
+          cor_by_facet[[facet]] <- list()
+        }
+
+        cor_draws <- tryCatch(
+          posterior::extract_variable(draws, param),
+          error = function(e) NULL
+        )
+
+        if (!is.null(cor_draws)) {
+          cor_by_facet[[facet]][[paste0(dim1, "_", dim2)]] <- list(
+            dim1 = dim1,
+            dim2 = dim2,
+            cor_draws = cor_draws
+          )
+        }
+      } else if (length(match2) == 4) {
+        facet <- match2[2]
+        dim1_raw <- match2[3]
+        dim2_raw <- match2[4]
+
+        dim1 <- NULL
+        dim2 <- NULL
+        for (d in names(dim_suffixes)) {
+          if (dim_suffixes[d] == dim1_raw || dim1_raw == d) dim1 <- d
+          if (dim_suffixes[d] == dim2_raw || dim2_raw == d) dim2 <- d
+        }
+        if (is.null(dim1)) dim1 <- dim1_raw
+        if (is.null(dim2)) dim2 <- dim2_raw
 
         if (is.null(cor_by_facet[[facet]])) {
           cor_by_facet[[facet]] <- list()
@@ -2123,11 +2285,22 @@ extract_covariances_brms_long_format <- function(model, dimension_var, data, vc 
     sd_params <- grep("^sd_", colnames(draws), value = TRUE)
 
     for (param in sd_params) {
-      match_result <- regmatches(param, regexec("sd_([^\\[]+)\\[([^\\]]+)\\]", param))[[1]]
+      # Pattern: sd_Facet__dim
+      match <- regmatches(param, regexec("sd_([^_]+)__(.+)", param))[[1]]
 
-      if (length(match_result) == 3) {
-        facet <- match_result[2]
-        dim_combo <- match_result[3]
+      if (length(match) == 3) {
+        facet <- match[2]
+        dim_raw <- match[3]
+
+        # Map back to dimension name
+        dim <- NULL
+        for (d in names(dim_suffixes)) {
+          if (dim_suffixes[d] == dim_raw || dim_raw == d) {
+            dim <- d
+            break
+          }
+        }
+        if (is.null(dim)) dim <- dim_raw
 
         if (is.null(sd_by_facet[[facet]])) {
           sd_by_facet[[facet]] <- list()
@@ -2139,7 +2312,7 @@ extract_covariances_brms_long_format <- function(model, dimension_var, data, vc 
         )
 
         if (!is.null(sd_draws)) {
-          sd_by_facet[[facet]][[dim_combo]] <- sd_draws
+          sd_by_facet[[facet]][[dim]] <- sd_draws
         }
       }
     }
