@@ -8,343 +8,6 @@
 #' @importFrom magrittr %>%
 NULL
 
-#' Parse Facet Names from Component String
-#'
-#' Extracts facet names from a variance component string.
-#' Handles interactions (e.g., "p:r:s"), main effects, and residual.
-#'
-#' @param component Character string naming the variance component.
-#' @return A character vector of facet names.
-#'
-#' @keywords internal
-parse_component_facets <- function(component) {
-  if (identical(component, "Residual")) {
-    return("Residual")
-  }
-  strsplit(component, ":")[[1]]
-}
-
-#' Check if Component is an Interaction
-#'
-#' Determines whether a variance component represents an interaction
-#' (contains ":" in the name).
-#'
-#' @param component Character string naming the variance component.
-#' @return TRUE if the component is an interaction, FALSE otherwise.
-#'
-#' @keywords internal
-is_interaction <- function(component) {
-  grepl(":", component)
-}
-
-#' Get Universe Scale Factor
-#'
-#' Calculates the scale factor for a non-object universe component.
-#' The scale factor is the product of sample sizes for all facets in the component
-#' except the object facet (which is not scaled).
-#'
-#' @param component Character string naming the variance component (e.g., "p:o").
-#' @param n Named list of sample sizes for each facet.
-#' @param agg_facets Character vector of aggregation facets (optional).
-#' @return The scale factor (product of relevant sample sizes).
-#'
-#' @keywords internal
-get_universe_scale_factor <- function(component, n, agg_facets = NULL) {
-  if (is.null(n) || length(n) == 0) {
-    return(1)
-  }
-
-  # Extract facets from component (e.g., "p:o" -> c("p", "o"))
-  comp_facets <- parse_component_facets(component)
-
-  # Build scale factor from sample sizes of all facets in the component
-  scale_factor <- 1
-  for (facet in comp_facets) {
-    if (facet %in% names(n)) {
-      scale_factor <- scale_factor * n[[facet]]
-    }
-  }
-
-  scale_factor
-}
-
-#' Get Universe Scale Factor for a Component
-#'
-#' Calculates the scale factor for a non-object universe component,
-#' handling the special case where the component might be mapped to Residual.
-#'
-#' @param comp User-specified component name (e.g., "person:item").
-#' @param n Named list of sample sizes for each facet.
-#' @param agg_facets Character vector of aggregation facets (optional).
-#' @param residual_is Character string specifying what the residual represents.
-#' @param actual_comp The actual component name in variance components (e.g., "Residual").
-#' @return The scale factor (product of relevant sample sizes).
-#'
-#' @keywords internal
-get_universe_scale_factor_for_component <- function(comp, n, agg_facets = NULL, residual_is = NULL, actual_comp = NULL) {
-  if (is.null(n) || length(n) == 0) {
-    return(1)
-  }
-
-  # Determine which component to use for scale factor calculation
-  component_for_scale <- if (!is.null(actual_comp)) actual_comp else comp
-
-  # Special handling for Residual
-  if (component_for_scale == "Residual") {
-    # Use residual_is to determine the facets
-    if (!is.null(residual_is) && residual_is != "") {
-      comp_facets <- parse_component_facets(residual_is)
-    } else {
-      # Can't determine facets, return 1
-      return(1)
-    }
-  } else {
-    comp_facets <- parse_component_facets(component_for_scale)
-  }
-
-  # Build scale factor from sample sizes of all facets in the component
-  scale_factor <- 1
-  for (facet in comp_facets) {
-    if (facet %in% names(n)) {
-      scale_factor <- scale_factor * n[[facet]]
-    }
-  }
-
-  scale_factor
-}
-
-#' Check if Component is the Object of Measurement
-#'
-#' Determines whether a variance component represents the main effect
-#' of the object of measurement (not an interaction).
-#'
-#' @param component Character string naming the variance component.
-#' @param object Character string naming the object of measurement.
-#' @return TRUE if the component is the object main effect.
-#'
-#' @keywords internal
-is_object_effect <- function(component, object) {
-  !grepl(":", component) && identical(component, object)
-}
-
-#' Check if Object is in Component
-#'
-#' Determines whether the object of measurement appears in a variance component
-#' (as main effect or part of an interaction).
-#'
-#' @param component Character string naming the variance component.
-#' @param object Character string naming the object of measurement.
-#' @return TRUE if the object appears in the component.
-#'
-#' @keywords internal
-object_in_component <- function(component, object) {
-  if (identical(component, "Residual")) {
-    return(FALSE)
-  }
-  facets <- parse_component_facets(component)
-  object %in% facets
-}
-
-#' Compute Scale Factor for D-Study Variance Component
-#'
-#' Calculates the scaling factor for a variance component based on
-#' the D-study sample sizes. For main effects, divides by n_facet.
-#' For interactions, divides by the product of n for each facet.
-#'
-#' @param facets Character vector of facet names in the component.
-#' @param n Named list of sample sizes for each facet.
-#' @return The scale factor (numeric).
-#'
-#' @keywords internal
-compute_scale_factor_from_facets <- function(facets, n) {
-  if (length(facets) == 0 || identical(facets, "Residual")) {
-    return(1)
-  }
-
-  scale_factor <- 1
-  for (facet in facets) {
-    if (facet %in% names(n)) {
-      scale_factor <- scale_factor * n[[facet]]
-    }
-  }
-  scale_factor
-}
-
-#' Compute Aggregation Factor for Variance Component
-#'
-#' Calculates the aggregation scaling factor for a variance component.
-#' When aggregating over a facet, components containing that facet are
-#' divided by the sample size for that facet.
-#'
-#' @param component Character string naming the variance component.
-#' @param aggregation_facets Character vector of facets to aggregate over.
-#' @param n Named list of sample sizes for each facet.
-#' @return The aggregation scale factor (numeric).
-#'
-#' @keywords internal
-compute_aggregation_factor <- function(component, aggregation_facets, n) {
-  if (is.null(aggregation_facets) || length(aggregation_facets) == 0) {
-    return(1)
-  }
-
-  if (identical(component, "Residual")) {
-    return(1)
-  }
-
-  component_facets <- parse_component_facets(component)
-  intersect_facets <- component_facets[component_facets %in% aggregation_facets]
-
-  if (length(intersect_facets) == 0) {
-    return(1)
-  }
-
-  factor <- 1
-  for (facet in intersect_facets) {
-    if (facet %in% names(n)) {
-      factor <- factor * n[[facet]]
-    }
-  }
-  factor
-}
-
-#' Compute Residual Aggregation Factor
-#'
-#' Calculates the aggregation scaling factor for the residual component.
-#' The residual is scaled based on the intersection of aggregation facets
-#' and the facets specified in residual_is.
-#'
-#' @param residual_is Character string specifying which facets make up the residual.
-#' @param aggregation_facets Character vector of facets to aggregate over.
-#' @param n Named list of sample sizes for each facet.
-#' @return The aggregation scale factor for residual (numeric).
-#'
-#' @keywords internal
-compute_residual_aggregation_factor <- function(residual_is, aggregation_facets, n) {
-  if (is.null(residual_is) || identical(residual_is, "")) {
-    return(1)
-  }
-
-  if (is.null(aggregation_facets) || length(aggregation_facets) == 0) {
-    return(1)
-  }
-
-  residual_facets <- parse_component_facets(residual_is)
-  intersect_facets <- aggregation_facets[aggregation_facets %in% residual_facets]
-
-  if (length(intersect_facets) == 0) {
-    return(1)
-  }
-
-  factor <- 1
-  for (facet in intersect_facets) {
-    if (facet %in% names(n)) {
-      factor <- factor * n[[facet]]
-    }
-  }
-  factor
-}
-
-#' Parse Specification for Object or Error Components
-#'
-#' Parses a specification for object of measurement or error components.
-#' Accepts:
-#' - A single character string: "p"
-#' - A character vector: c("p", "p:d")
-#' - A formula: obj ~ p + p:d (LHS is ignored for error spec, or can be used for object name)
-#' - A one-sided formula: ~ p + p:d (extracts variables from RHS)
-#'
-#' @param spec Specification (character, character vector, or formula).
-#' @return A character vector of component names.
-#'
-#' @keywords internal
-extract_facet_names <- function(spec) {
-  if (is.null(spec) || length(spec) == 0) return(character(0))
-  unique(unlist(strsplit(spec, ":")))
-}
-
-parse_specification <- function(x) {
-  if (is.null(x) || length(x) == 0) return(character(0))
-
-  if (inherits(x, "formula")) {
-    if (length(x) == 2) {
-      rhs <- x[[2]]
-    } else {
-      rhs <- x[[3]]
-    }
-
-    components <- character(0)
-
-    if (is.call(rhs)) {
-      parse_formula_terms <- function(expr) {
-        result <- character(0)
-        if (is.call(expr)) {
-          if (expr[[1]] == as.symbol("+")) {
-            result <- c(result, parse_formula_terms(expr[[2]]))
-            result <- c(result, parse_formula_terms(expr[[3]]))
-          } else if (expr[[1]] == as.symbol(":")) {
-            result <- c(result, deparse(expr))
-          } else {
-            result <- c(result, parse_formula_terms(expr[[2]]))
-          }
-        } else if (is.symbol(expr)) {
-          result <- c(result, as.character(expr))
-        }
-        result
-      }
-      components <- parse_formula_terms(rhs)
-    } else if (is.symbol(rhs)) {
-      components <- as.character(rhs)
-    }
-
-    components <- components[components != "."]
-    return(components)
-  }
-
-  if (is.character(x)) {
-    if (length(x) == 1) {
-      return(x)
-    } else {
-      return(x)
-    }
-  }
-
-  stop("Specification must be a character string, character vector, or formula",
-    call. = FALSE)
-}
-
-#' Check if Component is Part of Object Specification
-#'
-#' Determines whether a variance component is part of the object of measurement
-#' specification (which can include multiple components).
-#'
-#' @param component Character string naming the variance component.
-#' @param object_spec Character vector of object component names.
-#' @return TRUE if the component is part of the object specification.
-#'
-#' @keywords internal
-is_object_component <- function(component, object_spec) {
-  component %in% object_spec
-}
-
-#' Check if Component is Part of Error Specification
-#'
-#' Determines whether a variance component is part of the error specification.
-#'
-#' @param component Character string naming the variance component.
-#' @param error_spec Character vector of error component names, or NULL for default.
-#' @param object_spec Character vector of object component names.
-#' @param vc_all Variance components tibble (for default error calculation).
-#' @return TRUE if the component is part of the error specification.
-#'
-#' @keywords internal
-is_error_component <- function(component, error_spec, object_spec, vc_all) {
-  if (!is.null(error_spec)) {
-    return(component %in% error_spec)
-  }
-
-  !is_object_component(component, object_spec) && component != "Residual"
-}
-
 #' Calculate D-Study Variance Components
 #'
 #' Scales variance components according to D-study sample sizes.
@@ -543,14 +206,6 @@ calculate_dstudy_variance <- function(vc, n, object, aggregation = NULL, n_provi
       dplyr::relocate(dim, .after = component)
   }
 
-  # Round numeric columns to 3 decimal places for consistent display
-  numeric_cols <- c("var_unscaled", "pct_unscaled", "var_scaled", "pct_scaled")
-  for (col in numeric_cols) {
-    if (col %in% names(d_vc)) {
-      d_vc[[col]] <- round(d_vc[[col]], 3)
-    }
-  }
-
   d_vc
 }
 
@@ -622,11 +277,6 @@ calculate_divided_variance <- function(vc, n, object, residual_is = NULL) {
       var_divided = ifelse(is_object, var, var / divisor)
     ) %>%
     select(-comp_facets, -is_object, -divisor)
-
-  # Round numeric columns to 3 decimal places for consistent display
-  if ("var_divided" %in% names(d_vc)) {
-    d_vc$var_divided <- round(d_vc$var_divided, 3)
-  }
 
   d_vc
 }
@@ -869,14 +519,6 @@ calculate_coefficients <- function(vc, n = NULL, object = NULL, error = NULL,
   })
 
   result_df <- do.call(rbind, results)
-
-  # Round numeric columns to 3 decimal places for consistent display
-  numeric_cols <- c("uni", "sigma2_delta", "sigma2_delta_abs", "g", "phi", "phi_cut", "sem_rel", "sem_abs")
-  for (col in numeric_cols) {
-    if (col %in% names(result_df)) {
-      result_df[[col]] <- round(result_df[[col]], 3)
-    }
-  }
 
   result_df
 }
@@ -1221,14 +863,6 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
     result$phi_cut <- (uni_composite + adjustment) / (uni_composite + sigma2_delta_abs_composite + adjustment)
   }
 
-  # Round numeric columns to 3 decimal places for consistent display
-  numeric_cols <- c("uni", "sigma2_delta", "sigma2_delta_abs", "g", "phi", "phi_cut", "sem_rel", "sem_abs")
-  for (col in numeric_cols) {
-    if (col %in% names(result)) {
-      result[[col]] <- round(result[[col]], 3)
-    }
-  }
-
   list(
     summary = result,
     var_results = per_subscale_var
@@ -1399,36 +1033,6 @@ calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n,
     vc_table = do.call(rbind, composite_rows),
     posterior = composite_draws
   )
-}
-
-#' Compute scale factor for a variance component
-#'
-#' @keywords internal
-compute_component_scale_factor <- function(comp, n, object_spec, n_provided) {
-  if (comp %in% object_spec) {
-    return(1)
-  }
-
-  total_n <- if (length(n) > 0) prod(unlist(n)) else 1
-
-  if (n_provided && length(n) > 0) {
-    if (comp == "Residual") {
-      return(total_n)
-    }
-
-    comp_facets <- parse_component_facets(comp)
-    scale_factor <- 1
-
-    for (f in comp_facets) {
-      if (f %in% names(n)) {
-        scale_factor <- scale_factor * n[[f]]
-      }
-    }
-
-    return(scale_factor)
-  }
-
-  return(1)
 }
 
 #' Compute Composite Error Variance
@@ -1725,15 +1329,6 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
     }
   }
 
-  # Round numeric columns to 3 decimal places for consistent display
-  numeric_cols <- c("uni", "sigma2_delta", "sigma2_delta_abs", "g", "phi", "phi_cut", "sem_rel", "sem_abs",
-    "g_LL", "g_UL", "phi_LL", "phi_UL", "phi_cut_LL", "phi_cut_UL")
-  for (col in numeric_cols) {
-    if (col %in% names(summary_df)) {
-      summary_df[[col]] <- round(summary_df[[col]], 3)
-    }
-  }
-
   distributions <- list(
     uni = uni_draws,
     sigma2_delta = sigma2_delta_draws,
@@ -1790,22 +1385,8 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
       prmse_mv_rel_LL = quantile(var_result$prmse_mv_rel, probs = probs[1], na.rm = TRUE),
       prmse_mv_rel_UL = quantile(var_result$prmse_mv_rel, probs = probs[2], na.rm = TRUE),
       prmse_mv_abs_LL = quantile(var_result$prmse_mv_abs, probs = probs[1], na.rm = TRUE),
-      prmse_mv_abs_UL = quantile(var_result$prmse_mv_abs, probs = probs[2], na.rm = TRUE)
+    prmse_mv_abs_UL = quantile(var_result$prmse_mv_abs, probs = probs[2], na.rm = TRUE)
     )
-
-    var_numeric_cols <- c("prmse_s_rel", "prmse_s_abs", "prmse_c_rel", "prmse_c_abs",
-      "prmse_p_rel", "prmse_p_abs", "var_rel", "var_abs",
-      "prmse_mv_rel", "prmse_mv_abs",
-      "prmse_s_rel_LL", "prmse_s_rel_UL", "prmse_s_abs_LL", "prmse_s_abs_UL",
-      "prmse_c_rel_LL", "prmse_c_rel_UL", "prmse_c_abs_LL", "prmse_c_abs_UL",
-      "prmse_p_rel_LL", "prmse_p_rel_UL", "prmse_p_abs_LL", "prmse_p_abs_UL",
-      "var_rel_LL", "var_rel_UL", "var_abs_LL", "var_abs_UL",
-      "prmse_mv_rel_LL", "prmse_mv_rel_UL", "prmse_mv_abs_LL", "prmse_mv_abs_UL")
-    for (col in var_numeric_cols) {
-      if (col %in% names(var_results)) {
-        var_results[[col]] <- round(var_results[[col]], 3)
-      }
-    }
   }
 
   list(
@@ -1813,60 +1394,6 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
     distributions = distributions,
     var_results = var_results
   )
-}
-
-#' Compute Scale Factor for Composite Variance
-#'
-#' Computes the scale factor for scaling covariances in composite variance
-#' calculation. The scale factor depends on the component type:
-#' - For main effects (e.g., Item): scale_factor = n_facet
-#' - For Residual: scale_factor = product of all error facet sample sizes
-#'
-#' @param component The variance component name
-#' @param n Named list of sample sizes
-#' @param object_spec Object of measurement specification
-#' @param universe_spec Universe components specification
-#'
-#' @return The scale factor for this component
-#'
-#' @keywords internal
-compute_scale_factor <- function(component, n, object_spec, universe_spec) {
-  if (is.null(n) || length(n) == 0) {
-    return(1)
-  }
-
-  if (component == "Residual") {
-    scale_factor <- 1
-    for (facet_name in names(n)) {
-      if (!(facet_name %in% object_spec)) {
-        scale_factor <- scale_factor * n[[facet_name]]
-      }
-    }
-    return(scale_factor)
-  }
-
-  facets <- parse_component_facets(component)
-
-  if (length(facets) == 0) {
-    return(1)
-  }
-
-  if (length(facets) == 1) {
-    facet_name <- facets[1]
-    if (facet_name %in% names(n)) {
-      return(n[[facet_name]])
-    }
-    return(1)
-  }
-
-  scale_factor <- 1
-  for (facet in facets) {
-    if (facet %in% names(n) && !(facet %in% object_spec)) {
-      scale_factor <- scale_factor * n[[facet]]
-    }
-  }
-
-  scale_factor
 }
 
 #' Compute Relative Error Variance
@@ -3358,15 +2885,6 @@ calculate_single_posterior <- function(vc_draws, n, object_spec, universe_spec,
 
   if (length(ci_cols) > 0) {
     summary_df <- cbind(summary_df, as.data.frame(ci_cols))
-  }
-
-  # Round numeric columns to 3 decimal places for consistent display
-  numeric_cols <- c("uni", "sigma2_delta", "sigma2_delta_abs", "g", "phi", "phi_cut", "sem_rel", "sem_abs",
-    "g_LL", "g_UL", "phi_LL", "phi_UL", "phi_cut_LL", "phi_cut_UL")
-  for (col in numeric_cols) {
-    if (col %in% names(summary_df)) {
-      summary_df[[col]] <- round(summary_df[[col]], 3)
-    }
   }
 
   distributions <- list(

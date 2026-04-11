@@ -175,6 +175,11 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
 
 #' Compute Scale Factors for Viable Recalculation
 #'
+#' Computes scale factors for multiple variance components.
+#' This function computes the same values as `compute_scale_factor()` from
+#' scale-factors.R, but returns a named list for all components instead of
+#' a single value.
+#'
 #' @param components Character vector of variance component names
 #' @param n Named list of sample sizes
 #' @param universe_spec Universe components specification

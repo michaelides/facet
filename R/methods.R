@@ -460,10 +460,10 @@ print.dstudy <- function(x, digits = 3, scale = c("variance", "sd"), sem = FALSE
 }
 
 identify_error_components <- function(vc, universe_spec, error_spec, residual_composition = NULL) {
-  universe_parsed <- parse_specification_internal(universe_spec)
+  universe_parsed <- parse_specification(universe_spec)
 
   if (!is.null(error_spec)) {
-    error_parsed <- parse_specification_internal(error_spec)
+    error_parsed <- parse_specification(error_spec)
     relative_components <- error_parsed
     absolute_components <- error_parsed
   } else {
@@ -497,52 +497,6 @@ identify_error_components <- function(vc, universe_spec, error_spec, residual_co
     relative = relative_components,
     absolute = absolute_components
   )
-}
-
-parse_specification_internal <- function(x) {
-  if (is.null(x)) {
-    return(character(0))
-  }
-  if (inherits(x, "formula")) {
-    if (length(x) == 2) {
-      rhs <- x[[2]]
-    } else {
-      rhs <- x[[3]]
-    }
-
-    components <- character(0)
-
-    if (is.call(rhs)) {
-      parse_formula_terms_internal <- function(expr) {
-        result <- character(0)
-        if (is.call(expr)) {
-          if (expr[[1]] == as.symbol("+")) {
-            result <- c(result, parse_formula_terms_internal(expr[[2]]))
-            result <- c(result, parse_formula_terms_internal(expr[[3]]))
-          } else if (expr[[1]] == as.symbol(":")) {
-            result <- c(result, deparse(expr))
-          } else {
-            result <- c(result, parse_formula_terms_internal(expr[[2]]))
-          }
-        } else if (is.symbol(expr)) {
-          result <- c(result, as.character(expr))
-        }
-        result
-      }
-      components <- parse_formula_terms_internal(rhs)
-    } else if (is.symbol(rhs)) {
-      components <- as.character(rhs)
-    }
-
-    components <- components[components != "."]
-    return(components)
-  }
-
-  if (is.character(x)) {
-    return(x)
-  }
-
-  character(0)
 }
 
 is_rel_error_component <- function(component, universe_spec) {
