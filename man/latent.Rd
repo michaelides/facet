@@ -63,7 +63,7 @@ and returned in wide format with separate columns per dimension.
 }
 \examples{
 # Basic usage - object of measurement only
-g <- gstudy(Score ~ (1|Person) + (1|Rater), data = brennan)
+g <- gstudy(Score ~ (1 | Person) + (1 | Rater), data = brennan)
 latent_scores <- latent(g)
 head(latent_scores)
 

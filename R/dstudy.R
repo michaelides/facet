@@ -184,300 +184,45 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
   error = NULL, aggregation = NULL, residual_is = NULL,
   estimation = NULL, cut_score = NULL, ci = NULL,
   probs = c(0.025, 0.975), weights = NULL, ...) {
-  # 1. Validate input
-  if (!inherits(gstudy_obj, "gstudy") && !inherits(gstudy_obj, "mgstudy")) {
-    stop("'gstudy_obj' must be an object of class 'gstudy' or 'mgstudy'", call. = FALSE)
-  }
-
-  is_multivariate <- inherits(gstudy_obj, "mgstudy")
-
-  if (is_multivariate) {
-    dimensions <- gstudy_obj$dimensions
-    if (is.null(weights)) {
-      weights <- rep(1, length(dimensions))
-    } else {
-      if (length(weights) != length(dimensions)) {
-        stop(
-          "weights must have length ", length(dimensions),
-          " (number of dimensions), got ", length(weights),
-          call. = FALSE
-        )
-      }
-    }
-    names(weights) <- dimensions
-  } else {
-    weights <- NULL
-  }
-
-  # Initialize composite posterior (set for posterior estimation path)
+  # 1. Validate inputs and setup
+  setup <- validate_dstudy_inputs(gstudy_obj, weights)
+  is_multivariate <- setup$is_multivariate
+  dimensions <- setup$dimensions
+  weights <- setup$weights
   composite_post <- NULL
 
-  # 1.1. Check for estimation issues and warn
-  check_estimation_issues(gstudy_obj)
+  # 2. Resolve estimation method
+  est <- resolve_estimation_method(gstudy_obj, estimation)
+  gstudy_obj <- est$gstudy_obj
+  estimation <- est$estimation
 
-  # 1.5. Set default estimation based on backend
-  # For brms backend, always use posterior draws-based estimation
-  # For lme4/mom backends, use simple estimation
-  if (is.null(estimation)) {
-    if (gstudy_obj$backend == "brms") {
-      estimation <- "posterior"
-    } else {
-      estimation <- "simple"
-    }
-  } else {
-    estimation <- match.arg(estimation, c("simple", "posterior"))
-  }
+  # 3. Validate cut_score and ci parameters
+  csc <- validate_cut_score_ci(gstudy_obj, cut_score, ci, probs)
+  mu_y <- csc$mu_y
+  ci <- csc$ci
+  probs <- csc$probs
 
-  # 1.6. If posterior estimation requested but not brms backend, warn and refit
-  if (estimation == "posterior" && gstudy_obj$backend != "brms") {
-    warning(
-      "estimation = 'posterior' requires backend = 'brms'. ",
-      "Refitting gstudy model with backend = 'brms'.",
-      call. = FALSE
-    )
-    gstudy_obj <- gstudy(
-      formula = gstudy_obj$formula,
-      data = gstudy_obj$data,
-      backend = "brms"
-    )
-  }
+  # 4. Parse specifications
+  specs <- parse_dstudy_specifications(gstudy_obj, universe, error, aggregation)
 
-  # 1.7. Warn if simple estimation requested for brms backend
-  if (estimation == "simple" && gstudy_obj$backend == "brms") {
-    warning(
-      "estimation = 'simple' is not recommended for brms backend. ",
-      "The variance estimates displayed in the variance components table ",
-      "are computed from squared posterior draws (mean(SD^2)), which properly ",
-      "accounts for uncertainty. Using estimation = 'posterior' ensures ",
-      "consistency between variance components and coefficient calculations.",
-      call. = FALSE
-    )
-    estimation <- "posterior"
-  }
+  # 5. Resolve sample sizes
+  ns <- resolve_dstudy_sample_sizes(gstudy_obj, n, is_multivariate)
 
-  # 1.8. Extract grand mean for phi-cut calculation if cut_score provided
-  mu_y <- NULL
-  if (!is.null(cut_score)) {
-    mu_y <- extract_grand_mean(gstudy_obj)
-  }
+  # 6. Process residual and error overlap
+  res <- process_residual_and_error(gstudy_obj, error, aggregation, residual_is)
 
-  # 1.9. Validate ci parameter
-  if (!is.null(ci)) {
-    ci <- match.arg(ci, c("g", "phi", "phi-cut"), several.ok = TRUE)
-    if (gstudy_obj$backend != "brms") {
-      warning(
-        "Credible intervals for 'mom' and 'lme4' backends are not yet implemented. ",
-        "Consider using backend = 'brms' for uncertainty quantification.",
-        call. = FALSE
-      )
-      ci <- NULL
-    }
-  }
-
-  # 1.10. Validate probs parameter
-  if (!is.null(ci)) {
-    if (length(probs) != 2) {
-      stop("'probs' must have exactly 2 elements", call. = FALSE)
-    }
-    if (probs[1] >= probs[2]) {
-      stop("'probs' must be in increasing order", call. = FALSE)
-    }
-    if (any(probs < 0) || any(probs > 1)) {
-      stop("'probs' must be between 0 and 1", call. = FALSE)
-    }
-
-    # 1.11. Warn if phi-cut CI requested but no cut_score provided
-    if ("phi-cut" %in% ci && is.null(cut_score)) {
-      warning(
-        "Credible intervals for 'phi-cut' require a 'cut_score' to be specified. ",
-        "The phi-cut coefficient is used for criterion-referenced (absolute) decisions. ",
-        "Specify cut_score to compute phi-cut credible intervals.",
-        call. = FALSE
-      )
-      ci <- setdiff(ci, "phi-cut")
-      if (length(ci) == 0) {
-        ci <- NULL
-      }
-    }
-  }
-
-  # 2. Get variance components from G-study
-  vc <- gstudy_obj$variance_components
-
-  # 3. Get object of measurement (always first component from G-study)
-  object <- gstudy_obj$object
-  object_spec <- parse_specification(object)
-
-  # 3.5. Process universe specification
-  universe_spec <- parse_specification(universe)
-
-  # Default: universe = object only
-  if (is.null(universe) || length(universe_spec) == 0) {
-    universe_spec <- object_spec
-  } else {
-    # Ensure object is in universe
-    if (!all(object_spec %in% universe_spec)) {
-      warning(
-        "The specification of the universe did not include the object of measurement '",
-        paste(object_spec, collapse = ", "),
-        "'. It has been added automatically.",
-        call. = FALSE
-      )
-      universe_spec <- unique(c(object_spec, universe_spec))
-    }
-
-    # Check if non-object universe components interact with the object
-    for (comp in setdiff(universe_spec, object_spec)) {
-      comp_facets <- parse_component_facets(comp)
-      if (!any(object_spec %in% comp_facets)) {
-        potential_interaction <- paste0(object, ":", comp)
-        alternative <- paste0(comp, ":", object)
-        warning(
-          "Component '", comp, "' in universe does not interact with the object '", object, "'. ",
-          "The universe score will include '", comp, "' variance scaled by n_", comp, ". ",
-          "If you meant to include the interaction '", potential_interaction, "' or '", alternative, "', specify it explicitly.",
-          call. = FALSE
-        )
-      }
-    }
-  }
-
-  # 3.6. Validate that universe doesn't overlap with error
-  error_spec <- parse_specification(error)
-  agg_spec <- parse_specification(aggregation)
-
-  # Check universe vs error (exact specification match)
-  if (!is.null(error) && length(error_spec) > 0) {
-    overlap <- intersect(universe_spec, error_spec)
-    if (length(overlap) > 0) {
-      stop(
-        "Component(s) '", paste(overlap, collapse = "', '"), "' specified as both ",
-        "in the universe and in error. ",
-        "The same component cannot be in both the universe and error.",
-        call. = FALSE
-      )
-    }
-  }
-
-  # 4. Calculate n from G-study data if not provided
-  n_provided <- length(n) > 0
-  n_per_dim <- NULL
-  n_tibble <- NULL
-
-  # 4.1. Check if we need per-dimension sample sizes
-  needs_per_dim_n <- is_multivariate && (
-    !is.null(gstudy_obj$sample_size_info_per_dim) ||
-      !is.null(gstudy_obj$long_format_multivariate) ||
-      (!is.null(gstudy_obj$is_unbalanced) && gstudy_obj$is_unbalanced)
-  )
-
-  if (length(n) == 0) {
-    if (needs_per_dim_n) {
-      n_tibble <- extract_sample_sizes_per_dim(gstudy_obj)
-      if (!is.null(n_tibble) && nrow(n_tibble) > 0) {
-        n_provided <- TRUE
-        n_per_dim <- expand_n_per_dim(n_tibble, sweep = FALSE)
-        n <- extract_sample_sizes(gstudy_obj)
-        message(
-          "No sample sizes provided in 'n'. Using per-dimension G-study sample sizes."
-        )
-      } else {
-        n <- extract_sample_sizes(gstudy_obj)
-        n_provided <- TRUE
-        message(
-          "No sample sizes provided in 'n'. Using G-study sample sizes: ",
-          paste(names(n), n, sep = " = ", collapse = ", ")
-        )
-      }
-    } else {
-      n <- extract_sample_sizes(gstudy_obj)
-      n_provided <- TRUE
-      message(
-        "No sample sizes provided in 'n'. Using G-study sample sizes: ",
-        paste(names(n), n, sep = " = ", collapse = ", ")
-      )
-    }
-  } else if (is.data.frame(n)) {
-    validation <- validate_n_tibble(n, gstudy_obj$dimensions, gstudy_obj$facets)
-    if (!validation$valid) {
-      stop(validation$error, call. = FALSE)
-    }
-    n_tibble <- n
-    n_per_dim <- expand_n_per_dim(n_tibble, sweep = TRUE)
-    n_provided <- TRUE
-    n <- extract_sample_sizes(gstudy_obj)
-  } else if (is.list(n) && needs_per_dim_n) {
-    n_tibble <- create_n_tibble_from_list(n, gstudy_obj$dimensions)
-    if (!is.null(n_tibble)) {
-      warning(
-        "For multivariate models, providing n as a simple list will apply ",
-        "the same sample sizes to all dimensions. Consider providing a tibble ",
-        "with columns: dim, facet, n for per-dimension control.",
-        call. = FALSE
-      )
-    }
-  }
-
-  # 5. Check if n contains vectors (for sweeping)
-  is_sweep <- if (!is.null(n_per_dim)) {
-    n_per_dim$is_sweep
-  } else {
-    any(sapply(n, length) > 1)
-  }
-
-  # 8. Determine residual composition from formula and data
-  residual_composition <- parse_residual_facets(
-    gstudy_obj$formula,
-    gstudy_obj$data
-  )
-
-  # 9. Use residual_composition as default for residual_is if not specified
-  residual_is_effective <- if (is.null(residual_is)) residual_composition else residual_is
-
-  # 10. Check if residual matches any error component specified by user
-  if (!is.null(error)) {
-    error_spec <- parse_specification(error)
-
-    if (!is.null(aggregation)) {
-      agg_facets <- parse_specification(aggregation)
-
-      overlap <- intersect(error_spec, agg_facets)
-      if (length(overlap) > 0) {
-        warning(
-          "Component(s) '", paste(overlap, collapse = "', '"), "' specified for both ",
-          "aggregation and error. Removing from error specification. ",
-          "Note: interaction terms containing aggregation facets (e.g., 'p:", overlap[1], "') ",
-          "are NOT removed.",
-          call. = FALSE
-        )
-
-        error_spec <- setdiff(error_spec, agg_facets)
-
-        if (length(error_spec) > 0) {
-          error <- error_spec
-        } else {
-          error <- NULL
-        }
-      }
-    }
-
-    if (residual_composition %in% error_spec) {
-      warning(
-        "The residual component '", residual_composition, "' is already included ",
-        "in the model variance components. Removing '", residual_composition,
-        "' from error specification to avoid double-counting.",
-        call. = FALSE
-      )
-
-      error_spec_filtered <- error_spec[error_spec != residual_composition]
-
-      if (length(error_spec_filtered) > 0) {
-        error <- error_spec_filtered
-      } else {
-        error <- NULL
-      }
-    }
-  }
+  # Unpack results from helpers
+  vc <- specs$vc
+  object <- specs$object
+  universe_spec <- specs$universe_spec
+  error <- res$error
+  residual_composition <- res$residual_composition
+  residual_is_effective <- res$residual_is_effective
+  n <- ns$n
+  n_provided <- ns$n_provided
+  n_per_dim <- ns$n_per_dim
+  n_tibble <- ns$n_tibble
+  is_sweep <- ns$is_sweep
 
   if (estimation == "posterior") {
     # Use posterior-based calculation

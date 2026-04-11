@@ -105,7 +105,7 @@ draws <- gt_draws(g, components = c("person", "Residual"))
 
 # Multivariate gstudy - returns named list
 mg <- gstudy(cbind(score1, score2) ~ (1 | person) + (1 | item),
-             data = my_data, backend = "brms")
+  data = my_data, backend = "brms")
 draws <- gt_draws(mg)
 draws$score1  # Access dimension-specific draws
 draws$score2
@@ -126,7 +126,7 @@ draws <- gt_draws(d, what = "coefficients")
 
 # Multivariate - returns named list
 mg <- gstudy(cbind(score1, score2) ~ (1 | person) + (1 | item),
-             data = my_data, backend = "brms")
+  data = my_data, backend = "brms")
 md <- dstudy(mg, n = list(item = 10), estimation = "posterior")
 draws <- gt_draws(md)
 draws$score1  # Per-dimension draws with VAR columns

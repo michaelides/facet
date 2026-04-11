@@ -1,0 +1,397 @@
+#' D-Study Helper Functions
+#'
+#' Internal helper functions extracted from dstudy() for maintainability.
+#' Each function handles a distinct phase of D-study setup or computation.
+#'
+#' @name dstudy-helpers
+#' @keywords internal
+NULL
+
+#' Validate D-Study Inputs and Extract Basic Properties
+#'
+#' Validates the gstudy object, determines if multivariate,
+#' and processes weights.
+#'
+#' @param gstudy_obj A gstudy or mgstudy object
+#' @param weights Optional numeric vector of weights
+#' @return A list with is_multivariate, dimensions, weights
+#' @keywords internal
+validate_dstudy_inputs <- function(gstudy_obj, weights = NULL) {
+  if (!inherits(gstudy_obj, "gstudy") && !inherits(gstudy_obj, "mgstudy")) {
+    stop("'gstudy_obj' must be an object of class 'gstudy' or 'mgstudy'", call. = FALSE)
+  }
+
+  is_multivariate <- inherits(gstudy_obj, "mgstudy")
+
+  if (is_multivariate) {
+    dimensions <- gstudy_obj$dimensions
+    if (is.null(weights)) {
+      weights <- rep(1, length(dimensions))
+    } else {
+      if (length(weights) != length(dimensions)) {
+        stop(
+          "weights must have length ", length(dimensions),
+          " (number of dimensions), got ", length(weights),
+          call. = FALSE
+        )
+      }
+    }
+    names(weights) <- dimensions
+  } else {
+    weights <- NULL
+  }
+
+  list(
+    is_multivariate = is_multivariate,
+    dimensions = if (is_multivariate) dimensions else NULL,
+    weights = weights
+  )
+}
+
+#' Resolve Estimation Method
+#'
+#' Determines the appropriate estimation method based on the backend.
+#' Warns and refits if posterior requested with non-brms backend.
+#' Warns and overrides if simple requested with brms backend.
+#'
+#' @param gstudy_obj A gstudy or mgstudy object
+#' @param estimation Requested estimation method (NULL, "simple", or "posterior")
+#' @return A list with gstudy_obj (possibly refit) and estimation (resolved)
+#' @keywords internal
+resolve_estimation_method <- function(gstudy_obj, estimation = NULL) {
+  check_estimation_issues(gstudy_obj)
+
+  if (is.null(estimation)) {
+    if (gstudy_obj$backend == "brms") {
+      estimation <- "posterior"
+    } else {
+      estimation <- "simple"
+    }
+  } else {
+    estimation <- match.arg(estimation, c("simple", "posterior"))
+  }
+
+  if (estimation == "posterior" && gstudy_obj$backend != "brms") {
+    warning(
+      "estimation = 'posterior' requires backend = 'brms'. ",
+      "Refitting gstudy model with backend = 'brms'.",
+      call. = FALSE
+    )
+    gstudy_obj <- gstudy(
+      formula = gstudy_obj$formula,
+      data = gstudy_obj$data,
+      backend = "brms"
+    )
+  }
+
+  if (estimation == "simple" && gstudy_obj$backend == "brms") {
+    warning(
+      "estimation = 'simple' is not recommended for brms backend. ",
+      "The variance estimates displayed in the variance components table ",
+      "are computed from squared posterior draws (mean(SD^2)), which properly ",
+      "accounts for uncertainty. Using estimation = 'posterior' ensures ",
+      "consistency between variance components and coefficient calculations.",
+      call. = FALSE
+    )
+    estimation <- "posterior"
+  }
+
+  list(
+    gstudy_obj = gstudy_obj,
+    estimation = estimation
+  )
+}
+
+#' Validate Cut Score and Credible Interval Parameters
+#'
+#' Extracts grand mean if cut_score provided, validates ci parameter
+#' against backend, validates probs, and warns if phi-cut CI requested
+#' without cut_score.
+#'
+#' @param gstudy_obj A gstudy or mgstudy object
+#' @param cut_score Optional cutoff score
+#' @param ci Credible interval specification
+#' @param probs Probability levels for credible intervals
+#' @return A list with mu_y, ci (possibly modified), probs
+#' @keywords internal
+validate_cut_score_ci <- function(gstudy_obj, cut_score = NULL, ci = NULL,
+  probs = c(0.025, 0.975)) {
+  mu_y <- NULL
+  if (!is.null(cut_score)) {
+    mu_y <- extract_grand_mean(gstudy_obj)
+  }
+
+  if (!is.null(ci)) {
+    ci <- match.arg(ci, c("g", "phi", "phi-cut"), several.ok = TRUE)
+    if (gstudy_obj$backend != "brms") {
+      warning(
+        "Credible intervals for 'mom' and 'lme4' backends are not yet implemented. ",
+        "Consider using backend = 'brms' for uncertainty quantification.",
+        call. = FALSE
+      )
+      ci <- NULL
+    }
+  }
+
+  if (!is.null(ci)) {
+    if (length(probs) != 2) {
+      stop("'probs' must have exactly 2 elements", call. = FALSE)
+    }
+    if (probs[1] >= probs[2]) {
+      stop("'probs' must be in increasing order", call. = FALSE)
+    }
+    if (any(probs < 0) || any(probs > 1)) {
+      stop("'probs' must be between 0 and 1", call. = FALSE)
+    }
+
+    if ("phi-cut" %in% ci && is.null(cut_score)) {
+      warning(
+        "Credible intervals for 'phi-cut' require a 'cut_score' to be specified. ",
+        "The phi-cut coefficient is used for criterion-referenced (absolute) decisions. ",
+        "Specify cut_score to compute phi-cut credible intervals.",
+        call. = FALSE
+      )
+      ci <- setdiff(ci, "phi-cut")
+      if (length(ci) == 0) {
+        ci <- NULL
+      }
+    }
+  }
+
+  list(
+    mu_y = mu_y,
+    ci = ci,
+    probs = probs
+  )
+}
+
+#' Parse D-Study Specifications
+#'
+#' Extracts variance components, object of measurement, and parses
+#' universe/error/aggregation specifications. Validates that universe
+#' and error don't overlap and warns about non-interacting universe components.
+#'
+#' @param gstudy_obj A gstudy or mgstudy object
+#' @param universe Universe specification
+#' @param error Error specification
+#' @param aggregation Aggregation specification
+#' @return A list with vc, object, object_spec, universe_spec, error_spec, agg_spec
+#' @keywords internal
+parse_dstudy_specifications <- function(gstudy_obj, universe = NULL,
+  error = NULL, aggregation = NULL) {
+  vc <- gstudy_obj$variance_components
+  object <- gstudy_obj$object
+  object_spec <- parse_specification(object)
+
+  universe_spec <- parse_specification(universe)
+
+  if (is.null(universe) || length(universe_spec) == 0) {
+    universe_spec <- object_spec
+  } else {
+    if (!all(object_spec %in% universe_spec)) {
+      warning(
+        "The specification of the universe did not include the object of measurement '",
+        paste(object_spec, collapse = ", "),
+        "'. It has been added automatically.",
+        call. = FALSE
+      )
+      universe_spec <- unique(c(object_spec, universe_spec))
+    }
+
+    for (comp in setdiff(universe_spec, object_spec)) {
+      comp_facets <- parse_component_facets(comp)
+      if (!any(object_spec %in% comp_facets)) {
+        potential_interaction <- paste0(object, ":", comp)
+        alternative <- paste0(comp, ":", object)
+        warning(
+          "Component '", comp, "' in universe does not interact with the object '", object, "'. ",
+          "The universe score will include '", comp, "' variance scaled by n_", comp, ". ",
+          "If you meant to include the interaction '", potential_interaction, "' or '", alternative, "', specify it explicitly.",
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  error_spec <- parse_specification(error)
+  agg_spec <- parse_specification(aggregation)
+
+  if (!is.null(error) && length(error_spec) > 0) {
+    overlap <- intersect(universe_spec, error_spec)
+    if (length(overlap) > 0) {
+      stop(
+        "Component(s) '", paste(overlap, collapse = "', '"), "' specified as both ",
+        "in the universe and in error. ",
+        "The same component cannot be in both the universe and error.",
+        call. = FALSE
+      )
+    }
+  }
+
+  list(
+    vc = vc,
+    object = object,
+    object_spec = object_spec,
+    universe_spec = universe_spec,
+    error_spec = error_spec,
+    agg_spec = agg_spec
+  )
+}
+
+#' Resolve D-Study Sample Sizes
+#'
+#' Determines sample sizes from multiple possible sources: user-provided n,
+#' per-dimension sample sizes, or extracted from the G-study. Also determines
+#' whether this is a sweep (multiple sample sizes per facet).
+#'
+#' @param gstudy_obj A gstudy or mgstudy object
+#' @param n User-provided sample sizes
+#' @param is_multivariate Whether this is a multivariate model
+#' @return A list with n, n_provided, n_per_dim, n_tibble, is_sweep
+#' @keywords internal
+resolve_dstudy_sample_sizes <- function(gstudy_obj, n = list(),
+  is_multivariate = FALSE) {
+  n_provided <- length(n) > 0
+  n_per_dim <- NULL
+  n_tibble <- NULL
+
+  needs_per_dim_n <- is_multivariate && (
+    !is.null(gstudy_obj$sample_size_info_per_dim) ||
+      !is.null(gstudy_obj$long_format_multivariate) ||
+      (!is.null(gstudy_obj$is_unbalanced) && gstudy_obj$is_unbalanced)
+  )
+
+  if (length(n) == 0) {
+    if (needs_per_dim_n) {
+      n_tibble <- extract_sample_sizes_per_dim(gstudy_obj)
+      if (!is.null(n_tibble) && nrow(n_tibble) > 0) {
+        n_provided <- TRUE
+        n_per_dim <- expand_n_per_dim(n_tibble, sweep = FALSE)
+        n <- extract_sample_sizes(gstudy_obj)
+        message(
+          "No sample sizes provided in 'n'. Using per-dimension G-study sample sizes."
+        )
+      } else {
+        n <- extract_sample_sizes(gstudy_obj)
+        n_provided <- TRUE
+        message(
+          "No sample sizes provided in 'n'. Using G-study sample sizes: ",
+          paste(names(n), n, sep = " = ", collapse = ", ")
+        )
+      }
+    } else {
+      n <- extract_sample_sizes(gstudy_obj)
+      n_provided <- TRUE
+      message(
+        "No sample sizes provided in 'n'. Using G-study sample sizes: ",
+        paste(names(n), n, sep = " = ", collapse = ", ")
+      )
+    }
+  } else if (is.data.frame(n)) {
+    validation <- validate_n_tibble(n, gstudy_obj$dimensions, gstudy_obj$facets)
+    if (!validation$valid) {
+      stop(validation$error, call. = FALSE)
+    }
+    n_tibble <- n
+    n_per_dim <- expand_n_per_dim(n_tibble, sweep = TRUE)
+    n_provided <- TRUE
+    n <- extract_sample_sizes(gstudy_obj)
+  } else if (is.list(n) && needs_per_dim_n) {
+    n_tibble <- create_n_tibble_from_list(n, gstudy_obj$dimensions)
+    if (!is.null(n_tibble)) {
+      warning(
+        "For multivariate models, providing n as a simple list will apply ",
+        "the same sample sizes to all dimensions. Consider providing a tibble ",
+        "with columns: dim, facet, n for per-dimension control.",
+        call. = FALSE
+      )
+    }
+  }
+
+  is_sweep <- if (!is.null(n_per_dim)) {
+    n_per_dim$is_sweep
+  } else {
+    any(sapply(n, length) > 1)
+  }
+
+  list(
+    n = n,
+    n_provided = n_provided,
+    n_per_dim = n_per_dim,
+    n_tibble = n_tibble,
+    is_sweep = is_sweep
+  )
+}
+
+#' Process Residual and Error Specification Overlap
+#'
+#' Determines residual composition from formula/data, handles overlap
+#' between error and aggregation specifications, and removes residual
+#' from error spec if double-counting would occur.
+#'
+#' @param gstudy_obj A gstudy or mgstudy object
+#' @param error Error specification
+#' @param aggregation Aggregation specification
+#' @param residual_is User-specified residual composition
+#' @return A list with residual_composition, residual_is_effective, error (cleaned)
+#' @keywords internal
+process_residual_and_error <- function(gstudy_obj, error = NULL,
+  aggregation = NULL, residual_is = NULL) {
+  residual_composition <- parse_residual_facets(
+    gstudy_obj$formula,
+    gstudy_obj$data
+  )
+
+  residual_is_effective <- if (is.null(residual_is)) residual_composition else residual_is
+
+  if (!is.null(error)) {
+    error_spec <- parse_specification(error)
+
+    if (!is.null(aggregation)) {
+      agg_facets <- parse_specification(aggregation)
+
+      overlap <- intersect(error_spec, agg_facets)
+      if (length(overlap) > 0) {
+        warning(
+          "Component(s) '", paste(overlap, collapse = "', '"), "' specified for both ",
+          "aggregation and error. Removing from error specification. ",
+          "Note: interaction terms containing aggregation facets (e.g., 'p:", overlap[1], "') ",
+          "are NOT removed.",
+          call. = FALSE
+        )
+
+        error_spec <- setdiff(error_spec, agg_facets)
+
+        if (length(error_spec) > 0) {
+          error <- error_spec
+        } else {
+          error <- NULL
+        }
+      }
+    }
+
+    error_spec <- parse_specification(error)
+    if (residual_composition %in% error_spec) {
+      warning(
+        "The residual component '", residual_composition, "' is already included ",
+        "in the model variance components. Removing '", residual_composition,
+        "' from error specification to avoid double-counting.",
+        call. = FALSE
+      )
+
+      error_spec_filtered <- error_spec[error_spec != residual_composition]
+
+      if (length(error_spec_filtered) > 0) {
+        error <- error_spec_filtered
+      } else {
+        error <- NULL
+      }
+    }
+  }
+
+  list(
+    residual_composition = residual_composition,
+    residual_is_effective = residual_is_effective,
+    error = error
+  )
+}

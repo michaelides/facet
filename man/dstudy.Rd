@@ -191,9 +191,9 @@ for each posterior draw, properly propagating uncertainty to the final estimates
 \examples{
 # First conduct a G-study using the brennan dataset
 # (Person crossed with Task and Rater)
-g <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
-            (1|Person:Task) + (1|Person:Rater) + (1|Task:Rater),
-            data = brennan)
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+data = brennan)
 
 # D-study with specific sample sizes
 d <- dstudy(g, n = list(Task = 3, Rater = 4))
@@ -210,8 +210,8 @@ d_agg <- dstudy(g, n = list(Task = 3, Rater = 4),
 
 \donttest{
 # D-study with posterior estimation (requires brms backend)
-g_brms <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater),
-                 data = brennan, backend = "brms")
+g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  data = brennan, backend = "brms")
 d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
 
 # D-study with credible intervals (requires brms backend)
@@ -220,7 +220,7 @@ print(d_ci)
 
 # Custom probability levels (90\% credible interval)
 d_ci_90 <- dstudy(g_brms, n = list(Task = 3, Rater = 4),
-                  ci = "g", probs = c(0.05, 0.95))
+  ci = "g", probs = c(0.05, 0.95))
 }
 }
 \seealso{

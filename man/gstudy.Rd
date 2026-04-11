@@ -88,9 +88,9 @@ method of moments (mom) backends.
 }
 \examples{
 # Basic univariate G-study with lme4 (default)
-g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
-            (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-  data = brennan
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+data = brennan
 )
 
 # G-study with profile confidence intervals
@@ -102,10 +102,10 @@ g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task),
 }
 
 # Method of moments G-study (ANOVA-based)
-g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
-                (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-  data = brennan,
-  backend = "mom"
+g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+data = brennan,
+backend = "mom"
 )
 
 \donttest{
@@ -125,8 +125,8 @@ g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task),
 
 # Multivariate G-study (automatically uses brms)
 # Formatting data for multivariate example
-b_wide <- tidyr::pivot_wider(brennan, names_from = Task, values_from = Score, 
-                             names_prefix = "Task")
+b_wide <- tidyr::pivot_wider(brennan, names_from = Task, values_from = Score,
+  names_prefix = "Task")
 g_multi <- gstudy(mvbind(Task1, Task2) ~ (1 | Person) + (1 | Rater),
   data = b_wide
 )

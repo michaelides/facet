@@ -44,7 +44,7 @@ the facets are crossed. The residual includes all facets (e.g., \code{"p:i:d"}).
 }
 \examples{
 # Fully crossed design: p, i, d all crossed with each other
-f1 <- score ~ (1|p) + (1|i) + (1|d)
+f1 <- score ~ (1 | p) + (1 | i) + (1 | d)
 parse_residual_facets(f1) # Returns "p:i:d"
 
 # With nested data: i nested in d
@@ -54,7 +54,7 @@ nested_data <- data.frame(
   i = factor(rep(1:5, each = 20)), # i levels repeat within d
   d = factor(rep(1:2, each = 50))
 )
-f2 <- score ~ (1|p) + (1|i:d) + (1|d)
+f2 <- score ~ (1 | p) + (1 | i:d) + (1 | d)
 parse_residual_facets(f2, nested_data) # May return "p:i" if i nested in d
 
 }

@@ -255,7 +255,7 @@ prmse(d_uni) # Returns G and Phi as prmse_rel and prmse_abs
 
 # Multivariate model with mom backend (no CIs available)
 g_mv <- gstudy(Score ~ 0 + Subtest + (0 + Subtest | Person),
-data = data, dimension_var = "Subtest", backend = "mom")
+  data = data, dimension_var = "Subtest", backend = "mom")
 d_mv <- dstudy(g_mv, n = list(Person = 5))
 prmse(d_mv)
 
@@ -271,9 +271,9 @@ prmse(d_mv, include_profile = FALSE)
 result <- prmse(d_mv)
 diff <- result$prmse_s_rel - result$prmse_p_rel
 if (all(abs(diff) < 0.01)) {
-message("Dimensions appear uncorrelated: PRMSE_P ≈ PRMSE_S")
+  message("Dimensions appear uncorrelated: PRMSE_P ≈ PRMSE_S")
 } else {
-message("Dimensions are correlated: PRMSE_P differs from PRMSE_S")
+  message("Dimensions are correlated: PRMSE_P differs from PRMSE_S")
 }
 
 # Weight optimization
@@ -283,8 +283,8 @@ prmse(d_mv, optimize = "subscale")
 # Multivariate model with brms backend (credible intervals available)
 library(brms)
 g_mv <- gstudy(
-bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person)),
-data = data, backend = "brms"
+  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person)),
+  data = data, backend = "brms"
 )
 d_mv <- dstudy(g_mv, n = list(Person = 5))
 prmse(d_mv, ci = "prmse") # Returns point estimates with credible intervals
