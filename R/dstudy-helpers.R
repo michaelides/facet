@@ -395,3 +395,126 @@ process_residual_and_error <- function(gstudy_obj, error = NULL,
     error = error
   )
 }
+
+#' Append Composite Coefficients if Multivariate
+#'
+#' Conditionally appends composite coefficient rows to the coefficients tibble
+#' when the model is multivariate with more than one dimension.
+#'
+#' @param coefficients Existing coefficients tibble
+#' @param vc Variance components tibble
+#' @param n Sample sizes
+#' @param weights Dimension weights
+#' @param object Object of measurement name
+#' @param error Error specification
+#' @param aggregation Aggregation specification
+#' @param residual_is_effective Effective residual specification
+#' @param universe_spec Universe specification
+#' @param gstudy_obj The G-study object (for correlations, data, dimension_var)
+#' @param cut_score Optional cut score
+#' @param mu_y Grand mean
+#' @param estimate_label Optional label for the estimate column
+#' @return A list with coefficients (possibly with composite row) and var_results
+#' @keywords internal
+maybe_append_composite <- function(coefficients, vc, n, weights, object,
+  error, aggregation, residual_is_effective, universe_spec,
+  gstudy_obj, cut_score = NULL, mu_y = NULL, estimate_label = NULL) {
+  is_multivariate <- inherits(gstudy_obj, "mgstudy")
+  dimensions <- if (is_multivariate) gstudy_obj$dimensions else NULL
+
+  if (!is_multivariate || length(dimensions) <= 1) {
+    return(list(coefficients = coefficients, var_results = NULL))
+  }
+
+  composite_coefs <- calculate_composite_coefficients(
+    vc = vc,
+    n = n,
+    weights = weights,
+    object = object,
+    error = error,
+    aggregation = aggregation,
+    residual_is = residual_is_effective,
+    universe = universe_spec,
+    correlations = gstudy_obj$correlations,
+    cut_score = cut_score,
+    mu_y = mu_y,
+    gstudy_data = gstudy_obj$data,
+    dimension_var = gstudy_obj$dimension_var
+  )
+
+  composite_summary <- composite_coefs$summary
+  var_results <- composite_coefs$var_results
+
+  if (!is.null(estimate_label)) {
+    composite_summary$estimate <- estimate_label
+  } else if ("estimate" %in% names(coefficients)) {
+    composite_summary$estimate <- coefficients$estimate[1]
+  }
+
+  coefficients <- dplyr::bind_rows(coefficients, composite_summary)
+
+  list(coefficients = coefficients, var_results = var_results)
+}
+
+#' Build D-Study Result Object
+#'
+#' Constructs the final dstudy result list from computed components.
+#'
+#' @param gstudy_obj The G-study object
+#' @param d_vc D-study variance components
+#' @param coefficients Coefficients tibble
+#' @param n Sample sizes
+#' @param n_tibble Per-dimension sample sizes tibble
+#' @param n_per_dim Per-dimension sample sizes list
+#' @param object Object of measurement
+#' @param universe_spec Universe specification
+#' @param error Error specification
+#' @param aggregation Aggregation specification
+#' @param residual_is Original residual_is parameter
+#' @param residual_composition Residual composition
+#' @param is_sweep Whether this is a sweep
+#' @param estimation Estimation method used
+#' @param posterior Posterior draws (NULL if simple)
+#' @param composite_post Composite posterior draws
+#' @param var_results VAR results
+#' @param is_multivariate Whether multivariate
+#' @param cut_score Cut score (NULL if not provided)
+#' @param mu_y Grand mean (NULL if no cut_score)
+#' @param ci CI specification
+#' @param probs Probability levels
+#' @param weights Dimension weights
+#' @return A dstudy object
+#' @keywords internal
+build_dstudy_result <- function(gstudy_obj, d_vc, coefficients, n, n_tibble,
+  n_per_dim, object, universe_spec, error, aggregation, residual_is,
+  residual_composition, is_sweep, estimation, posterior, composite_post,
+  var_results, is_multivariate, cut_score, mu_y, ci, probs, weights) {
+  result <- list(
+    gstudy = gstudy_obj,
+    variance_components = d_vc,
+    coefficients = coefficients,
+    n = n,
+    n_tibble = n_tibble,
+    n_per_dim = n_per_dim,
+    object = object,
+    universe = universe_spec,
+    error = error,
+    aggregation = aggregation,
+    residual_is = residual_is,
+    residual_composition = residual_composition,
+    is_sweep = is_sweep,
+    estimation = estimation,
+    posterior = if (estimation == "posterior") posterior else NULL,
+    composite_posterior = composite_post,
+    var = var_results,
+    is_multivariate = is_multivariate,
+    cut_score = cut_score,
+    mu_y = mu_y,
+    ci = ci,
+    probs = if (!is.null(ci)) probs else NULL,
+    weights = weights
+  )
+
+  class(result) <- "dstudy"
+  result
+}

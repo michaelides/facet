@@ -579,46 +579,23 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
 
       # Calculate composite coefficients for multivariate designs
       if (is_multivariate && length(dimensions) > 1) {
-        # Need to compute composite for both unscaled and scaled
         # Unscaled composite
-        composite_unscaled <- calculate_composite_coefficients(
-          vc = vc,
-          n = NULL,
-          weights = weights,
-          object = object,
-          error = error,
-          aggregation = aggregation,
-          residual_is = residual_is_effective,
-          universe = universe_spec,
-          correlations = gstudy_obj$correlations,
-          cut_score = cut_score,
-          mu_y = mu_y,
-          gstudy_data = gstudy_obj$data,
-          dimension_var = gstudy_obj$dimension_var
+        comp_unscaled <- maybe_append_composite(
+          coefficients = coefficients, vc = vc, n = NULL, weights = weights,
+          object = object, error = error, aggregation = aggregation,
+          residual_is_effective = residual_is_effective, universe_spec = universe_spec,
+          gstudy_obj = gstudy_obj, cut_score = cut_score, mu_y = mu_y,
+          estimate_label = "unscaled"
         )
-        composite_unscaled_summary <- composite_unscaled$summary
-        composite_unscaled_summary$estimate <- "unscaled"
-
         # Scaled composite
-        composite_scaled <- calculate_composite_coefficients(
-          vc = d_vc,
-          n = n,
-          weights = weights,
-          object = object,
-          error = error,
-          aggregation = aggregation,
-          residual_is = residual_is_effective,
-          universe = universe_spec,
-          correlations = gstudy_obj$correlations,
-          cut_score = cut_score,
-          mu_y = mu_y,
-          gstudy_data = gstudy_obj$data,
-          dimension_var = gstudy_obj$dimension_var
+        comp_scaled <- maybe_append_composite(
+          coefficients = comp_unscaled$coefficients, vc = d_vc, n = n, weights = weights,
+          object = object, error = error, aggregation = aggregation,
+          residual_is_effective = residual_is_effective, universe_spec = universe_spec,
+          gstudy_obj = gstudy_obj, cut_score = cut_score, mu_y = mu_y,
+          estimate_label = "scaled"
         )
-        composite_scaled_summary <- composite_scaled$summary
-        composite_scaled_summary$estimate <- "scaled"
-
-        coefficients <- dplyr::bind_rows(coefficients, composite_unscaled_summary, composite_scaled_summary)
+        coefficients <- comp_scaled$coefficients
       }
     } else {
       # When n IS provided: use standard D-study variance calculation
@@ -628,67 +605,29 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
       coefficients <- calculate_coefficients(d_vc, n, object, error, aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
       # Calculate composite coefficients for multivariate designs
-      if (is_multivariate && length(dimensions) > 1) {
-        composite_coefs <- calculate_composite_coefficients(
-          vc = d_vc,
-          n = n,
-          weights = weights,
-          object = object,
-          error = error,
-          aggregation = aggregation,
-          residual_is = residual_is_effective,
-          universe = universe_spec,
-          correlations = gstudy_obj$correlations,
-          cut_score = cut_score,
-          mu_y = mu_y,
-          gstudy_data = gstudy_obj$data,
-          dimension_var = gstudy_obj$dimension_var
-        )
-
-        composite_summary <- composite_coefs$summary
-
-        var_results <- composite_coefs$var_results
-
-        # Add estimate column if present in other coefficients
-        if ("estimate" %in% names(coefficients)) {
-          composite_summary$estimate <- coefficients$estimate[1]
-        }
-
-        # Append composite row to coefficients
-        coefficients <- dplyr::bind_rows(coefficients, composite_summary)
-      }
+      comp_result <- maybe_append_composite(
+        coefficients = coefficients, vc = d_vc, n = n, weights = weights,
+        object = object, error = error, aggregation = aggregation,
+        residual_is_effective = residual_is_effective, universe_spec = universe_spec,
+        gstudy_obj = gstudy_obj, cut_score = cut_score, mu_y = mu_y
+      )
+      coefficients <- comp_result$coefficients
+      var_results <- comp_result$var_results
     }
   }
 
   # 13. Create dstudy object
-  result <- list(
-    gstudy = gstudy_obj,
-    variance_components = d_vc,
-    coefficients = coefficients,
-    n = n,
-    n_tibble = n_tibble,
-    n_per_dim = n_per_dim,
-    object = object,
-    universe = universe_spec,
-    error = error,
-    aggregation = aggregation,
-    residual_is = residual_is,
-    residual_composition = residual_composition,
-    is_sweep = is_sweep,
-    estimation = estimation,
-    posterior = if (estimation == "posterior") posterior else NULL,
-    composite_posterior = composite_post,
-    var = var_results,
-    is_multivariate = is_multivariate,
-    cut_score = cut_score,
-    mu_y = mu_y,
-    ci = ci,
-    probs = if (!is.null(ci)) probs else NULL,
-    weights = weights
+  build_dstudy_result(
+    gstudy_obj = gstudy_obj, d_vc = d_vc, coefficients = coefficients,
+    n = n, n_tibble = n_tibble, n_per_dim = n_per_dim,
+    object = object, universe_spec = universe_spec, error = error,
+    aggregation = aggregation, residual_is = residual_is,
+    residual_composition = residual_composition, is_sweep = is_sweep,
+    estimation = estimation, posterior = if (estimation == "posterior") posterior else NULL,
+    composite_post = composite_post, var_results = var_results,
+    is_multivariate = is_multivariate, cut_score = cut_score, mu_y = mu_y,
+    ci = ci, probs = probs, weights = weights
   )
-
-  class(result) <- "dstudy"
-  result
 }
 
 extract_sample_sizes <- function(gstudy_obj) {
