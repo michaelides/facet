@@ -40,10 +40,30 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Collate:
+    facet-package.R
+    classes.R
+    backends.R
+    backend-mom.R
+    brms-helpers.R
+    formula-helpers.R
     coefficient-helpers.R
     scale-factors.R
+    gstudy.R
+    variance-components.R
     coefficients.R
     composite-coefficients.R
     coefficients-posterior.R
+    dstudy-helpers.R
+    dstudy.R
     prmse.R
+    viable-optimization.R
+    viable.R
+    estimation-warnings.R
+    gt-draws.R
+    sample-sizes.R
+    priors.R
+    latent.R
+    simulate.R
+    plot-ranef.R
+    data.R
     methods.R
