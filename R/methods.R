@@ -1611,3 +1611,65 @@ extract_draws.gstudy <- function(object, ...) {
 
   brms::as_draws_matrix(object$model, ...)
 }
+
+
+#' @export
+extract_grand_mean <- function(gstudy_obj) {
+  UseMethod("extract_grand_mean")
+}
+
+#' @export
+extract_grand_mean.gstudy <- function(gstudy_obj) {
+  model <- gstudy_obj$model
+  backend <- gstudy_obj$backend
+
+  if (backend == "lme4") {
+    fe <- lme4::fixef(model)
+    if ("(Intercept)" %in% names(fe)) {
+      return("(Intercept)" = fe["(Intercept)"])
+    } else if ("Intercept" %in% names(fe)) {
+      return(Intercept = fe["Intercept"])
+    }
+  } else if (backend == "brms") {
+    fe <- brms::fixef(model)
+    if ("Intercept" %in% rownames(fe)) {
+      return(Intercept = fe["Intercept", "Estimate"])
+    }
+  } else if (backend == "mom") {
+    response <- gstudy_obj$response
+    if (!is.null(response) && response %in% names(gstudy_obj$data)) {
+      return(Intercept = mean(gstudy_obj$data[[response]], na.rm = TRUE))
+    }
+  }
+
+  stop("Could not extract grand mean from model", call. = FALSE)
+}
+
+#' @export
+extract_grand_mean.mgstudy <- function(gstudy_obj) {
+  model <- gstudy_obj$model
+  dimensions <- gstudy_obj$dimensions
+  backend <- gstudy_obj$backend
+
+  mu_y <- list()
+
+  if (backend == "brms") {
+    fe <- brms::fixef(model)
+    for (d in dimensions) {
+      param_name <- paste0(d, "_Intercept")
+      if (param_name %in% rownames(fe)) {
+        mu_y[[d]] <- fe[param_name, "Estimate"]
+      } else {
+        mu_y[[d]] <- mean(gstudy_obj$data[[d]], na.rm = TRUE)
+      }
+    }
+  } else if (backend == "mom") {
+    for (d in dimensions) {
+      mu_y[[d]] <- mean(gstudy_obj$data[[d]], na.rm = TRUE)
+    }
+  } else {
+    stop("Multivariate models require brms or mom backend", call. = FALSE)
+  }
+
+  return(mu_y)
+}
