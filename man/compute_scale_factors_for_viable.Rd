@@ -16,6 +16,9 @@ compute_scale_factors_for_viable(components, n, universe_spec, object_spec)
 \item{object_spec}{Object of measurement specification}
 }
 \description{
-Compute Scale Factors for Viable Recalculation
+Computes scale factors for multiple variance components.
+This function computes the same values as \code{compute_scale_factor()} from
+scale-factors.R, but returns a named list for all components instead of
+a single value.
 }
 \keyword{internal}

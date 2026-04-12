@@ -43,3 +43,7 @@ Collate:
     coefficient-helpers.R
     scale-factors.R
     coefficients.R
+    composite-coefficients.R
+    coefficients-posterior.R
+    prmse.R
+    methods.R

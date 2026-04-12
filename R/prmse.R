@@ -588,9 +588,9 @@ prmse <- function(dstudy_obj,
 #' Where PRMSE(C -> S_i) is:
 #' \deqn{PRMSE(C \rightarrow S_i) = \frac{(\sigma^2_{S_i} \cdot Rel(S_i) + \sum_{j \neq i} \sigma_{S_i, S_j})^2}{\sigma^2_{S_i} \cdot Rel(C) \cdot \sigma^2_C}}
 #'
-#' @param uni_cov_draws 3D array [n_draws, n_dims, n_dims] of universe score covariances.
-#' @param total_rel_cov_draws 3D array [n_draws, n_dims, n_dims] of total observed covariances for relative error.
-#' @param total_abs_cov_draws 3D array [n_draws, n_dims, n_dims] of total observed covariances for absolute error.
+#' @param uni_cov_draws 3D array (n_draws x n_dims x n_dims) of universe score covariances.
+#' @param total_rel_cov_draws 3D array (n_draws x n_dims x n_dims) of total observed covariances for relative error.
+#' @param total_abs_cov_draws 3D array (n_draws x n_dims x n_dims) of total observed covariances for absolute error.
 #' @param dimensions Character vector of dimension names.
 #' @param weights Named numeric vector of weights for the composite scores.
 #'
