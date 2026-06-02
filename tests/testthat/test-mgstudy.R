@@ -863,3 +863,136 @@ test_that("summary.mgstudy displays random effect correlations with vc_format = 
 
   expect_true(any(grepl("Correlations.*person", output, ignore.case = TRUE)))
 })
+
+# =============================================================================
+# Mom backend with unbalanced designs (Henderson's Method III)
+# =============================================================================
+
+test_data_mv_unbalanced <- data.frame(
+  id   = factor(rep(1:20, 5)),
+  item = factor(rep(1:5, each = 20)),
+  A    = rnorm(100),
+  B    = rnorm(100)
+)
+test_data_mv_unbalanced$B[sample(1:100, 20)] <- NA
+
+test_that("gstudy with mom backend and unbalanced = TRUE sets is_unbalanced and n_per_dim", {
+  result <- gstudy(
+    brms::mvbind(A, B) ~ (1 | id) + (1 | item),
+    data = test_data_mv_unbalanced,
+    backend = "mom",
+    unbalanced = TRUE
+  )
+
+  expect_true(isTRUE(result$is_unbalanced))
+  expect_equal(result$backend, "mom")
+  expect_equal(result$dimensions, c("A", "B"))
+  expect_false(is.null(result$n_per_dim))
+  expect_equal(result$n_per_dim$A, 100)
+  expect_equal(result$n_per_dim$B, 80)
+})
+
+test_that("gstudy with mom balanced (default) does not set is_unbalanced", {
+  balanced_data <- data.frame(
+    id   = factor(rep(1:20, 5)),
+    item = factor(rep(1:5, each = 20)),
+    A    = rnorm(100),
+    B    = rnorm(100)
+  )
+
+  result <- gstudy(
+    brms::mvbind(A, B) ~ (1 | id) + (1 | item),
+    data = balanced_data,
+    backend = "mom"
+  )
+
+  expect_false(isTRUE(result$is_unbalanced))
+  expect_null(result$n_per_dim)
+})
+
+test_that("print.mgstudy surfaces the unbalanced banner and per-dim totals", {
+  result <- gstudy(
+    brms::mvbind(A, B) ~ (1 | id) + (1 | item),
+    data = test_data_mv_unbalanced,
+    backend = "mom",
+    unbalanced = TRUE
+  )
+
+  output <- capture.output(print(result))
+
+  expect_true(any(grepl("Unbalanced", output)))
+  expect_true(any(grepl("A.*100", output)))
+  expect_true(any(grepl("B.*80", output)))
+})
+
+test_that("dstudy with per-dim n tibble uses per-dim sample sizes in non-posterior path", {
+  result <- gstudy(
+    brms::mvbind(A, B) ~ (1 | id) + (1 | item),
+    data = test_data_mv_unbalanced,
+    backend = "mom",
+    unbalanced = TRUE
+  )
+
+  n_tb <- tibble::tibble(
+    dim   = c("A", "A", "B", "B"),
+    facet = c("id", "item", "id", "item"),
+    n     = c(20, 5, 16, 4)
+  )
+  d <- dstudy(result, n = n_tb)
+
+  expect_false(isTRUE(d$is_sweep))
+
+  vc_A_resid <- result$variance_components$var[
+    result$variance_components$dim == "A" &
+      result$variance_components$component == "Residual"
+  ]
+  vc_B_resid <- result$variance_components$var[
+    result$variance_components$dim == "B" &
+      result$variance_components$component == "Residual"
+  ]
+
+  sigma_A <- d$coefficients$sigma2_delta[d$coefficients$dim == "A"]
+  sigma_B <- d$coefficients$sigma2_delta[d$coefficients$dim == "B"]
+  expect_equal(sigma_A, vc_A_resid / (20 * 5), tolerance = 1e-10)
+  expect_equal(sigma_B, vc_B_resid / (16 * 4), tolerance = 1e-10)
+})
+
+test_that("dstudy with n as a per-dim tibble keeps the coefficients tibble free of facet columns", {
+  result <- gstudy(
+    brms::mvbind(A, B) ~ (1 | id) + (1 | item),
+    data = test_data_mv_unbalanced,
+    backend = "mom",
+    unbalanced = TRUE
+  )
+
+  n_tb <- tibble::tibble(
+    dim   = c("A", "A", "B", "B"),
+    facet = c("id", "item", "id", "item"),
+    n     = c(20, 5, 16, 4)
+  )
+  d <- dstudy(result, n = n_tb)
+
+  forbidden <- c("id", "item", "person", "rater")
+  leaked <- intersect(forbidden, names(d$coefficients))
+  expect_equal(length(leaked), 0)
+  expect_true("dim" %in% names(d$coefficients))
+  expect_true("sigma2_delta" %in% names(d$coefficients))
+})
+
+test_that("expand_n_per_dim detects is_sweep per (dim, facet), not per facet", {
+  n_tb <- tibble::tibble(
+    dim   = c("A", "A", "B", "B"),
+    facet = c("id", "item", "id", "item"),
+    n     = c(20, 5, 16, 4)
+  )
+  out <- facet:::expand_n_per_dim(n_tb, sweep = TRUE)
+  expect_false(out$is_sweep)
+
+  n_tb_sweep <- tibble::tibble(
+    dim   = c("A", "A", "A", "A", "B", "B"),
+    facet = c("id", "id", "item", "item", "id", "item"),
+    n     = c(20, 30, 5, 5, 16, 4)
+  )
+  out_sweep <- facet:::expand_n_per_dim(n_tb_sweep, sweep = TRUE)
+  expect_true(out_sweep$is_sweep)
+})
