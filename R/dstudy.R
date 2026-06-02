@@ -15,9 +15,9 @@
 #' - A character string: "person:item" (object is automatically added)
 #' - A character vector: c("person", "person:item") (object should be included)
 #' - A formula: ~ person + person:item
-#' Non-object components in the universe are scaled by their corresponding sample sizes.
-#' For example, if the object is "p" and universe includes "p:o", the universe score
-#' variance is computed as: var(p) + var(p:o) / n_o.
+#' Non-object components in the universe are estimated from unscaled (G-study)
+#' variance components. For example, if the object is "p" and universe includes
+#' "p:o", the universe score variance is computed as: var(p) + var(p:o).
 #' @param error Specification for error components. Can be:
 #' - NULL (default): all components not in universe (and not in aggregation)
 #' - A character string: "person:item"
@@ -61,6 +61,7 @@
 #' Default is NULL, which uses equal weights (1 for each dimension).
 #' Only applicable for multivariate G-studies (mgstudy objects).
 #' @param ... Additional arguments (currently unused).
+#' @family decision studies
 #'
 #' @return An object of class "dstudy" containing:
 #' \item{gstudy}{The original G-study object}
@@ -98,6 +99,8 @@
 #' @seealso [gstudy()] for conducting G-studies
 #'
 #' @export
+#' @importFrom magrittr %>%
+#' @importFrom dplyr select any_of
 #'
 #' @details
 #' ## Universe, Error, and Aggregation

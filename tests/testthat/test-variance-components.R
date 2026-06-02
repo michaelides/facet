@@ -1,17 +1,13 @@
-test_that("extract_vc_brms_long_format returns correct structure", {
+test_that("extract_vc_brms_long_format parses long-format variance components", {
   skip_if_not_installed("brms")
   skip_if_not_installed("posterior")
   skip_on_cran()
 
-  # This test verifies the expected parameter naming conventions
-  # that extract_vc_brms_long_format will handle
-
-  # Create mock draws simulating brms long-format model output
   mock_draws <- matrix(
-    c(0.5, 0.6, 0.55, # sd_Person__SubtestA_Intercept
-      0.3, 0.35, 0.32, # sd_Person__SubtestB_Intercept
-      0.0, 0.1, 0.05, # b_sigma_SubtestA (log scale)
-      0.2, 0.25, 0.22), # b_sigma_SubtestB (log scale)
+    c(0.5, 0.6, 0.55,
+      0.3, 0.35, 0.32,
+      0.0, 0.1, 0.05,
+      0.2, 0.25, 0.22),
     nrow = 3
   )
   colnames(mock_draws) <- c(
@@ -21,16 +17,13 @@ test_that("extract_vc_brms_long_format returns correct structure", {
     "b_sigma_SubtestB"
   )
 
-  # Verify structure expectations
-  expect_true("sd_Person__SubtestA_Intercept" %in% colnames(mock_draws))
-  expect_true("b_sigma_SubtestA" %in% colnames(mock_draws))
-})
+  result <- extract_vc_brms_long_format(
+    draws = mock_draws,
+    dimensions = c("SubtestA", "SubtestB"),
+    facets = "Person"
+  )
 
-test_that("extract_correlations_brms_long_format returns correct structure", {
-  skip_if_not_installed("brms")
-  skip_on_cran()
-  # This tests the expected structure
-  # For correlated effects (|r|), we expect correlation matrices
-  # For uncorrelated effects (||), we expect NULL
-  expect_true(TRUE) # Placeholder for structure verification
+  expect_s3_class(result, "data.frame")
+  expect_true(all(c("component", "dim", "var", "pct") %in% names(result)))
+  expect_true(all(unique(result$dim) %in% c("SubtestA", "SubtestB")))
 })

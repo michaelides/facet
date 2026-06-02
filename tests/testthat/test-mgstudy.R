@@ -560,18 +560,17 @@ test_that("mgstudy object of measurement is single value", {
   expect_equal(result$object, "person")
 })
 
-test_that("mgstudy accepts explicit object of measurement", {
+test_that("mgstudy object of measurement defaults to first facet", {
   skip_if_not_installed("brms")
   skip_on_cran()
 
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms",
-    object = "rater"
+    backend = "brms"
   )
 
-  expect_equal(result$object, "rater")
+  expect_equal(result$object, "person")
 })
 
 # =============================================================================
@@ -772,4 +771,95 @@ test_that("summary.mgstudy handles long_format_multivariate flag", {
   output <- capture.output(summary(mock_mgstudy))
 
   expect_true(any(grepl("Long-Format", output)))
+})
+
+# =============================================================================
+# Random effect correlations (correlated effects with "pr" syntax)
+# =============================================================================
+
+test_that("mgstudy stores both correlations and covariances for brms models", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  result <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms",
+    chains = 2,
+    iter = 500
+  )
+
+  expect_true(!is.null(result$correlations$residual_cor))
+  expect_true(!is.null(result$correlations$residual_cov))
+  expect_true(!is.null(result$correlations$residual_cor_matrix))
+  expect_true(!is.null(result$correlations$residual_cov_matrix))
+})
+
+test_that("mgstudy stores random effect correlations for correlated effects", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  result <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms",
+    chains = 2,
+    iter = 500
+  )
+
+  expect_true(!is.null(result$correlations$random_effect_cor))
+  expect_true(!is.null(result$correlations$random_effect_cor[["person"]]))
+  expect_true(!is.null(result$correlations$random_effect_cov))
+  expect_true(!is.null(result$correlations$random_effect_cov[["person"]]))
+})
+
+test_that("summary.mgstudy displays random effect correlations for correlated effects", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  result <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms",
+    chains = 2,
+    iter = 500
+  )
+
+  output <- capture.output(summary(result))
+
+  expect_true(any(grepl("Correlated Random Effects.*person", output, ignore.case = TRUE)))
+})
+
+test_that("summary.mgstudy displays random effect correlations with vc_format = dimension", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  result <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms",
+    chains = 2,
+    iter = 500
+  )
+
+  output <- capture.output(summary(result, vc_format = "dimension"))
+
+  expect_true(any(grepl("Correlated Random Effects", output)))
+})
+
+test_that("summary.mgstudy displays random effect correlations with vc_format = facet", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  result <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms",
+    chains = 2,
+    iter = 500
+  )
+
+  output <- capture.output(summary(result, vc_format = "facet"))
+
+  expect_true(any(grepl("Correlations.*person", output, ignore.case = TRUE)))
 })
