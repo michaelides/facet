@@ -320,6 +320,53 @@ resolve_dstudy_sample_sizes <- function(gstudy_obj, n = list(),
   )
 }
 
+#' Resolve Per-Dimension Sample Size for One Dimension
+#'
+#' Extracts a per-dim named list of facet -> n from the `n_per_dim` structure
+#' built by [resolve_dstudy_sample_sizes()]. Falls back to the global `n` for
+#' facets not specified per-dim. Returns a list keyed by dim when iterating
+#' in a loop. Mirrors the per-dim override pattern in
+#' [calculate_coefficients_posterior()] so non-posterior and posterior paths
+#' agree on what "per-dim n" means.
+#'
+#' @param dim_name Character: the dimension to extract.
+#' @param n_per_dim The `n_per_dim` slot of [resolve_dstudy_sample_sizes()] output.
+#' @param n_global The flat `n` list (per-facet, possibly scalar) used as fallback.
+#' @return A named list of facet -> n. Returns `n_global` unchanged when no
+#'   per-dim data is available for `dim_name`.
+#' @keywords internal
+resolve_dim_n <- function(dim_name, n_per_dim, n_global) {
+  if (is.null(n_per_dim) || is.null(n_per_dim$n_list)) {
+    return(n_global)
+  }
+  dim_n_raw <- n_per_dim$n_list[[dim_name]]
+  if (is.null(dim_n_raw)) {
+    return(n_global)
+  }
+
+  n_dim <- n_global
+
+  if (is.data.frame(dim_n_raw)) {
+    for (i in seq_len(nrow(dim_n_raw))) {
+      f <- dim_n_raw$facet[i]
+      if (f %in% names(n_dim)) {
+        n_dim[[f]] <- dim_n_raw$n[i]
+      }
+    }
+  } else {
+    if (!is.null(dim_n_raw$facet_n)) {
+      dim_n_raw <- dim_n_raw$facet_n
+    }
+    for (facet in names(dim_n_raw)) {
+      if (facet %in% names(n_dim)) {
+        n_dim[[facet]] <- dim_n_raw[[facet]]
+      }
+    }
+  }
+
+  n_dim
+}
+
 #' Process Residual and Error Specification Overlap
 #'
 #' Determines residual composition from formula/data, handles overlap
