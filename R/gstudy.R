@@ -340,6 +340,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
   correlations <- NULL
   is_unbalanced <- FALSE
   n_per_dim <- NULL
+  sample_size_info_per_dim_mom <- NULL
   if (is_mv) {
     if (selected_backend == "brms") {
       cov_result <- extract_covariances_brms(model)
@@ -362,6 +363,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
       if (isTRUE(model$is_unbalanced)) {
         is_unbalanced <- TRUE
         n_per_dim <- model$n_per_dim
+        sample_size_info_per_dim_mom <- build_sample_size_info_per_dim_from_mom(model)
       }
     }
   }
@@ -385,6 +387,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
     facet_n = facet_n,
     sample_size_info = sample_size_info,
     sample_size_tibble = sample_size_tibble,
+    sample_size_info_per_dim = sample_size_info_per_dim_mom,
     object = object,
     backend = selected_backend,
     is_multivariate = is_mv,
