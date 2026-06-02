@@ -135,3 +135,4 @@ g_multi <- gstudy(mvbind(Task1, Task2) ~ (1 | Person) + (1 | Rater),
 \seealso{
 \code{\link[=dstudy]{dstudy()}} for conducting D-studies
 }
+\concept{model fitting}

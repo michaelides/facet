@@ -5,20 +5,14 @@
 \title{Compute Variance Component Percentages}
 \usage{
 compute_vc_percentages(vc)
-
-compute_vc_percentages(vc)
 }
 \arguments{
 \item{vc}{A tibble of variance components with a "var" column.}
 }
 \value{
 The input tibble with an added "pct" column.
-
-The input tibble with an added "pct" column.
 }
 \description{
-Calculates the percentage of total variance accounted for by each component.
-
 Calculates the percentage of total variance accounted for by each component.
 }
 \keyword{internal}

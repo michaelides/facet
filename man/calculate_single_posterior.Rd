@@ -41,8 +41,9 @@ calculate_single_posterior(
 \item{n_provided}{Logical indicating if n was explicitly provided.}
 
 \item{use_scaled}{Logical indicating whether to use scaled variance draws.
-When FALSE, uses original variance draws and does not scale universe components.
-When TRUE, uses scaled variance draws and scales non-object universe components.}
+When FALSE, uses original variance draws for both universe and error.
+When TRUE, uses scaled variance draws for error components only;
+universe components always use unscaled (G-study) variance draws.}
 
 \item{cut_score}{Optional cut score for phi-cut calculation.}
 

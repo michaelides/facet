@@ -10,9 +10,9 @@ empty_prior()
 A brmsprior object with no rows.
 }
 \description{
-This function is a wrapper around \code{\link[brms:set_prior]{brms::empty_prior()}} to create
+This function is a wrapper around \code{\link[brms:empty_prior]{brms::empty_prior()}} to create
 an empty prior object to which priors can be added.
-See \code{\link[brms:set_prior]{brms::empty_prior()}} for full documentation.
+See \code{\link[brms:empty_prior]{brms::empty_prior()}} for full documentation.
 }
 \examples{
 \dontrun{

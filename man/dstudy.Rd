@@ -34,9 +34,9 @@ included in the universe. Can be:
 \item A character string: "person:item" (object is automatically added)
 \item A character vector: c("person", "person:item") (object should be included)
 \item A formula: ~ person + person:item
-Non-object components in the universe are scaled by their corresponding sample sizes.
-For example, if the object is "p" and universe includes "p:o", the universe score
-variance is computed as: var(p) + var(p:o) / n_o.
+Non-object components in the universe are estimated from unscaled (G-study)
+variance components. For example, if the object is "p" and universe includes
+"p:o", the universe score variance is computed as: var(p) + var(p:o).
 }}
 
 \item{error}{Specification for error components. Can be:
@@ -225,4 +225,8 @@ d_ci_90 <- dstudy(g_brms, n = list(Task = 3, Rater = 4),
 }
 \seealso{
 \code{\link[=gstudy]{gstudy()}} for conducting G-studies
+
+Other decision studies:
+\code{\link{coefficients}}
 }
+\concept{decision studies}

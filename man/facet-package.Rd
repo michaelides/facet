@@ -30,6 +30,7 @@ Useful links:
 
 Authors:
 \itemize{
+  \item George Michaelides \email{g.michaelides@uea.ac.uk}
   \item Duncan Jackson \email{duncan.jackson@kcl.ac.uk}
 }
 

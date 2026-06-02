@@ -2,11 +2,14 @@
 % Please edit documentation in R/latent.R
 \name{latent}
 \alias{latent}
+\alias{latent.default}
 \alias{latent.gstudy}
 \alias{latent.mgstudy}
 \title{Extract Latent Scores from G-Study Objects}
 \usage{
 latent(x, universe = NULL, ...)
+
+\method{latent}{default}(x, universe = NULL, ...)
 
 \method{latent}{gstudy}(x, universe = NULL, ...)
 

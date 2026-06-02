@@ -9,15 +9,15 @@ prior_string(prior, ...)
 \arguments{
 \item{prior}{A character string defining the prior distribution.}
 
-\item{...}{Additional arguments passed to \code{\link[brms:set_prior]{brms::prior_string()}}.}
+\item{...}{Additional arguments passed to \code{\link[brms:prior_string]{brms::prior_string()}}.}
 }
 \value{
 A brmsprior object.
 }
 \description{
-This function is a wrapper around \code{\link[brms:set_prior]{brms::prior_string()}} to allow
+This function is a wrapper around \code{\link[brms:prior_string]{brms::prior_string()}} to allow
 specifying priors using character strings.
-See \code{\link[brms:set_prior]{brms::prior_string()}} for full documentation.
+See \code{\link[brms:prior_string]{brms::prior_string()}} for full documentation.
 }
 \examples{
 \dontrun{

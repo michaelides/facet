@@ -9,15 +9,15 @@ prior(prior, ...)
 \arguments{
 \item{prior}{A call or expression defining a distribution.}
 
-\item{...}{Additional arguments passed to \code{\link[brms:set_prior]{brms::prior()}}.}
+\item{...}{Additional arguments passed to \code{\link[brms:prior]{brms::prior()}}.}
 }
 \value{
 A brmsprior object.
 }
 \description{
-This function is a wrapper around \code{\link[brms:set_prior]{brms::prior()}} to allow
+This function is a wrapper around \code{\link[brms:prior]{brms::prior()}} to allow
 specifying priors using tidy evaluation syntax.
-See \code{\link[brms:set_prior]{brms::prior()}} for full documentation.
+See \code{\link[brms:prior]{brms::prior()}} for full documentation.
 }
 \examples{
 \dontrun{

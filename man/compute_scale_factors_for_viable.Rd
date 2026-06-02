@@ -17,8 +17,8 @@ compute_scale_factors_for_viable(components, n, universe_spec, object_spec)
 }
 \description{
 Computes scale factors for multiple variance components.
-This function computes the same values as \code{compute_scale_factor()} from
-scale-factors.R, but returns a named list for all components instead of
-a single value.
+Universe components always receive a scale factor of 1 (unscaled).
+Non-universe components are scaled by the product of non-object facet
+sample sizes in that component.
 }
 \keyword{internal}

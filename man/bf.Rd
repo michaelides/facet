@@ -9,13 +9,13 @@ bf(formula, ...)
 \arguments{
 \item{formula}{A formula object.}
 
-\item{...}{Additional arguments passed to \code{\link[brms:brmsformula]{brms::bf()}}.}
+\item{...}{Additional arguments passed to \code{\link[brms:bf]{brms::bf()}}.}
 }
 \value{
 A brmsformula object.
 }
 \description{
-This function is a wrapper around \code{\link[brms:brmsformula]{brms::bf()}} to allow specifying
+This function is a wrapper around \code{\link[brms:bf]{brms::bf()}} to allow specifying
 formulas for Bayesian models fit via the brms backend in gstudy.
-See \code{\link[brms:brmsformula]{brms::bf()}} for full documentation.
+See \code{\link[brms:bf]{brms::bf()}} for full documentation.
 }

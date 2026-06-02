@@ -7,4 +7,9 @@
 Functions for computing G (generalizability) and D (dependability) coefficients
 from variance components in generalizability theory.
 }
+\seealso{
+Other decision studies:
+\code{\link[=dstudy]{dstudy()}}
+}
+\concept{decision studies}
 \keyword{internal}

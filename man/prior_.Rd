@@ -9,15 +9,15 @@ prior_(prior, ...)
 \arguments{
 \item{prior}{A one-sided formula defining the prior distribution.}
 
-\item{...}{Additional arguments passed to \code{\link[brms:set_prior]{brms::prior_()}}.}
+\item{...}{Additional arguments passed to \code{\link[brms:prior_]{brms::prior_()}}.}
 }
 \value{
 A brmsprior object.
 }
 \description{
-This function is a wrapper around \code{\link[brms:set_prior]{brms::prior_()}} to allow
+This function is a wrapper around \code{\link[brms:prior_]{brms::prior_()}} to allow
 specifying priors using formula syntax (with \code{~}).
-See \code{\link[brms:set_prior]{brms::prior_()}} for full documentation.
+See \code{\link[brms:prior_]{brms::prior_()}} for full documentation.
 }
 \examples{
 \dontrun{

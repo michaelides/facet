@@ -13,7 +13,7 @@ set_rescor(rescor)
 A brmsformula helper object.
 }
 \description{
-This function is a wrapper around \code{\link[brms:brmsformula-helpers]{brms::set_rescor()}} to allow specifying
+This function is a wrapper around \code{\link[brms:set_rescor]{brms::set_rescor()}} to allow specifying
 residual correlations in multivariate models fit via the brms backend.
-See \code{\link[brms:brmsformula-helpers]{brms::set_rescor()}} for full documentation.
+See \code{\link[brms:set_rescor]{brms::set_rescor()}} for full documentation.
 }

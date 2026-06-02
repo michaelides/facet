@@ -11,10 +11,6 @@ extract_vc(model, ...)
 \method{extract_vc}{merMod}(model, ...)
 
 \method{extract_vc}{brmsfit}(model, ...)
-
-\method{extract_vc}{brmsfit}(model, ...)
-
-\method{extract_vc}{brmsfit}(model, ...)
 }
 \arguments{
 \item{model}{A fitted model object.}
