@@ -730,12 +730,14 @@ expand_n_per_dim <- function(n_tibble, sweep = TRUE) {
 
   facet_values <- unique(n_tibble$facet)
 
-  unique_n_per_facet <- lapply(facet_values, function(f) {
-    unique(n_tibble$n[n_tibble$facet == f])
+  unique_n_per_dim_facet <- lapply(dims, function(d) {
+    lapply(facet_values, function(f) {
+      unique(n_tibble$n[n_tibble$dim == d & n_tibble$facet == f])
+    })
   })
-  names(unique_n_per_facet) <- facet_values
-
-  is_sweep <- any(sapply(unique_n_per_facet, length) > 1)
+  is_sweep <- any(unlist(lapply(unique_n_per_dim_facet, function(per_facet) {
+    any(sapply(per_facet, length) > 1)
+  })))
 
   if (!is_sweep) {
     n_list <- lapply(dims, function(d) {
