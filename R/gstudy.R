@@ -28,6 +28,7 @@
 #' @param prior A brmsprior object or list of priors created by [set_prior()]
 #' or related functions. Only applicable when using brms backend.
 #' Use [default_prior()] to see available parameters for priors.
+#' @family model fitting
 #' @param unbalanced Logical indicating whether to enable unbalanced multivariate
 #' estimation. Default is FALSE. When TRUE:
 #' \itemize{
@@ -334,7 +335,11 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
   # 13. Extract correlations and covariances for multivariate models
   # Covariances are needed for composite coefficient calculation
   # Correlations are needed for display in summary()
+  # Also propagate per-dimension sample-size metadata from mom fits so that
+  # unbalanced designs can be honored by downstream D-study paths.
   correlations <- NULL
+  is_unbalanced <- FALSE
+  n_per_dim <- NULL
   if (is_mv) {
     if (selected_backend == "brms") {
       cov_result <- extract_covariances_brms(model)
@@ -350,8 +355,14 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
         random_effect_cor = cor_result$random_effect_cor,
         random_effect_cor_matrix = cor_result$random_effect_cor_matrix
       )
-    } else if (selected_backend == "mom" && !is.null(model$correlations)) {
-      correlations <- model$correlations
+    } else if (selected_backend == "mom") {
+      if (!is.null(model$correlations)) {
+        correlations <- model$correlations
+      }
+      if (isTRUE(model$is_unbalanced)) {
+        is_unbalanced <- TRUE
+        n_per_dim <- model$n_per_dim
+      }
     }
   }
 
@@ -377,6 +388,8 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
     object = object,
     backend = selected_backend,
     is_multivariate = is_mv,
+    is_unbalanced = is_unbalanced,
+    n_per_dim = n_per_dim,
     formula = formula,
     data = data,
     n_obs = nrow(data),
