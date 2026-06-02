@@ -2,3 +2,33 @@
 ^\.Rproj\.user$
 ^doc$
 ^Meta$
+^\.positai$
+^\.claude$
+^\.opencode$
+^\.openclaude$
+^\.kilo$
+^\.DS_Store$
+^\.worktrees$
+
+# Build artifacts
+^\.\.Rcheck$
+^facet\.Rcheck$
+
+# Test artifacts
+^tests/testthat/_problems$
+^tests/testthat/Rplots\.pdf$
+^tests/testthat/testthat-problems\.rds$
+
+# Project-local docs / generated figures
+^graphify-out$
+^graphify-raw$
+^_pkgdown\.yml$
+^site$
+^figure$
+^ai_plans$
+
+# OS / editor / tool state
+^\.Rhistory$
+^AGENTS\.md$
+^facet_.*\.tar\.gz$
+^.*\.RData$

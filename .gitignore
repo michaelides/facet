@@ -7,3 +7,43 @@
 /docs
 /ai_plans
 .Rproj.user
+/doc/
+.positai
+/graphify-out
+/graphify-raw
+*.tar.gz
+AGENTS.md
+.Rhistory
+
+# Build artifacts
+..Rcheck/
+facet.Rcheck/
+
+# Test artifacts
+tests/testthat/_problems/
+tests/testthat/Rplots.pdf
+tests/testthat/testthat-problems.rds
+tests/testthat/_snaps/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Editor / tool configs
+.opencode/
+.openclaude/
+.kilo/
+.positai/
+
+# Generated R data
+*.RData
+*.rds
+!vignettes/*.rds
+
+# Project-local docs
+site/
+docs/
+_pkgdown.yml
+figure/
+graphify-out/
+graphify-raw/
