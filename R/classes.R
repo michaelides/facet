@@ -118,6 +118,7 @@ validate_gstudy <- function(x) {
     )
   }
 
+
   required_vc_cols <- c("component", "var", "pct")
   missing_vc_cols <- setdiff(required_vc_cols, names(x$variance_components))
   if (length(missing_vc_cols) > 0) {

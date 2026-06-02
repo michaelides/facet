@@ -62,11 +62,13 @@ latent <- function(x, universe = NULL, ...) {
 
 #' @rdname latent
 #' @export
-latent.gstudy <- function(x, universe = NULL, ...) {
-  if (!inherits(x, "gstudy") && !inherits(x, "mgstudy")) {
-    stop("'x' must be a gstudy or mgstudy object", call. = FALSE)
-  }
+latent.default <- function(x, universe = NULL, ...) {
+  stop("'x' must be a gstudy or mgstudy object", call. = FALSE)
+}
 
+#' @rdname latent
+#' @export
+latent.gstudy <- function(x, universe = NULL, ...) {
   object <- x$object
   if (is.null(object)) {
     stop("Cannot determine object of measurement from gstudy object", call. = FALSE)

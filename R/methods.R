@@ -508,7 +508,7 @@ is_rel_error_component <- function(component, universe_spec) {
     return(TRUE)
   }
 
-  facets <- strsplit(component, ":")[[1]]
+  facets <- parse_component_facets(component)
 
   any(universe_spec %in% facets)
 }
@@ -1637,6 +1637,10 @@ extract_grand_mean.gstudy <- function(gstudy_obj) {
     }
   } else if (backend == "mom") {
     response <- gstudy_obj$response
+    if (is.null(response)) {
+      formula <- gstudy_obj$formula
+      response <- all.vars(formula)[1]
+    }
     if (!is.null(response) && response %in% names(gstudy_obj$data)) {
       return(Intercept = mean(gstudy_obj$data[[response]], na.rm = TRUE))
     }

@@ -265,7 +265,6 @@ resolve_dstudy_sample_sizes <- function(gstudy_obj, n = list(),
     if (needs_per_dim_n) {
       n_tibble <- extract_sample_sizes_per_dim(gstudy_obj)
       if (!is.null(n_tibble) && nrow(n_tibble) > 0) {
-        n_provided <- TRUE
         n_per_dim <- expand_n_per_dim(n_tibble, sweep = FALSE)
         n <- extract_sample_sizes(gstudy_obj)
         message(
@@ -273,7 +272,6 @@ resolve_dstudy_sample_sizes <- function(gstudy_obj, n = list(),
         )
       } else {
         n <- extract_sample_sizes(gstudy_obj)
-        n_provided <- TRUE
         message(
           "No sample sizes provided in 'n'. Using G-study sample sizes: ",
           paste(names(n), n, sep = " = ", collapse = ", ")
@@ -281,7 +279,6 @@ resolve_dstudy_sample_sizes <- function(gstudy_obj, n = list(),
       }
     } else {
       n <- extract_sample_sizes(gstudy_obj)
-      n_provided <- TRUE
       message(
         "No sample sizes provided in 'n'. Using G-study sample sizes: ",
         paste(names(n), n, sep = " = ", collapse = ", ")
@@ -512,7 +509,9 @@ build_dstudy_result <- function(gstudy_obj, d_vc, coefficients, n, n_tibble,
     mu_y = mu_y,
     ci = ci,
     probs = if (!is.null(ci)) probs else NULL,
-    weights = weights
+    weights = weights,
+    long_format_multivariate = gstudy_obj$long_format_multivariate,
+    dimension_var = gstudy_obj$dimension_var
   )
 
   class(result) <- "dstudy"

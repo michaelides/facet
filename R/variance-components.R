@@ -17,6 +17,7 @@ NULL
 #' @return A tibble with columns: component, variance, percent.
 #'
 #' @keywords internal
+#' @export
 extract_vc <- function(model, ...) {
   UseMethod("extract_vc")
 }
@@ -509,33 +510,16 @@ extract_single_variance_from_draws <- function(draws, grp, resp, type,
 
 #' @rdname extract_vc
 #' @keywords internal
+#' @export
 extract_vc.merMod <- function(model, ...) {
   extract_vc_lme4(model, ...)
 }
 
 #' @rdname extract_vc
 #' @keywords internal
+#' @export
 extract_vc.brmsfit <- function(model, ...) {
   extract_vc_brms(model, ...)
-}
-
-#' Compute Variance Component Percentages
-#'
-#' Calculates the percentage of total variance accounted for by each component.
-#'
-#' @param vc A tibble of variance components with a "var" column.
-#' @return The input tibble with an added "pct" column.
-#'
-#' @keywords internal
-compute_vc_percentages <- function(vc) {
-  if (!"var" %in% names(vc)) {
-    stop("Variance components tibble must have a 'var' column", call. = FALSE)
-  }
-
-  total_var <- sum(vc$var, na.rm = TRUE)
-  vc$pct <- (vc$var / total_var) * 100
-
-  vc
 }
 
 #' Summarize Variance Components for dstudy Objects
@@ -730,11 +714,6 @@ summarize_cov <- function(cov_tibble, digits = 3) {
   summary_df
 }
 
-#' @rdname extract_vc
-#' @keywords internal
-extract_vc.brmsfit <- function(model, ...) {
-  extract_vc_brms(model, ...)
-}
 
 #' Compute Variance Component Percentages
 #'
@@ -1651,11 +1630,6 @@ extract_covariances_mom <- function(model) {
   result
 }
 
-#' @rdname extract_vc
-#' @keywords internal
-extract_vc.brmsfit <- function(model, ...) {
-  extract_vc_brms(model, ...)
-}
 
 #' Extract Variance Components from brms Long-Format Model
 #'
