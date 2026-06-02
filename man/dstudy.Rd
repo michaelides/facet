@@ -24,7 +24,12 @@ dstudy(
 
 \item{n}{A named list specifying the number of levels for each facet
 in the D-study design (e.g., \code{list(items = 10, raters = 3)}).
-Can also be a list of vectors to explore multiple sample sizes.}
+Can also be a list of vectors to explore multiple sample sizes.
+For multivariate G-studies fit with \code{unbalanced = TRUE}, this may
+instead be a tibble with columns \code{dim}, \code{facet}, and \code{n},
+giving a different sample size per (dimension, facet). Supplying multiple
+rows for the same (dimension, facet) triggers a sweep, in which case the
+sweep is performed independently within each dimension.}
 
 \item{universe}{Specification for components that contribute to the universe score.
 The object of measurement (first component from the G-study formula) is always

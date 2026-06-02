@@ -77,6 +77,16 @@ An object of class "gstudy" containing:
 \item{sample_size_info}{Comprehensive sample size information including main effects, interactions, residual, and nested effects}
 \item{backend}{The backend used for fitting}
 \item{is_multivariate}{Logical indicating if the model is multivariate}
+\item{is_unbalanced}{Logical indicating if the multivariate model was fit
+with \code{unbalanced = TRUE}. Only set for multivariate models. When
+TRUE, the per-dimension totals are stored in \code{n_per_dim} and
+\code{dstudy()} will accept a per-dimension \code{n} tibble.}
+\item{n_per_dim}{Named list of per-dimension observation counts (only
+populated for multivariate models fit with \code{unbalanced = TRUE}).}
+\item{sample_size_info_per_dim}{Named list of per-dimension sample size
+information (only populated for multivariate models fit with
+\code{unbalanced = TRUE}). Each element is itself a list keyed by
+facet/component, mirroring the structure of \code{sample_size_info}.}
 \item{formula}{The formula used}
 \item{data}{The original data}
 \item{n_obs}{Number of observations}

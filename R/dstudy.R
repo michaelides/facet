@@ -8,6 +8,11 @@
 #' @param n A named list specifying the number of levels for each facet
 #' in the D-study design (e.g., `list(items = 10, raters = 3)`).
 #' Can also be a list of vectors to explore multiple sample sizes.
+#' For multivariate G-studies fit with \code{unbalanced = TRUE}, this may
+#' instead be a tibble with columns \code{dim}, \code{facet}, and \code{n},
+#' giving a different sample size per (dimension, facet). Supplying multiple
+#' rows for the same (dimension, facet) triggers a sweep, in which case the
+#' sweep is performed independently within each dimension.
 #' @param universe Specification for components that contribute to the universe score.
 #' The object of measurement (first component from the G-study formula) is always
 #' included in the universe. Can be:
@@ -549,7 +554,11 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
     if (!n_provided) {
       # When n not provided: use divided variance for scaled estimates
       # Scaled: divide variance components by sample sizes of non-object facets
-      vc_scaled <- calculate_divided_variance(vc, n, object, residual_is_effective)
+      vc_scaled <- apply_per_dim(
+        vc = vc, n = n, n_per_dim = n_per_dim, n_tibble = n_tibble,
+        fn = calculate_divided_variance,
+        object = object, residual_is = residual_is_effective
+      )
       scaled_coefs <- calculate_divided_coefficients(vc_scaled, object, error,
         aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
 
@@ -578,7 +587,12 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
       ))
 
       # For non-sweep with n not provided, still calculate both scaled and unscaled
-      d_vc <- calculate_dstudy_variance(vc, n, object, aggregation, TRUE, residual_is_effective, facet_n = gstudy_obj$facet_n)
+      d_vc <- apply_per_dim(
+        vc = vc, n = n, n_per_dim = n_per_dim, n_tibble = n_tibble,
+        fn = calculate_dstudy_variance,
+        object = object, aggregation = aggregation, n_provided = TRUE,
+        residual_is = residual_is_effective, facet_n = gstudy_obj$facet_n
+      )
 
       # Calculate composite coefficients for multivariate designs
       if (is_multivariate && length(dimensions) > 1) {
@@ -602,7 +616,12 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
       }
     } else {
       # When n IS provided: use standard D-study variance calculation
-      d_vc <- calculate_dstudy_variance(vc, n, object, aggregation, n_provided, residual_is_effective, facet_n = gstudy_obj$facet_n)
+      d_vc <- apply_per_dim(
+        vc = vc, n = n, n_per_dim = n_per_dim, n_tibble = n_tibble,
+        fn = calculate_dstudy_variance,
+        object = object, aggregation = aggregation, n_provided = n_provided,
+        residual_is = residual_is_effective, facet_n = gstudy_obj$facet_n
+      )
 
       # Calculate coefficients (scaled only, no estimate column)
       coefficients <- calculate_coefficients(d_vc, n, object, error, aggregation, residual_is_effective, universe_spec, cut_score, mu_y)
@@ -667,5 +686,20 @@ extract_sample_sizes_per_dim <- function(gstudy_obj) {
     return(NULL)
   }
 
-  calculate_sample_size_tibble_per_dim(sample_size_info_per_dim)
+  full_tibble <- calculate_sample_size_tibble_per_dim(sample_size_info_per_dim)
+  if (is.null(full_tibble) || nrow(full_tibble) == 0) {
+    return(full_tibble)
+  }
+
+  if (!"effect" %in% names(full_tibble)) {
+    return(full_tibble)
+  }
+
+  main_rows <- full_tibble[full_tibble$type == "main", , drop = FALSE]
+  if (nrow(main_rows) == 0) {
+    return(main_rows)
+  }
+
+  main_rows$facet <- main_rows$effect
+  main_rows[, c("dim", "facet", "n"), drop = FALSE]
 }
