@@ -4,9 +4,72 @@
 #' from variance components in generalizability theory.
 #'
 #' @name coefficients
+#' @family decision studies
 #' @keywords internal
 #' @importFrom magrittr %>%
 NULL
+
+#' Compute Scale Factor for D-Study Variance Component
+#'
+#' Calculates the scaling factor for a variance component based on
+#' the D-study sample sizes. For main effects, divides by n_facet.
+#' For interactions, divides by the product of n for each facet.
+#'
+#' @param facets Character vector of facet names in the component.
+#' @param n Named list of sample sizes for each facet.
+#' @return The scale factor (numeric).
+#'
+#' @keywords internal
+compute_scale_factor_from_facets <- function(facets, n) {
+  if (length(facets) == 0 || identical(facets, "Residual")) {
+    return(1)
+  }
+
+  scale_factor <- 1
+  for (facet in facets) {
+    if (facet %in% names(n)) {
+      scale_factor <- scale_factor * n[[facet]]
+    }
+  }
+  scale_factor
+}
+
+#' Compute Scale Factor for a Component
+#'
+#' Computes the scale factor for a variance component.
+#' Used in composite variance calculations.
+#'
+#' @param comp The variance component name.
+#' @param n Named list of sample sizes.
+#' @param object_spec Character vector of object components.
+#' @param n_provided Logical indicating if n was explicitly provided.
+#' @return The scale factor for this component.
+#'
+#' @keywords internal
+compute_component_scale_factor <- function(comp, n, object_spec, n_provided) {
+  if (comp %in% object_spec) {
+    return(1)
+  }
+
+  total_n <- if (length(n) > 0) prod(unlist(n)) else 1
+
+  if (n_provided && length(n) > 0) {
+    if (comp == "Residual") {
+      return(total_n)
+    }
+
+    comp_facets <- parse_component_facets(comp)
+    scale_factor <- 1
+    for (f in comp_facets) {
+      if (f %in% names(n)) {
+        scale_factor <- scale_factor * n[[f]]
+      }
+    }
+    return(scale_factor)
+  }
+
+  return(1)
+}
 
 #' Calculate D-Study Variance Components
 #'
@@ -433,7 +496,7 @@ calculate_coefficients <- function(vc, n = NULL, object = NULL, error = NULL,
     vc_modified <- vc_dim
 
     # Calculate universe score variance
-    # Use unscaled variance if available for proper scaling
+    # Universe score is always estimated from unscaled (G-study) variance components
     uni <- 0
     for (comp in universe_spec) {
       # Check if component exists (might be named differently)
@@ -453,15 +516,7 @@ calculate_coefficients <- function(vc, n = NULL, object = NULL, error = NULL,
           comp_var <- vc_modified$var[vc_modified$component == actual_comp]
         }
 
-        if (comp %in% object_spec) {
-          # Object component: NOT scaled
-          uni <- uni + comp_var
-        } else {
-          # Non-object universe component: scaled by sample sizes
-          # Need to determine scale factor based on component facets
-          scale_factor <- get_universe_scale_factor_for_component(comp, n, agg_facets, residual_is, actual_comp)
-          uni <- uni + comp_var / scale_factor
-        }
+        uni <- uni + comp_var
       }
     }
 
@@ -537,41 +592,9 @@ calculate_coefficients <- function(vc, n = NULL, object = NULL, error = NULL,
 #'
 #' @keywords internal
 compute_relative_error <- function(vc, universe_spec, error_spec = NULL, agg_facets = NULL, residual_is = NULL) {
-  if (!is.null(error_spec)) {
-    vc_filtered <- vc %>%
-      filter(component %in% error_spec)
-
-    sum(vc_filtered$var, na.rm = TRUE)
-  } else {
-    residual_facets <- if (!is.null(residual_is)) parse_component_facets(residual_is) else NULL
-
-    vc_filtered <- vc %>%
-      mutate(
-        is_universe = component %in% universe_spec,
-        is_residual = (component == "Residual"),
-        is_interaction = purrr::map_lgl(component, is_interaction),
-        has_universe = purrr::map_lgl(component, function(c) {
-          facets <- parse_component_facets(c)
-          any(universe_spec %in% facets)
-        }),
-        is_agg_main = if (!is.null(agg_facets)) {
-          purrr::map_lgl(component, function(c) {
-            if (c == "Residual") return(FALSE)
-            facets <- parse_component_facets(c)
-            length(facets) == 1 && facets %in% agg_facets
-          })
-        } else {
-          FALSE
-        }
-      ) %>%
-      filter(
-        !is_universe,
-        !is_agg_main,
-        is_residual | has_universe
-      )
-
-    sum(vc_filtered$var, na.rm = TRUE)
-  }
+  components <- vc$component
+  classification <- classify_error_components(components, universe_spec, error_spec, agg_facets)
+  sum(vc$var[classification$is_relative_error], na.rm = TRUE)
 }
 
 #' Compute Absolute Error Variance
@@ -587,94 +610,9 @@ compute_relative_error <- function(vc, universe_spec, error_spec = NULL, agg_fac
 #'
 #' @keywords internal
 compute_absolute_error <- function(vc, universe_spec, error_spec = NULL, agg_facets = NULL, residual_is = NULL) {
-  if (!is.null(error_spec)) {
-    vc_filtered <- vc %>%
-      filter(component %in% error_spec)
-
-    sum(vc_filtered$var, na.rm = TRUE)
-  } else {
-    vc_filtered <- vc %>%
-      mutate(
-        is_agg_main = if (!is.null(agg_facets)) {
-          purrr::map_lgl(component, function(c) {
-            if (c == "Residual") return(FALSE)
-            facets <- parse_component_facets(c)
-            length(facets) == 1 && facets %in% agg_facets
-          })
-        } else {
-          FALSE
-        }
-      ) %>%
-      filter(
-        !(component %in% universe_spec),
-        !is_agg_main
-      ) %>%
-      select(-is_agg_main)
-
-    sum(vc_filtered$var, na.rm = TRUE)
-  }
-}
-
-#' Compute Generalizability Coefficient
-#'
-#' Calculates the generalizability coefficient (G coefficient), which represents
-#' the proportion of observed variance attributable to universe score variance
-#' for relative decisions.
-#'
-#' @param variance_components A tibble of variance components.
-#' @param n A named list specifying the number of levels for each facet.
-#' @param object Specification for object of measurement (character, vector, or formula).
-#' @param error Specification for error components, or NULL for default.
-#' @param aggregation Character vector of facets to aggregate over.
-#' @param residual_is Character string specifying which facets make up the residual.
-#' @param n_provided Logical indicating if n was explicitly provided.
-#' @return The G coefficient as a numeric value.
-#'
-#' @keywords internal
-compute_g_coefficient <- function(variance_components, n, object, error = NULL,
-                                  aggregation = NULL, residual_is = NULL, n_provided = FALSE) {
-  d_vc <- calculate_dstudy_variance(variance_components, n, object, aggregation, n_provided, residual_is)
-
-  coefs <- calculate_coefficients(d_vc, n, object, error, aggregation, residual_is)
-
-  coefs$g
-}
-
-#' Compute Dependability Coefficient
-#'
-#' Calculates the dependability coefficient (Phi coefficient), which represents
-#' the proportion of observed variance attributable to universe score variance
-#' for absolute decisions.
-#'
-#' @param variance_components A tibble of variance components.
-#' @param n A named list specifying the number of levels for each facet.
-#' @param object Specification for object of measurement (character, vector, or formula).
-#' @param error Specification for error components, or NULL for default.
-#' @param aggregation Character vector of facets to aggregate over.
-#' @param residual_is Character string specifying which facets make up the residual.
-#' @param n_provided Logical indicating if n was explicitly provided.
-#' @return The Phi coefficient as a numeric value.
-#'
-#' @keywords internal
-compute_phi_coefficient <- function(variance_components, n, object, error = NULL,
-                                    aggregation = NULL, residual_is = NULL, n_provided = FALSE) {
-  d_vc <- calculate_dstudy_variance(variance_components, n, object, aggregation, n_provided, residual_is)
-
-  coefs <- calculate_coefficients(d_vc, n, object, error, aggregation, residual_is)
-
-  coefs$phi
-}
-
-#' Compute Standard Error of Measurement
-#'
-#' Calculates the standard error of measurement (SEM) for a D-study design.
-#'
-#' @param error_variance The error variance (relative or absolute).
-#' @return The standard error of measurement.
-#'
-#' @keywords internal
-compute_sem <- function(error_variance) {
-  sqrt(error_variance)
+  components <- vc$component
+  classification <- classify_error_components(components, universe_spec, error_spec, agg_facets)
+  sum(vc$var[classification$is_absolute_error], na.rm = TRUE)
 }
 
 #' Identify Error Components for D-Study (Internal)
@@ -692,6 +630,29 @@ compute_sem <- function(error_variance) {
 #' @keywords internal
 identify_error_components_for_draws <- function(components, universe_spec, error_spec = NULL,
                                                 agg_facets = NULL) {
+  classify_error_components(components, universe_spec, error_spec, agg_facets)
+}
+
+#' Classify Error Components for D-Study
+#'
+#' Unified function that determines which variance components belong to
+#' relative and absolute error, consolidating the logic previously
+#' duplicated across `compute_relative_error()`, `compute_absolute_error()`,
+#' and `identify_error_components_for_draws()`.
+#'
+#' @param components Character vector of component names.
+#' @param universe_spec Character vector of universe components.
+#' @param error_spec Character vector of explicit error components (or NULL for default).
+#' @param agg_facets Character vector of aggregation facets (or NULL).
+#'
+#' @return A list with:
+#' \item{is_relative_error}{Logical vector: TRUE for components in relative error}
+#' \item{is_absolute_error}{Logical vector: TRUE for components in absolute error}
+#' \item{error_spec_used}{Logical: TRUE if an explicit error_spec was provided}
+#'
+#' @keywords internal
+classify_error_components <- function(components, universe_spec, error_spec = NULL,
+                                      agg_facets = NULL) {
   n_comp <- length(components)
   is_universe <- components %in% universe_spec
 
