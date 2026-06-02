@@ -217,6 +217,22 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
     cat("Dimension Variable:", x$dimension_var, "\n")
     cat("Number of observations:", x$n_obs, "\n")
     cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n\n")
+  } else if (isTRUE(x$is_unbalanced)) {
+    cat("Multivariate Generalizability Study (MG-Study)\n")
+    cat("(Unbalanced - Different sample sizes per dimension)\n")
+    cat("=============================================\n\n")
+
+    cat("Backend:", x$backend, "\n")
+    cat("Formula:", deparse(x$formula), "\n")
+    cat("Number of observations:", x$n_obs, "\n")
+    cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n")
+    if (!is.null(x$n_per_dim)) {
+      cat("\nPer-dimension totals:\n")
+      for (d in names(x$n_per_dim)) {
+        cat("  ", d, ":", x$n_per_dim[[d]], "\n")
+      }
+    }
+    cat("\n")
   } else {
     cat("Multivariate Generalizability Study (MG-Study)\n")
     cat("=============================================\n\n")
