@@ -36,20 +36,6 @@ is_interaction <- function(component) {
   grepl(":", component)
 }
 
-#' Check if Component is the Object of Measurement
-#'
-#' Determines whether a variance component represents the main effect
-#' of the object of measurement (not an interaction).
-#'
-#' @param component Character string naming the variance component.
-#' @param object Character string naming the object of measurement.
-#' @return TRUE if the component is the object main effect.
-#'
-#' @keywords internal
-is_object_effect <- function(component, object) {
-  !grepl(":", component) && identical(component, object)
-}
-
 #' Check if Object is in Component
 #'
 #' Determines whether the object of measurement appears in a variance component
@@ -77,15 +63,10 @@ object_in_component <- function(component, object) {
 #' - A formula: obj ~ p + p:d (LHS is ignored for error spec, or can be used for object name)
 #' - A one-sided formula: ~ p + p:d (extracts variables from RHS)
 #'
-#' @param spec Specification (character, character vector, or formula).
+#' @param x Specification (character, character vector, or formula).
 #' @return A character vector of component names.
 #'
 #' @keywords internal
-extract_facet_names <- function(spec) {
-  if (is.null(spec) || length(spec) == 0) return(character(0))
-  unique(unlist(strsplit(spec, ":")))
-}
-
 parse_specification <- function(x) {
   if (is.null(x) || length(x) == 0) return(character(0))
 

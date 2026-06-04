@@ -1,24 +1,32 @@
 ## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  fig.align = "center"
 )
 
 ## -----------------------------------------------------------------------------
 library(facet)
-library(dplyr)
-library(tidyr)
 library(broom)
+library(dplyr)
 
-# Load Brennan dataset
+# Brennan (2001) dataset: Person crossed with Task and Rater
 data(brennan)
+head(brennan)
 
-# Conduct G-study with default (lme4) backend
-# We specify a person-by-task design.
-g <- gstudy(Score ~ (1 | Person) + (1 | Task), 
+# Rajaratnam, Cronbach, & Gleser (1965): Person crossed with Subtest, 
+# Items nested within Subtest
+data(rajaratnam)
+head(rajaratnam)
+
+## -----------------------------------------------------------------------------
+# Simple G-study with default REML backend
+g <- gstudy(Score ~ (1 | Person) + (1 | Task),
             data = brennan)
 
-# View variance components
+# Print basic results
 print(g)
 
 ## -----------------------------------------------------------------------------
@@ -35,9 +43,17 @@ tidy(g)
 glance(g)
 
 ## -----------------------------------------------------------------------------
+# Components ordered by variance
+tidy(g) %>%
+  arrange(desc(var)) %>%
+  mutate(pct_cumulative = cumsum(pct))
+
+## -----------------------------------------------------------------------------
 # G-study with profile likelihood confidence intervals
+# Note: Rater is nested within Task, so we use Rater:Task notation
 g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
 )
@@ -45,48 +61,43 @@ g_profile <- gstudy(
 summary(g_profile)
 
 ## -----------------------------------------------------------------------------
-# G-study with bootstrap confidence intervals
-# Using fewer iterations for speed in this example
+# G-study with bootstrap confidence intervals (50 iterations for speed)
 g_boot <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
   ci_method = "boot",
-  nsim = 50,  # Number of bootstrap samples
-  boot.type = "perc"  # Percentile bootstrap
+  nsim = 50,
+  boot.type = "perc"
 )
 
 summary(g_boot)
 
 ## -----------------------------------------------------------------------------
-# Method of moments G-study
+# Method of moments G-study with nested design (Rater nested in Task)
 g_mom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
-          (1 | Person:Task),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "mom"
 )
 
-# Summary shows confidence intervals
 summary(g_mom)
 
 ## -----------------------------------------------------------------------------
-# Example with nested data (Method of Moments)
-# Using rajaratnam dataset: items nested within subtests
-data(rajaratnam)
-
+# Items nested within subtests (rajaratnam dataset)
 g_nested <- gstudy(
-  Score ~ (1 | Person) + (1 | Subtest) + (1 | Item:Subtest) + (1 | Person:Subtest),
+  Score ~ (1 | Person) + (1 | Subtest) + (1 | Item:Subtest) +
+    (1 | Person:Subtest),
   data = rajaratnam,
   backend = "mom"
 )
 
-print(g_nested)
+summary(g_nested)
 
 ## ----eval=FALSE---------------------------------------------------------------
-# # Bayesian G-study with brms
-# # Note: Requires brms and Stan to be installed
+# # Bayesian G-study with default priors
 # g_bayes <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
 #   data = brennan,
 #   backend = "brms"
 # )
@@ -94,76 +105,109 @@ print(g_nested)
 # print(g_bayes)
 # summary(g_bayes)
 
+## ----eval=FALSE---------------------------------------------------------------
+# # View default priors for a model
+# library(brms)
+# default_prior(Score ~ (1 | Person) + (1 | Task),
+#               data = brennan, backend = "brms")
+# 
+# # Define custom priors
+# my_prior <- c(
+#   set_prior("exponential(1)", class = "sd", group = "Person"),
+#   set_prior("exponential(0.5)", class = "sd", group = "Task"),
+#   set_prior("student_t(3, 0, 2)", class = "sd", group = "Rater"),
+#   set_prior("exponential(1)", class = "sigma")
+# )
+# 
+# g_custom <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   data = brennan,
+#   backend = "brms",
+#   prior = my_prior
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Extract and check diagnostics
+# library(posterior)
+# 
+# # View Rhat values (should be near 1.0)
+# g_bayes$variance_components %>%
+#   select(component, Rhat, Bulk_ESS, Tail_ESS)
+# 
+# # Extract posterior draws
+# draws <- as_draws_matrix(g_bayes$model)
+# 
+# # Plot posterior distributions
+# plot(g_bayes, type = "variance")
+
 ## -----------------------------------------------------------------------------
 # Conduct D-study with 3 tasks and 4 raters
-# (using our previously fitted lme4 g-study 'g')
 d <- dstudy(g, n = list(Task = 3, Rater = 4))
 
 print(d)
-summary(d)
+
+## -----------------------------------------------------------------------------
+# Access coefficients directly
+d$coefficients
+
+# Universe score variance (true variance)
+cat("Universe score variance:", d$coefficients$uni, "\n")
+
+# Relative error variance (affects rank-ordering)
+cat("Relative error variance:", d$coefficients$sigma2_delta, "\n")
+
+# Absolute error variance (affects absolute scores)
+cat("Absolute error variance:", d$coefficients$sigma2_delta_abs, "\n")
+
+# G coefficient
+cat("G coefficient:", d$coefficients$g, "\n")
+
+# Phi coefficient
+cat("Phi coefficient:", d$coefficients$phi, "\n")
 
 ## -----------------------------------------------------------------------------
 # Explore different numbers of tasks and raters
 d_sweep <- dstudy(g, n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)))
 
-# View coefficients for each design
-# Using tidy() to get a nice data frame of coefficients
-library(broom)
+# View all combinations
 tidy(d_sweep)
 
 ## -----------------------------------------------------------------------------
-# D-study with a cut-score of 7 (on a 0-10 scale)
-# First, let's check the grand mean from our G-study
-mu_y <- extract_grand_mean(g)
+# Plot sweep results
+plot(d_sweep, type = "sweep")
+
+## -----------------------------------------------------------------------------
+# Extract grand mean from G-study
+mu_y <- mean(brennan$Score)
 cat("Grand mean:", mu_y, "\n")
 
-# Now conduct D-study with cut_score = 7
+# D-study with cut-score of 7
 d_cut <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 7)
 
 print(d_cut)
 
 ## -----------------------------------------------------------------------------
-# Compare coefficients with and without cut-score
-d_standard <- dstudy(g, n = list(Task = 3, Rater = 4))
-
-# Standard phi (no cut-score)
-cat("Standard phi:", d_standard$coefficients$phi, "\n")
-
-# Phi-cut with cut-score of 7
-cat("Phi-cut (c=7):", d_cut$coefficients$phi_cut, "\n")
-
-# Phi-cut with different cut-scores
+# Compare different cut-scores
 d_cut_5 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 5)
+d_cut_7 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 7)
 d_cut_9 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 9)
 
 cat("Phi-cut (c=5):", d_cut_5$coefficients$phi_cut, "\n")
+cat("Phi-cut (c=7):", d_cut_7$coefficients$phi_cut, "\n")
 cat("Phi-cut (c=9):", d_cut_9$coefficients$phi_cut, "\n")
 
 ## -----------------------------------------------------------------------------
-# Sweep with cut-score
-d_sweep_cut <- dstudy(
+# Include Person:Task interaction in universe
+d_universe <- dstudy(
   g, 
-  n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)),
-  cut_score = 7
+  n = list(Task = 3, Rater = 4),
+  universe = c("Person", "Person:Task")
 )
 
-# View results
-tidy(d_sweep_cut)
+summary(d_universe)
 
 ## -----------------------------------------------------------------------------
-# Access the grand mean used
-d_cut$mu_y
-d_cut$cut_score
-
-## -----------------------------------------------------------------------------
-# D-study with custom universe specification
-# The object of measurement is Person
-d_custom <- dstudy(g, n = list(Task = 3, Rater = 4), 
-                   universe = c("Person", "Person:Task"))
-
-## -----------------------------------------------------------------------------
-# D-study with custom error specification
-# Using only interaction terms as error sources
+# Only use specific interactions as error sources
 d_error <- dstudy(
   g,
   n = list(Task = 3, Rater = 4),
@@ -173,8 +217,7 @@ d_error <- dstudy(
 summary(d_error)
 
 ## -----------------------------------------------------------------------------
-# D-study with aggregation over raters
-# This models the case where we average scores across Tasks or Raters
+# Average scores across Raters
 d_agg <- dstudy(
   g,
   n = list(Task = 3, Rater = 4),
@@ -185,32 +228,17 @@ d_agg <- dstudy(
 summary(d_agg)
 
 ## ----eval=FALSE---------------------------------------------------------------
-# # D-study with posterior estimation (requires brms backend)
-# # Note: This uses full posterior to compute coefficients with uncertainty
-# d_post <- dstudy(
-#   g_bayes,
-#   n = list(rater = 3),
-#   estimation = "posterior"
+# # Bayesian G-study
+# g_brms <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task),
+#   data = brennan,
+#   backend = "brms"
 # )
 # 
-# print(d_post)
-# 
-# # Access posterior distributions
-# names(d_post$posterior)
-
-## ----eval=FALSE---------------------------------------------------------------
-# # D-study with posterior from lme4 gstudy
-# d_post2 <- dstudy(
-#   g,
-#   n = list(rater = 3),
-#   estimation = "posterior"
-# )
-
-## ----eval=FALSE---------------------------------------------------------------
 # # D-study with 95% credible intervals
 # d_ci <- dstudy(
-#   g_bayes,
-#   n = list(Task = 3, Rater = 4),
+#   g_brms,
+#   n = list(Task = 3),
 #   ci = c("g", "phi")
 # )
 # 
@@ -219,236 +247,399 @@ summary(d_agg)
 ## ----eval=FALSE---------------------------------------------------------------
 # # 90% credible interval
 # d_ci_90 <- dstudy(
-#   g_bayes,
-#   n = list(Task = 3, Rater = 4),
+#   g_brms,
+#   n = list(Task = 3),
 #   ci = "g",
 #   probs = c(0.05, 0.95)
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
-# d_cut_ci <- dstudy(
-#   g_bayes,
-#   n = list(Task = 3, Rater = 4),
-#   cut_score = 7,
-#   ci = c("g", "phi", "phi-cut")
-# )
-
-## ----eval=FALSE---------------------------------------------------------------
-# # This will produce a warning
-# g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task), data = brennan)
-# d <- dstudy(g_lme4, n = list(Task = 3), ci = "g")
-# # Warning: Credible intervals for 'mom' and 'lme4' backends are not yet implemented.
-
-## -----------------------------------------------------------------------------
-# Bar plot of variance components (proportions)
-plot(g, type = "proportion")
-
-## -----------------------------------------------------------------------------
-# Bar plot on variance scale
-plot(g, type = "variance")
-
-## -----------------------------------------------------------------------------
-# Bar plot of G and D coefficients
-plot(d, type = "coefficients")
-
-## -----------------------------------------------------------------------------
-# Sweep plot (for sample size exploration)
-plot(d_sweep, type = "sweep")
-
-## -----------------------------------------------------------------------------
-# Plot all random effects
-plot_ranef(g)
-
-# Plot a specific facet
-plot_ranef(g, which = "Person")
-
-## -----------------------------------------------------------------------------
-# Get variance components as data frame
-vc <- tidy(g)
-vc
-
-## -----------------------------------------------------------------------------
-# Filter specific components
-vc %>%
-  filter(component != "Residual") %>%
-  mutate(pct_total = var / sum(var) * 100)
-
-## -----------------------------------------------------------------------------
-# Access the fitted model
-model <- g$model
-print(summary(model))
-
-## ----eval=FALSE---------------------------------------------------------------
-# # Extract variance-covariance matrices (requires loading lme4)
-# library(lme4)
-# vc_obj <- VarCorr(g)
-# print(vc_obj)
-# 
-# # Extract random effects (BLUPs/conditional modes)
-# re <- ranef(g)
-# print(re)
-
-## ----eval=FALSE---------------------------------------------------------------
-# # Extract random effects from Bayesian model
-# re_bayes <- ranef(g_bayes)
-# print(re_bayes)
-# 
-# # Parameter pairs plot
-# # pairs(g_bayes)
-
-## ----eval=FALSE---------------------------------------------------------------
-# # Extract posterior draws
-# draws <- brms::as_draws_matrix(g_bayes$model)
-
-## -----------------------------------------------------------------------------
-# Extract latent scores from a G-study
-# Using the default universe (Person only)
-latent_scores <- latent(g)
-
-head(latent_scores)
-
-## -----------------------------------------------------------------------------
-# Include Person:Task interaction in the universe
-latent_with_interaction <- latent(g, universe = c("Person", "Person:Task"))
-
-head(latent_with_interaction)
-
-## -----------------------------------------------------------------------------
-# Using formula syntax
-latent_formula <- latent(g, universe = ~ Person + Person:Task)
-
-head(latent_formula)
-
-## ----eval=FALSE---------------------------------------------------------------
-# # Create multivariate data
+# # Prepare multivariate data (wide format)
 # brennan_wide <- brennan %>%
-#   pivot_wider(names_from = Task, values_from = Score, names_prefix = "Task")
+#   tidyr::pivot_wider(
+#     names_from = Task,
+#     values_from = Score,
+#     names_prefix = "Task"
+#   )
+# 
+# head(brennan_wide)
 # 
 # # Multivariate G-study
 # g_mv <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-#   data = brennan_wide
-# )
-# 
-# # Extract latent scores for each dimension
-# latent_mv <- latent(g_mv)
-# head(latent_mv)
-
-## ----eval=FALSE---------------------------------------------------------------
-# # Create multivariate data by spreading the tasks
-# brennan_wide <- brennan %>%
-#   pivot_wider(names_from = Task, values_from = Score, names_prefix = "Task")
-# 
-# # Multivariate G-study (automatically uses brms)
-# g_mv <- gstudy(
-#   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-#   data = brennan_wide
+#   data = brennan_wide,
+#   backend = "brms"
 # )
 # 
 # summary(g_mv)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # View variance components by dimension
+# tidy(g_mv)
 # 
-# # D-study for multivariate models
+# # View correlations between dimensions
+# g_mv$correlations$residual_cor
+# 
+# # Random effect correlations
+# g_mv$correlations$random_effect_cor
+
+## ----eval=FALSE---------------------------------------------------------------
+# # D-study for multivariate model
 # d_mv <- dstudy(g_mv, n = list(Rater = 4))
+# 
+# # Coefficients for each dimension
+# tidy(d_mv)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Multivariate G-study
+# g_mv <- gstudy(
+#   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
+#   data = brennan_wide,
+#   backend = "brms"
+# )
+# 
+# # D-study with default equal weights
+# d_mv <- dstudy(g_mv, n = list(Rater = 4))
+# 
+# # View coefficients (includes Composite row)
 # print(d_mv)
 
 ## ----eval=FALSE---------------------------------------------------------------
-# data(rajaratnam)
-# head(rajaratnam)
+# # Custom weights: Task1=50%, Task2=30%, Task3=20%
+# d_weighted <- dstudy(
+#   g_mv,
+#   n = list(Rater = 4),
+#   weights = c(0.5, 0.3, 0.2)
+# )
+# 
+# # Compare composite coefficients
+# cat(
+#   "Equal weights G:",
+#   d_mv$coefficients$g[d_mv$coefficients$dim == "Composite"],
+#   "\n"
+# )
+# cat(
+#   "Custom weights G:",
+#   d_weighted$coefficients$g[d_weighted$coefficients$dim == "Composite"],
+#   "\n"
+# )
 
 ## ----eval=FALSE---------------------------------------------------------------
+# library(facet)
 # library(brms)
 # 
-# # Long-format multivariate G-study
-# # - Subtest is the dimension variable (3 levels: A, B, C)
-# # - (0+Subtest|r|Person) - correlated random effects for Person
-# # - (0+Subtest||Item) - uncorrelated random effects for Item
-# # - sigma ~ 0 + Subtest - separate residual variance per subtest
+# # Multivariate G-study with items nested within subtests
+# # Note: This uses long-format specification
+# g_mv <- gstudy(
+#   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
+#      sigma ~ 0 + Subtest),
+#   data = rajaratnam,
+#   backend = "brms",
+#   chains = 2,
+#   iter = 1000
+# )
+# 
+# # D-study computing VAR
+# d_mv <- dstudy(
+#   g_mv,
+#   n = list(Person = 5)
+# )
+# 
+# # Access PRMSE and VAR results using prmse()
+# prmse(d_mv)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Get a tidy data frame with all PRMSE and VAR results
+# prmse(d_mv)
+# 
+# # Access posterior means directly (use [[ to avoid partial matching with variance_components)
+# d_mv[["var"]]$var_rel     # VAR (relative) means
+# d_mv[["var"]]$var_abs     # VAR (absolute) means
+# d_mv[["var"]]$prmse_c_rel # PRMSE(C→S_i) (relative) means
+# d_mv[["var"]]$prmse_c_abs # PRMSE(C→S_i) (absolute) means
+# 
+# # Access full posterior draws (for custom analysis)
+# dim(d_mv[["var"]]$var_rel_draws)     # [n_draws, n_dims]
+# dim(d_mv[["var"]]$prmse_c_rel_draws) # [n_draws, n_dims]
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Default 95% credible intervals
+# prmse(d_mv)
+# 
+# # Custom credible intervals (e.g., 90%)
+# prmse(d_mv, probs = c(0.05, 0.95))
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Check if VAR results are available (use [[ to avoid partial matching)
+# if (!is.null(d_mv[["var"]])) {
+#   prmse(d_mv)
+# } else {
+#   message("VAR not available for this model")
+# }
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Long-format specification
+# library(brms)
 # 
 # g_long <- gstudy(
-#   bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+#   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
 #      sigma ~ 0 + Subtest),
 #   data = rajaratnam,
 #   backend = "brms"
 # )
 # 
-# # Verify it was detected as long-format
+# # Check detection
 # g_long$long_format_multivariate  # TRUE
 # g_long$dimension_var             # "Subtest"
-
-## ----eval=FALSE---------------------------------------------------------------
-# g_long$sample_size_tibble
-
-## ----eval=FALSE---------------------------------------------------------------
-# print(g_long)
-
-## ----eval=FALSE---------------------------------------------------------------
-# g_long$correlations$random_effect_cor
-
-## ----eval=FALSE---------------------------------------------------------------
-# # D-study with user-specified sample sizes (applies to all dimensions)
-# d_long <- dstudy(g_long, n = list(Person = 10))
+# g_long$dimensions                # c("A", "B", "C")
 # 
-# # Coefficients are computed per dimension
-# d_long$coefficients
+# summary(g_long)
+
+## -----------------------------------------------------------------------------
+# Basic latent scores (Person only)
+latent_scores <- latent(g)
+
+head(latent_scores)
+
+## -----------------------------------------------------------------------------
+# Include Person:Task interaction
+latent_interaction <- latent(g, universe = c("Person", "Person:Task"))
+
+head(latent_interaction)
 
 ## ----eval=FALSE---------------------------------------------------------------
-# # The residual variances shown are on the original scale
-# # (already exponentiated from log scale)
-# g_long$variance_components %>%
-#   filter(component == "Residual") %>%
-#   select(dim, var, lower, upper)
+# # Latent scores from Bayesian G-study
+# latent_bayes <- latent(g_bayes)
+# 
+# head(latent_bayes)
 
 ## -----------------------------------------------------------------------------
-# G-study with three facets (see Basic G-Study section)
-# D-study: what if we used 5 tasks rated by 2 raters?
-d_3f <- dstudy(
-  g,
-  n = list(Task = 5, Rater = 2)
-)
+# Variance scale
+plot(g, type = "variance")
 
-summary(d_3f)
+# Proportion of variance
+plot(g, type = "proportion")
 
 ## -----------------------------------------------------------------------------
-library(facet)
-library(dplyr)
-
-# 1. Load data
-data(brennan)
-
-# 2. Conduct G-study with profile confidence intervals
-g <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-          (1 | Person:Task),
+# Forest plot (requires CIs)
+g_ci <- gstudy(
+  Score ~ (1 | Person) + (1 | Task),
   data = brennan,
   ci_method = "profile"
 )
 
-# 3. View results
-summary(g)
-
-# 4. Conduct D-study with specific design (e.g., 5 tasks, 3 raters)
-d <- dstudy(g, n = list(Task = 5, Rater = 3))
-
-# 5. View coefficients
-summary(d)
-
-# 6. Explore alternative designs (Sample Size Sweep)
-d_alt <- dstudy(g, n = list(Task = c(2, 5, 10), Rater = c(1, 2, 5)))
-
-# 7. Plot sweep results
-plot(d_alt, type = "sweep")
-
-# 8. Extract and analyze variance components
-tidy(g) %>%
-  filter(component != "Residual") %>%
-  arrange(desc(var))
+plot(g_ci, type = "forest")
 
 ## -----------------------------------------------------------------------------
-is.gstudy(g)
-is.dstudy(d)
+# All random effects
+plot_ranef(g)
+
+# Specific facet
+plot_ranef(g, which = "Person")
 
 ## -----------------------------------------------------------------------------
-# Display on SD scale
-print(g, scale = "sd")
-summary(g, scale = "sd")
+# Create sweep
+d_sweep <- dstudy(g, n = list(Task = c(2, 5, 10), Rater = c(2, 4, 8)))
+
+# Plot sweep
+plot(d_sweep, type = "sweep")
+
+# Single coefficient
+plot(d_sweep, type = "sweep", coefficient = "g")
+
+## -----------------------------------------------------------------------------
+# Access the underlying model object
+model <- g$model
+
+# For lme4 models
+class(model)
+
+# Extract random effects
+re <- ranef(g)
+re
+
+# Extract variance-covariance
+VarCorr(g)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Extract posterior draws
+# draws <- brms::as_draws_matrix(g_bayes$model)
+# 
+# # Examine parameter names
+# colnames(draws)
+# 
+# # Compute custom summaries
+# posterior::summarise_draws(draws)
+
+## -----------------------------------------------------------------------------
+# Check for warnings
+g$model@optinfo$conv$lme4
+
+# Singular fits indicate near-zero variance components
+lme4::isSingular(g$model)
+
+## -----------------------------------------------------------------------------
+# Check if any components were truncated
+g_mom$variance_components %>%
+  filter(var == 0)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Check Rhat values
+# g_bayes$variance_components %>%
+#   select(component, Rhat, Bulk_ESS, Tail_ESS) %>%
+#   mutate(
+#     converged = Rhat < 1.01,
+#     sufficient_ess = Bulk_ESS > 400 & Tail_ESS > 400
+#   )
+# 
+# # View estimation issues
+# g_bayes$estimation_issues
+
+## -----------------------------------------------------------------------------
+library(facet)
+library(dplyr)
+library(tidyr)
+library(broom)
+
+# 1. Load and explore data
+data(brennan)
+summary(brennan)
+
+# Check design structure (Raters nested within Task)
+brennan %>%
+  group_by(Task) %>%
+  summarise(
+    raters = paste(sort(unique(Rater)), collapse = ", "),
+    n_raters = n_distinct(Rater)
+  )
+
+# 2. Conduct G-study with profile CIs (using nested design)
+g_full <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
+  data = brennan,
+  ci_method = "profile"
+)
+
+# 3. Examine variance components
+summary(g_full)
+
+# Identify largest sources of variance
+tidy(g_full) %>%
+  arrange(desc(var)) %>%
+  mutate(
+    cum_pct = cumsum(pct),
+    component = factor(component, levels = component)
+  )
+
+# 4. Conduct D-study to optimize design
+# Current design: 3 tasks, 4 raters per task
+d_current <- dstudy(g_full, n = list(Task = 3, `Rater:Task` = 4))
+cat("Current design G:", d_current$coefficients$g, "\n")
+cat("Current design Phi:", d_current$coefficients$phi, "\n")
+
+# 5. Explore alternative designs
+d_explore <- dstudy(
+  g_full,
+  n = list(
+    Task = c(1, 2, 3, 5, 10),
+    `Rater:Task` = c(1, 2, 4, 8, 12)
+  )
+)
+
+# Find designs achieving G >= 0.80
+tidy(d_explore) %>%
+  filter(g >= 0.80) %>%
+  arrange(g)
+
+# 6. Visualize
+plot(d_explore, type = "sweep")
+
+# 7. Make recommendation
+# Optimal design: minimum resources for G >= 0.80
+optimal <- tidy(d_explore) %>%
+  filter(g >= 0.80) %>%
+  arrange(Task * `Rater:Task`) %>%
+  slice(1)
+
+print(optimal)
+
+## -----------------------------------------------------------------------------
+# G-study with nested design (Raters nested within Task)
+g_3f <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
+  data = brennan
+)
+
+summary(g_3f)
+
+# D-study: what if we used 5 tasks with 2 raters each?
+# Note: Use backticks for nested facet names in dstudy
+d_3f <- dstudy(g_3f, n = list(Task = 5, `Rater:Task` = 2))
+
+summary(d_3f)
+
+# Compare with original design
+d_orig <- dstudy(g_3f, n = list(Task = 3, `Rater:Task` = 4))
+
+cat("Original (3 tasks, 4 raters/task): G =", d_orig$coefficients$g, "\n")
+cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Optimize weights for maximum composite reliability
+# result <- prmse(d_mv, optimize = "composite")
+# 
+# # View optimal weights
+# result$weights
+# 
+# # View composite reliability achieved
+# result$composite_reliability
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Optimize weights for maximum subscale VAR
+# result <- prmse(d_mv, optimize = "subscale")
+# 
+# # View minimax results (maximizes minimum VAR)
+# result$minimax$weights
+# result$minimax$min_var
+# 
+# # View per-subscale results
+# result$per_subscale
+# 
+# # View comparison table
+# result$comparison
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Grid search with 0.2 resolution
+# result <- prmse(d_mv, optimize = "tuning", grid_resolution = 0.2)
+# 
+# # View best solution
+# result$best$weights
+# 
+# # View full grid results
+# head(result$grid_results)
+# 
+# # Number of viable solutions (all VAR > 1)
+# result$n_viable
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Compare all three methods
+# comp <- prmse(d_mv, optimize = "composite")
+# sub <- prmse(d_mv, optimize = "subscale")
+# tun <- prmse(d_mv, optimize = "tuning", grid_resolution = 0.1)
+# 
+# # Compare weights
+# cat("Composite optimization weights:", round(comp$weights, 3), "\n")
+# cat("Subscale minimax weights:", round(sub$minimax$weights, 3), "\n")
+# cat("Tuning best weights:", round(tun$best$weights, 3), "\n")
+# 
+# # Compare metrics
+# cat("Composite reliability:", round(comp$composite_reliability, 3), "\n")
+# cat("Minimum VAR (minimax):", round(sub$minimax$min_var, 3), "\n")
+# cat("Minimum VAR (tuning):", round(tun$best$min_var, 3), "\n")
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Include composite reliability row
+# prmse(d_mv, include_composite = TRUE)
 

@@ -1,20 +1,10 @@
 ---
 title: "Using facet for Generalizability Theory"
-author:
-  - name: George Michaelides
-    affiliation: University of East Anglia
-  - name: Duncan J.R. Jackson
-    affiliation: King's College London
 output:
   rmarkdown::html_vignette:
     highlight: null
-    toc: true
-    toc_depth: 3
   rmarkdown::pdf_document:
     toc: true
-    toc_depth: 3
-    latex_engine: xelatex
-bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Using facet for Generalizability Theory}
   %\VignetteEngine{knitr::rmarkdown}
@@ -27,11 +17,7 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.width = 7,
   fig.height = 5,
-  fig.align = "center",
-  cache = TRUE,
-  cache.lazy = FALSE,
-  message = FALSE,
-  warning = FALSE
+  fig.align = "center"
 )
 ```
 
@@ -249,104 +235,6 @@ Long-format models are more flexible but require Bayesian estimation.
 
 G-theory variance components can be estimated using several methods, each with distinct advantages and limitations. The **facet** package supports three estimation approaches: Method of Moments (ANOVA-based), Restricted Maximum Likelihood (via lme4), and Bayesian estimation (via brms/Stan).
 
-## Expected Mean Squares
-
-Understanding variance component estimation requires understanding Expected Mean Squares (EMS). For any ANOVA source, the EMS expresses what that mean square estimates in terms of population variance components. The Method of Moments, REML, and other estimation approaches all build on this framework.
-
-### Deriving EMS: Person $\times$ Item Design
-
-Consider a balanced design where $n_p$ persons each respond to $n_i$ items. The ANOVA table is:
-
-| Source | df | SS | MS | EMS |
-|--------|-----|-----|-----|-----|
-| Person ($p$) | $n_p - 1$ | $SS_p$ | $MS_p$ | $\sigma^2_e + n_i\sigma^2_{pi} + n_i\sigma^2_p$ |
-| Item ($i$) | $n_i - 1$ | $SS_i$ | $MS_i$ | $\sigma^2_e + n_p\sigma^2_{pi} + n_p\sigma^2_i$ |
-| $p \times i$ | $(n_p-1)(n_i-1)$ | $SS_{pi}$ | $MS_{pi}$ | $\sigma^2_e + \sigma^2_{pi}$ |
-
-**Derivation of EMS for Person Effect:**
-
-The model is $X_{pi} = \mu + \mu_p + \mu_i + \mu_{pi} + e_{pi}$.
-
-The person sum of squares is:
-
-$$SS_p = n_i \sum_{p=1}^{n_p} (\bar{X}_p - \bar{X})^2$$
-
-where $\bar{X}_p = \frac{1}{n_i}\sum_i X_{pi}$ and $\bar{X}$ is the grand mean.
-
-The expected value of $SS_p$ requires computing $E(\bar{X}_p - \bar{X})^2$.
-
-First, express $\bar{X}_p$ in terms of the model:
-
-$$\bar{X}_p = \mu + \mu_p + \bar{\mu}_i + \bar{\mu}_{pi} + \bar{e}_p$$
-
-where bars indicate averaging over items.
-
-For random effects, $E(\mu_p^2) = \sigma^2_p$, $E(\mu_i^2) = \sigma^2_i$, $E(\mu_{pi}^2) = \sigma^2_{pi}$, and $E(e_{pi}^2) = \sigma^2_e$.
-
-After algebraic manipulation:
-
-$$E(MS_p) = E\left(\frac{SS_p}{n_p-1}\right) = \sigma^2_e + n_i\sigma^2_{pi} + n_i\sigma^2_p$$
-
-The key insight is that the person mean square contains variance from three sources: residual error, the person $\times$ item interaction (multiplied by $n_i$ because each person mean averages over $n_i$ items), and person variance (also multiplied by $n_i$).
-
-**Why the EMS has those three terms — the intuition.** When you compute the variance of a person's mean across $n_i$ items, the random part of the score gets averaged out. Specifically: residual error ($\sigma^2_e$) shrinks by a factor of $n_i$ because each person sees $n_i$ items and the errors partially cancel. The person $\times$ item interaction also shrinks by a factor of $n_i$, because the interaction is a random component that varies from item to item and therefore averages out across items. The *person* effect, however, is *constant* across items — so it does not shrink at all in the mean; it is multiplied by $n_i$ in the mean square (a mean square is the sum of squares divided by df, and the sum of squares of a constant effect across $n_i$ items scales as $n_i$). So $E(MS_p)$ is $\sigma^2_e + n_i \sigma^2_{pi} + n_i \sigma^2_p$: each piece of the equation is a different combination of "shrinks by averaging" and "stays constant across items."
-
-### Solving EMS Equations
-
-Given the EMS, we solve for variance components algebraically:
-
-1. Start from the bottom of the ANOVA table (highest-order interaction)
-2. Subtract appropriate mean squares to isolate components
-
-For the $p \times i$ design:
-
-$$\hat{\sigma}^2_{pi} = \frac{MS_{pi} - MS_e}{1}$$
-
-In practice, $MS_{pi}$ is the lowest-order term, so:
-
-$$\hat{\sigma}^2_{pi} = MS_{pi} - MS_{residual}$$
-
-But in balanced designs, we estimate:
-
-$$\hat{\sigma}^2_{pi} = MS_{pi} - MS_{residual}$$
-
-For person variance:
-
-$$\hat{\sigma}^2_p = \frac{MS_p - MS_{pi}}{n_i}$$
-
-For item variance:
-
-$$\hat{\sigma}^2_i = \frac{MS_i - MS_{pi}}{n_p}$$
-
-### EMS for Three-Facet Designs
-
-For a person $\times$ item $\times$ rater design ($p \times i \times r$), the EMS becomes more complex:
-
-| Source | EMS |
-|--------|-----|
-| Person ($p$) | $\sigma^2_e + n_r\sigma^2_{pir} + n_i\sigma^2_{pr} + n_r\sigma^2_{pi} + n_i n_r\sigma^2_p$ |
-| Item ($i$) | $\sigma^2_e + n_r\sigma^2_{pir} + n_p\sigma^2_{ir} + n_r\sigma^2_{pi} + n_p n_r\sigma^2_i$ |
-| Rater ($r$) | $\sigma^2_e + n_i\sigma^2_{pir} + n_p\sigma^2_{ir} + n_i\sigma^2_{pr} + n_p n_i\sigma^2_r$ |
-| $p \times i$ | $\sigma^2_e + n_r\sigma^2_{pir} + n_r\sigma^2_{pi}$ |
-| $p \times r$ | $\sigma^2_e + n_i\sigma^2_{pir} + n_i\sigma^2_{pr}$ |
-| $i \times r$ | $\sigma^2_e + n_p\sigma^2_{pir} + n_p\sigma^2_{ir}$ |
-| $p \times i \times r$ | $\sigma^2_e + \sigma^2_{pir}$ |
-
-The solving procedure follows the same pattern, starting from the three-way interaction.
-
-### EMS for Nested Designs
-
-When facets are nested (e.g., items nested within subtests), the EMS structure changes. For items ($i$) nested within subtests ($s$):
-
-| Source | EMS |
-|--------|-----|
-| Subtest ($s$) | $\sigma^2_e + n_i\sigma^2_{pi:s} + n_p\sigma^2_{i:s} + n_p n_i\sigma^2_s$ |
-| Items within subtest ($i:s$) | $\sigma^2_e + n_p\sigma^2_{i:s}$ |
-| Person $\times$ subtest ($p \times s$) | $\sigma^2_e + n_i\sigma^2_{pi:s}$ |
-| Person $\times$ item:subtest ($pi:s$) | $\sigma^2_e + \sigma^2_{pi:s}$ |
-
-Note that nested effects do not appear in EMS for crossed effects, simplifying the equations.
-
 ## Method of Moments (MOM)
 
 ### Historical Development of ANOVA-Based Estimation
@@ -381,63 +269,17 @@ $$\hat{\sigma}^2_i = \frac{MS_i - MS_{pi}}{n_p}$$
 
 For unbalanced designs, the EMS equations become more complex. The **facet** package detects crossing patterns in the data and computes appropriate effective sample sizes.
 
-### Henderson's Method I Worked Example
+### Confidence Intervals
 
-Henderson's Method I [@henderson1953] is the standard ANOVA approach used for balanced G-theory designs. The procedure is:
-
-1. Compute the ANOVA table
-2. Derive EMS for each source
-3. Solve the system of EMS equations algebraically
-
-**Example: $p \times i$ design with 10 persons and 5 items**
-
-If $MS_p = 15.2$, $MS_i = 8.7$, and $MS_{pi} = 3.4$:
-
-$$\hat{\sigma}^2_p = \frac{15.2 - 3.4}{5} = \frac{11.8}{5} = 2.36$$
-
-$$\hat{\sigma}^2_i = \frac{8.7 - 3.4}{10} = \frac{5.3}{10} = 0.53$$
-
-$$\hat{\sigma}^2_{pi} = 3.4$$
-
-The interpretation: universe score variance (person) is 2.36, item difficulty variance is 0.53, and the person $\times$ item interaction is 3.4. Total variance = 6.29, so person variance accounts for 37.5% of total variance.
-
-### Handling Negative Estimates
-
-MOM can produce negative variance estimates when sample mean squares do not follow their expected ordering. For example, if by sampling error $MS_{pi} > MS_p$, the person variance estimate would be negative.
-
-**Standard practice**: Truncate negative estimates to zero. This is ad hoc but practical. Negative estimates indicate either:
-
-1. The true variance component is near zero
-2. Sampling error in mean squares
-3. Model misspecification
-
-### Confidence Intervals: Satterthwaite Approximation
-
-[@satterthwaite1941] and [@satterthwaite1946] developed an approximate distribution for linear combinations of mean squares. For a variance component $\hat{\sigma}^2 = (MS_a - MS_b)/n$:
-
-The approximate degrees of freedom are:
-
-$$df_{approx} = \frac{(MS_a - MS_b)^2}{\frac{MS_a^2}{df_a} + \frac{MS_b^2}{df_b}}$$
-
-The standard error is:
+MOM confidence intervals use asymptotic approximations. For a variance component $\sigma^2$ with mean square $MS$ and degrees of freedom $df$:
 
 $$SE(\hat{\sigma}^2) \approx \sqrt{\frac{2 \cdot MS^2}{df}}$$
 
-Confidence intervals use the chi-square distribution:
+The confidence interval is:
 
-$$CI = \frac{df \cdot \hat{\sigma}^2}{\chi^2_{1-\alpha/2, df}} \text{ to } \frac{df \cdot \hat{\sigma}^2}{\chi^2_{\alpha/2, df}}$$
+$$CI = \hat{\sigma}^2 \pm z_{\alpha/2} \cdot SE(\hat{\sigma}^2)$$
 
-This chi-square-based CI is asymmetric and respects the boundary constraint (variance $\geq$ 0). The simpler Wald-type approximation $\hat{\sigma}^2 \pm z_{\alpha/2} \cdot SE(\hat{\sigma}^2)$ is also used but may produce negative lower bounds that are truncated to zero. Both work reasonably for large degrees of freedom but may be inaccurate for small samples.
-
-**A worked Satterthwaite example.** Suppose you have a $p \times i$ design with $n_p = 10$ persons and $n_i = 5$ items, and you have $MS_p = 15.2$, $MS_{pi} = 3.4$, $df_p = 9$, $df_{pi} = 36$. The person variance estimate is $\hat{\sigma}^2_p = (15.2 - 3.4) / 5 = 2.36$. The approximate degrees of freedom are:
-
-$$df_{approx} = \frac{(15.2 - 3.4)^2}{(15.2^2 / 9) + (3.4^2 / 36)} = \frac{139.1}{25.7 + 0.32} \approx 5.4$$
-
-The 95% CI uses $\chi^2_{0.975, 5.4}$ and $\chi^2_{0.025, 5.4}$:
-
-$$CI = \left[ \frac{5.4 \times 2.36}{12.83}, \frac{5.4 \times 2.36}{0.51} \right] \approx [0.99, 24.98]$$
-
-Note how wide this CI is — about [1.0, 25.0] — even though the point estimate is 2.36. The wide CI reflects two things: (1) the small sample size, and (2) the fact that we are estimating a difference of two mean squares, so the effective df is much smaller than the df of either MS alone. With $n_p = 50$ persons and $n_i = 20$ items, the CI would shrink to roughly [1.6, 3.7]. The practical lesson: **the Satterthwaite df is often the binding constraint on CI width, not the raw sample size.**
+This approximation works reasonably for large $df$ but may be inaccurate for small samples.
 
 ### Strengths and Limitations
 
@@ -471,9 +313,8 @@ The implementation:
 1. Parses the formula to identify facets
 2. Constructs an `aov()` formula with `Error()` terms
 3. Extracts mean squares from each stratum
-4. Detects crossing/nesting patterns from data
-5. Solves EMS equations for variance components
-6. Computes Satterthwaite approximate CIs
+4. Solves EMS equations for variance components
+5. Computes asymptotic confidence intervals
 
 ## Restricted Maximum Likelihood (REML)
 
@@ -580,7 +421,7 @@ The implementation:
 
 A significant advancement in Bayesian G-theory comes from the work of Duncan J.R. Jackson and colleagues, who demonstrated that traditional frequentist G-theory can confound multiple variance sources when facets are crossed (Jackson, Michaelides, Dewberry, & Kim, 2016).
 
-Jackson et al.'s seminal work on assessment center ratings showed that when multiple facets are crossed (e.g., Person $\times$ Exercise $\times$ Rater designs), traditional ANOVA-based methods can conflate variance components, leading to misleading conclusions about the relative contribution of different sources. Their Bayesian unconfounding approach:
+Jackson et al.'s seminal work on assessment center ratings showed that when multiple facets are crossed (e.g., Person × Exercise × Rater designs), traditional ANOVA-based methods can conflate variance components, leading to misleading conclusions about the relative contribution of different sources. Their Bayesian unconfounding approach:
 
 1. **Separates variance sources**: Uses Bayesian estimation to properly attribute variance to each source
 2. **Quantifies uncertainty**: Provides full posterior distributions for variance components, enabling credible intervals for G-coefficients
@@ -621,8 +462,6 @@ The **No-U-Turn Sampler (NUTS)** automatically tunes HMC parameters:
 - Step size $\epsilon$ (adapted during warmup)
 - Number of leapfrog steps $L$ (determined dynamically)
 - Mass matrix $\mathbf{M}$ (adapted to posterior geometry)
-
-**The HMC intuition.** Imagine the posterior distribution as a landscape of varying elevation, where height = negative log-posterior density. Standard MCMC (e.g., Metropolis-Hastings) takes small random steps that can get stuck in narrow valleys or wander aimlessly across high-density plateaus. HMC treats the chain as a *frictionless particle rolling on this landscape* with a randomly assigned momentum. The particle is allowed to roll for some number of leapfrog steps, then its position is recorded as a new sample. The leapfrog integrator approximately conserves Hamiltonian dynamics, so the sampler moves in long, informed trajectories that efficiently explore the posterior's geometry. The NUTS extension automates the choice of trajectory length: it stops when the particle starts to "double back" on itself (a "U-turn"), so the user does not have to specify the number of leapfrog steps. The practical payoff for G-theory: HMC handles the *ratios* of variance components (G, Phi) gracefully, because the full posterior is sampled — there is no need for the delta-method or bootstrap approximations that frequentist CIs require for derived quantities.
 
 ### Convergence Diagnostics
 
@@ -703,121 +542,6 @@ The implementation:
 3. Runs NUTS sampling (default: 4 chains, 2000 iterations)
 4. Extracts posterior draws for variance components
 5. Computes posterior summaries and diagnostics
-
-### When to Use Bayesian Methods
-
-Bayesian estimation is particularly valuable when:
-
-| Situation | Why Bayesian Helps |
-|-----------|-------------------|
-| **Multivariate designs** | Naturally handles variance-covariance matrices |
-| **Small samples** | Prior information stabilizes estimates |
-| **Complex designs** | Avoids asymptotic approximations |
-| **Derived quantities** | Propagates uncertainty through transformations |
-| **Custom priors** | Incorporates domain expertise |
-| **Decision analysis** | Direct probability statements support decisions |
-
-### Prerequisites
-
-The Bayesian backend requires additional packages:
-
-```r
-# Core package
-library(facet)
-
-# Bayesian estimation
-library(brms)
-
-# Posterior manipulation
-library(posterior)
-
-# Visualization
-library(ggplot2)
-library(bayesplot)
-```
-
-### Default Priors in brms
-
-For variance components (standard deviations), brms uses weakly informative priors by default:
-
-$$\sigma \sim \text{Student-}t_3(0, \sigma_{\text{data}})$$
-
-This prior:
-
-- Is bounded below at zero (appropriate for standard deviations)
-- Has heavy tails (allows large values if supported by data)
-- Is weakly informative (centered at the scale of the data)
-
-### Recommended Priors for Variance Components
-
-**Half-Cauchy Prior** [@gelman2006]:
-
-$$\sigma \sim \text{Half-Cauchy}(0, s)$$
-
-With density:
-
-$$p(\sigma) = \frac{2}{\pi s \left(1 + (\sigma/s)^2\right)}, \quad \sigma > 0$$
-
-Properties:
-- Heavy tails allow large variance values
-- Concentrates mass near zero for small effects
-- Scale parameter $s$ controls spread
-
-**Exponential Prior**:
-
-For simplicity, the exponential prior provides a one-parameter alternative:
-
-$$\sigma \sim \text{Exponential}(\lambda)$$
-
-With rate parameter $\lambda$:
-
-$$p(\sigma) = \lambda e^{-\lambda\sigma}, \quad \sigma > 0$$
-
-The expected value is $E[\sigma] = 1/\lambda$. Setting $\lambda = 1$ gives a prior centered at $\sigma = 1$.
-
-**Why half-Cauchy is preferred over inverse-gamma.** The traditional prior on variance parameters (i.e., on $\sigma^2$, not $\sigma$) is the inverse-gamma family. It has a serious problem: the inverse-gamma has a pole at zero that pulls the *posterior* away from zero, even when the data want it there. This is a well-documented pathology in mixed models — when the true variance component is small, an inverse-gamma prior can keep the posterior artificially away from zero, leading to overestimation. The half-Cauchy, by contrast, has a *cusp* at zero: it concentrates mass near zero (good for small effects) but has heavy tails that allow large values if supported by the data. See @gelman2006 for the full argument. As a practical rule: **always prefer the half-Cauchy or Student-t family for variance parameters; avoid inverse-gamma unless you have strong prior information that the variance is bounded away from zero.**
-
-**Regularizing Priors** (code examples):
-
-```r
-# Weakly informative (recommended for most applications)
-prior_weak <- c(
-  set_prior("cauchy(0, 2)", class = "sd"),
-  set_prior("cauchy(0, 2)", class = "sigma")
-)
-
-# Slightly informative (when some variance components expected small)
-prior_reg <- c(
-  set_prior("exponential(1)", class = "sd"),
-  set_prior("exponential(1)", class = "sigma")
-)
-
-# Strongly regularizing (for very small samples or complex designs)
-prior_strong <- c(
-  set_prior("exponential(2)", class = "sd"),
-  set_prior("exponential(2)", class = "sigma")
-)
-```
-
-### Prior for Fixed Effects
-
-For the grand mean (intercept), default priors are typically uninformative:
-
-$$\mu \sim \mathcal{N}(0, 10)$$
-
-Or more informative if the scale of measurement is known:
-
-```r
-# If scores are expected around 5 on a 1-10 scale
-prior_mean <- set_prior("normal(5, 2)", class = "Intercept")
-```
-
-**Why HMC matters specifically for G-theory.** G-theory produces *derived quantities* — G and Phi coefficients — that are nonlinear functions (ratios) of the variance components. In frequentist estimation, the only way to get a CI for a ratio is the delta method (a linear approximation that can be inaccurate for small samples) or the bootstrap (computationally expensive and noisy with few resamples). HMC's full posterior samples let you compute the ratio for *every* posterior draw, giving exact credible intervals for G and Phi with no asymptotic approximations. The credible intervals you see from `dstudy(..., ci = c("g", "phi"))` are computed this way: each draw of the variance components produces a draw of G, and the 2.5th/97.5th percentiles of those G draws are the CI limits. This is one of the main reasons to use Bayesian estimation when you need defensible uncertainty quantification for reliability coefficients.
-
-```r
-# If scores are expected around 5 on a 1-10 scale
-prior_mean <- set_prior("normal(5, 2)", class = "Intercept")
-```
 
 ## Comparison of Estimation Methods
 
@@ -965,8 +689,6 @@ tidy(g) %>%
   mutate(pct_cumulative = cumsum(pct))
 ```
 
-**Interpreting variance component percentages.** The `pct` column tells you where the measurement error is coming from. As a rough rule of thumb: if the Person component is less than 30% of total variance, the measurement is dominated by facets other than individual differences — meaning your instrument is "noisy" in the sense that it is hard to distinguish persons from one another. If a single facet (Task, Rater, etc.) accounts for more than 50% of variance, that facet is a clear target for design improvement: adding more levels of that facet will buy the largest gain in reliability. The cumulative percentage column is useful for identifying the top 2-3 sources of error — these are the facets worth investing in for your next measurement campaign.
-
 ## G-Study with Confidence Intervals
 
 For the **lme4** backend, you can request confidence intervals using the `ci_method` parameter.
@@ -1008,36 +730,6 @@ summary(g_boot)
 
 For production use, increase `nsim` to 500-1000 for stable CI estimates.
 
-### Profile Likelihood vs Bootstrap: A Side-by-Side Comparison
-
-The two CI methods answer the same question (where is the true variance component?) with different tradeoffs. The following chunk fits the same model with both methods and prints the CIs together:
-
-```{r}
-# Fit the same model with both methods
-g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
-    (1 | Person:Task),
-  data = brennan,
-  ci_method = "profile"
-)
-
-# Compare the CIs
-profile_ci <- tidy(g_profile) %>%
-  select(component, var, lower, upper) %>%
-  mutate(method = "profile")
-
-# Bootstrap CIs were computed above in g_boot
-boot_ci <- tidy(g_boot) %>%
-  select(component, var, lower, upper) %>%
-  mutate(method = "boot (nsim=50)")
-
-bind_rows(profile_ci, boot_ci) %>%
-  select(method, component, var, lower, upper) %>%
-  mutate(across(c(var, lower, upper), ~ sprintf("%.3f", .x)))
-```
-
-**Reading the comparison.** In this small balanced design, the two methods usually agree closely on point estimates but can differ on CI width — particularly for components near zero, where the profile-likelihood CI may underestimate uncertainty. The bootstrap is more honest about boundary effects but is also noisier when `nsim` is small (here 50; for publication use 500+). A practical rule: use `ci_method = "profile"` for routine reporting in balanced or near-balanced designs, and `ci_method = "boot"` when components are near zero, when you want to defend a "variance is plausibly zero" claim, or when reviewers want conservative uncertainty quantification.
-
 ## Method of Moments Backend
 
 The Method of Moments backend uses ANOVA-based variance component estimation:
@@ -1076,31 +768,6 @@ summary(g_nested)
 
 For Bayesian estimation, use the **brms** backend. This provides full posterior distributions for variance components.
 
-### Data Preparation
-
-The `brennan` dataset provides a crossed design with persons, tasks, and raters:
-
-```{r, eval=FALSE}
-library(facet)
-data(brennan)
-
-# Examine structure
-head(brennan)
-#   Person Task Rater Score
-# 1      1    1     1     4
-# 2      1    1     2     3
-# 3      1    2     1     5
-# 4      1    2     2     4
-# 5      1    3     1     6
-# 6      1    3     2     5
-
-str(brennan)
-```
-
-### Default Bayesian G-Study
-
-The simplest Bayesian G-study uses default priors:
-
 ```{r, eval=FALSE}
 # Bayesian G-study with default priors
 g_bayes <- gstudy(
@@ -1113,60 +780,11 @@ print(g_bayes)
 summary(g_bayes)
 ```
 
-### Understanding the Output
+The output includes convergence diagnostics:
 
-The output includes:
-
-| Column | Description |
-|--------|-------------|
-| `component` | Variance component name |
-| `estimate` | Posterior mean |
-| `sd` | Posterior standard deviation |
-| `lower` | 95% credible interval lower bound |
-| `upper` | 95% credible interval upper bound |
-| `Rhat` | Convergence diagnostic (target: < 1.01) |
-| `Bulk_ESS` | Effective sample size for posterior bulk |
-| `Tail_ESS` | Effective sample size for posterior tails |
-
-Convergence diagnostics interpretation:
-
-- **R-hat** ($\hat{R}$) compares within-chain and between-chain variance:
-$$\hat{R} = \sqrt{\frac{\widehat{\text{var}}(\psi)}{W}}$$
-Where $\widehat{\text{var}}(\psi) = \frac{n-1}{n}W + \frac{1}{n}B$ with $W$ = within-chain variance and $B$ = between-chain variance.
-- Values < 1.01 indicate convergence
-- Values > 1.05 suggest problems
-
-- **Effective Sample Size (ESS)** estimates the number of independent samples:
-$$\text{ESS} = \frac{N}{1 + 2\sum_{k=1}^{\infty}\rho_k}$$
-- Target: ESS > 400 for reliable inference
-- Higher ESS indicates better mixing
-
-**Reading R-hat and ESS in practice.** Compare the values *across* components, not just against fixed thresholds. A common pattern: R-hat and ESS are fine for the Person and main facet components, but one component (often a small or near-zero interaction) shows R-hat = 1.04 and Bulk_ESS = 300. This usually means that component is poorly identified by the data — there isn't enough information to pin down its value precisely, and the sampler is drifting. The variance estimate itself may still be reasonable, but the credible interval for that component should be treated as approximate. ESS targets: >1000 is comfortable, 400-1000 is acceptable, <400 means your credible intervals may be unreliable and you should not trust tail-based inferences (e.g., "probability that variance > X").
-
-### Sampling Parameters
-
-Control MCMC sampling with additional arguments:
-
-```{r, eval=FALSE}
-g_full <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = "brms",
-  chains = 4,        # Number of chains
-  iter = 4000,       # Total iterations per chain
-  warmup = 1000,     # Warmup iterations
-  thin = 1,          # Thinning interval
-  cores = 4,         # Parallel processing
-  seed = 123         # Reproducibility
-)
-```
-
-**Guidelines**:
-
-- Use 4 chains for reliable convergence assessment
-- Use 2000+ iterations for complex models
-- Warmup of 1000 typically sufficient
-- Thinning rarely needed with HMC
+- **Rhat**: Should be close to 1.0 (< 1.01 indicates convergence)
+- **Bulk_ESS**: Effective sample size for bulk of distribution
+- **Tail_ESS**: Effective sample size for tails
 
 ### Custom Priors
 
@@ -1175,22 +793,15 @@ View and modify default priors:
 ```{r, eval=FALSE}
 # View default priors for a model
 library(brms)
-default_prior(Score ~ (1 | Person) + (1 | Task),
-              data = brennan)
+default_prior(Score ~ (1 | Person) + (1 | Task), 
+              data = brennan, backend = "brms")
 
 # Define custom priors
 my_prior <- c(
-  # Person variance: half-Cauchy with scale 1
-  set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
-
-  # Task variance: exponential with rate 1
-  set_prior("exponential(1)", class = "sd", group = "Task"),
-
-  # Rater variance: exponential with rate 0.5 (more spread)
-  set_prior("exponential(0.5)", class = "sd", group = "Rater"),
-
-  # Residual: half-Cauchy with scale 1
-  set_prior("cauchy(0, 1)", class = "sigma")
+  set_prior("exponential(1)", class = "sd", group = "Person"),
+  set_prior("exponential(0.5)", class = "sd", group = "Task"),
+  set_prior("student_t(3, 0, 2)", class = "sd", group = "Rater"),
+  set_prior("exponential(1)", class = "sigma")
 )
 
 g_custom <- gstudy(
@@ -1200,67 +811,6 @@ g_custom <- gstudy(
   prior = my_prior
 )
 ```
-
-### Prior Sensitivity Analysis
-
-Check sensitivity to prior choice:
-
-```{r, eval=FALSE}
-# Weakly informative prior
-prior_weak <- set_prior("cauchy(0, 5)", class = "sd")
-g_weak <- gstudy(
-  Score ~ (1 | Person) + (1 | Task),
-  data = brennan,
-  backend = "brms",
-  prior = prior_weak
-)
-
-# More informative prior
-prior_info <- set_prior("exponential(1)", class = "sd")
-g_info <- gstudy(
-  Score ~ (1 | Person) + (1 | Task),
-  data = brennan,
-  backend = "brms",
-  prior = prior_info
-)
-
-# Compare posterior means
-g_weak$variance_components$estimate
-g_info$variance_components$estimate
-```
-
-**A worked sensitivity analysis.** The chunk below actually runs two Bayesian G-studies with different priors on the standard deviation parameters and shows how the posteriors respond. We use small `chains`, `iter`, and `warmup` here so the example builds quickly; for a real sensitivity analysis use the defaults.
-
-```{r, eval=TRUE}
-# Fit two models with contrasting priors
-prior_weak_run <- set_prior("cauchy(0, 5)", class = "sd")
-g_weak_run <- gstudy(
-  Score ~ (1 | Person) + (1 | Task),
-  data = brennan,
-  backend = "brms",
-  prior = prior_weak_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
-)
-
-prior_info_run <- set_prior("exponential(1)", class = "sd")
-g_info_run <- gstudy(
-  Score ~ (1 | Person) + (1 | Task),
-  data = brennan,
-  backend = "brms",
-  prior = prior_info_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
-)
-
-# Side-by-side comparison
-bind_rows(
-  tidy(g_weak_run)  %>% mutate(prior = "cauchy(0, 5)"),
-  tidy(g_info_run)  %>% mutate(prior = "exponential(1)")
-) %>%
-  select(prior, component, var, lower, upper) %>%
-  mutate(across(c(var, lower, upper), ~ sprintf("%.3f", .x)))
-```
-
-**Reading the comparison.** The Person variance is the dominant signal, and both priors give nearly identical posteriors for it — the data overwhelm the prior when the signal is strong. The Task variance is smaller, and you can see the priors pulling in different directions: the weakly informative `cauchy(0, 5)` allows more probability mass for larger values, while the more concentrated `exponential(1)` shrinks estimates toward smaller values. The Residual variance shows the largest prior sensitivity because it is the least well-identified in this small dataset. The lesson: **always run a prior sensitivity analysis for the smallest variance components, because those are where prior choice matters most.**
 
 ### Checking Convergence
 
@@ -1272,84 +822,11 @@ library(posterior)
 g_bayes$variance_components %>%
   select(component, Rhat, Bulk_ESS, Tail_ESS)
 
-# Check for convergence problems
-any(g_bayes$variance_components$Rhat > 1.01)
-any(g_bayes$variance_components$Bulk_ESS < 400)
-
 # Extract posterior draws
 draws <- as_draws_matrix(g_bayes$model)
 
 # Plot posterior distributions
 plot(g_bayes, type = "variance")
-```
-
-## Posterior Inference
-
-Beyond point estimates and credible intervals, Bayesian G-studies provide access to the full posterior distribution, enabling custom inference, predictive checks, and visualization.
-
-### Extracting Posterior Draws
-
-```{r, eval=FALSE}
-library(posterior)
-
-# Extract draws matrix
-draws <- as_draws_matrix(g_bayes$model)
-
-# View parameter names
-colnames(draws)
-
-# Summary statistics
-summarise_draws(draws)
-```
-
-### Variance Component Posteriors
-
-```{r, eval=FALSE}
-# Variance components with posterior summaries
-g_bayes$variance_components
-```
-
-### Computing Custom Quantiles
-
-```{r, eval=FALSE}
-# Different credible interval levels
-g_bayes$variance_components %>%
-  dplyr::mutate(
-    q50 = posterior::quantile2(draws[, "sd_Person__Intercept"], probs = 0.5),
-    q90_lower = posterior::quantile2(draws[, "sd_Person__Intercept"], probs = 0.05),
-    q90_upper = posterior::quantile2(draws[, "sd_Person__Intercept"], probs = 0.95)
-  )
-```
-
-### Visualizing Posteriors
-
-```{r, eval=FALSE}
-# Variance component distributions
-plot(g_bayes, type = "variance")
-
-# Using bayesplot
-library(bayesplot)
-
-# Posterior density plots
-mcmc_dens(draws, pars = c("sd_Person__Intercept", "sd_Task__Intercept"))
-
-# Trace plots (should look like "fuzzy caterpillars")
-mcmc_trace(draws, pars = c("sd_Person__Intercept", "sd_Task__Intercept"))
-
-# Pairs plot (check for correlations)
-mcmc_pairs(draws, pars = c("sd_Person__Intercept", "sd_Task__Intercept", "sigma"))
-```
-
-### Posterior Predictive Checks
-
-Validate model fit by comparing observed data to replicated data:
-
-```{r, eval=FALSE}
-# Posterior predictive check
-pp_check(g_bayes$model)
-
-# Group-specific checks
-pp_check(g_bayes$model, type = "dens_overlay", group = "Person")
 ```
 
 ## D-Study: Computing Reliability Coefficients
@@ -1381,8 +858,6 @@ The output shows:
 
 - **G coefficient**: Generalizability coefficient for relative decisions
 - **Phi coefficient**: Dependability coefficient for absolute decisions
-
-**Reading G and Phi values.** Conventional thresholds from educational and psychological measurement: G ≥ 0.80 is acceptable for high-stakes decisions (selection, certification, promotion); G ≥ 0.70 is acceptable for medium-stakes decisions (formative feedback, progress monitoring); G ≥ 0.60 is acceptable for low-stakes research. Phi is always less than or equal to G, and the *gap* between them tells you how much absolute-error variance (i.e., systematic facet effects like rater leniency or item difficulty) is contributing. A small gap (e.g., G = 0.82, Phi = 0.80) means the facets have small main effects; a large gap (e.g., G = 0.82, Phi = 0.55) means the facets have substantial main effects and you should consider whether decisions need to be norm-referenced (use G) or criterion-referenced (use Phi).
 
 ### Understanding the Coefficients
 
@@ -1450,8 +925,6 @@ print(d_cut)
 
 The phi-cut coefficient is useful for decisions like "Does this person exceed the passing threshold?"
 
-**Why phi-cut depends on cut-score distance from the grand mean.** When the cut-score equals the grand mean, the term $(\mu - c)^2 = 0$ and $\phi_{cut}$ reduces to the ordinary phi coefficient. As the cut-score moves away from the grand mean, the $(\mu - c)^2$ term grows, which *increases* both numerator and denominator by the same amount, but the proportional effect on the denominator (error variance + squared distance) is larger when error variance is small. The practical consequence: the further your cut-score is from the mean, the more conservative phi-cut becomes, and the more difficult it is to argue that pass/fail decisions are dependable. This is why mastery testing at extreme cut-scores (e.g., "must score ≥ 95%") requires longer instruments than pass/fail at the mean.
-
 ### Comparing Cut-Scores
 
 ```{r}
@@ -1482,34 +955,7 @@ d_universe <- dstudy(
 summary(d_universe)
 ```
 
-This is useful when a facet is considered "fixed" in the universe of generalization. By default, only the object of measurement (typically Person) is treated as a facet of generalization — the universe is "all admissible observations of the persons." When you add `Person:Task` to the universe, you are saying: "the person-by-task interaction is part of the construct I want to generalize over, not error I want to minimize." This raises both the universe-score variance and the reliability, because the error variance is correspondingly smaller. Use this option when the interaction is theoretically meaningful for your construct (e.g., a person-by-task interaction in clinical skills assessment reflects a real, stable trait of how a person performs across different tasks).
-
-### Comparing Default vs Custom Universe
-
-The chunk below runs the same D-study twice — once with the default universe (Person only) and once with `Person:Task` added — and prints the G and Phi coefficients side-by-side so the effect of the choice is concrete:
-
-```{r}
-# Default universe: only Person is in the universe
-d_default <- dstudy(g, n = list(Task = 3, Rater = 4))
-
-# Custom universe: Person + Person:Task
-d_custom <- dstudy(
-  g,
-  n = list(Task = 3, Rater = 4),
-  universe = c("Person", "Person:Task")
-)
-
-# Side-by-side comparison
-tribble(
-  ~universe,                            ~G,    ~Phi,
-  "default (Person only)",              round(d_default$coefficients$g, 3),
-                                         round(d_default$coefficients$phi, 3),
-  "custom (Person + Person:Task)",      round(d_custom$coefficients$g, 3),
-                                         round(d_custom$coefficients$phi, 3)
-)
-```
-
-**Reading the comparison.** Adding `Person:Task` to the universe *increases* G (and Phi) because the interaction variance is moved from "error" to "signal." This is mathematically correct but conceptually loaded: it means you are claiming that the way a person responds differently to different tasks is part of the construct you want to measure, not a flaw in the measurement. Use the default universe when your construct is "the person's general ability, regardless of which task they happened to see" (the typical G-theory assumption). Use the custom universe only when you have theoretical or empirical reasons to believe the interaction reflects a stable, generalizable trait.
+This is useful when a facet is considered "fixed" in the universe of generalization.
 
 ### Custom Error Specification
 
@@ -1526,8 +972,6 @@ d_error <- dstudy(
 summary(d_error)
 ```
 
-By default, *all* interaction effects involving the object of measurement are treated as error. The `error` parameter lets you restrict error to specific interactions. For example, if you have evidence that `Person:Task` is not random noise but reflects a stable person-by-task interaction, you can exclude it from error (and add it to the universe as shown above). Use `error` carefully: misclassifying a real source of variation as error inflates error variance and depresses G; misclassifying noise as signal inflates universe-score variance and overstates G.
-
 ### Aggregation
 
 When averaging over a facet, use the `aggregation` parameter:
@@ -1543,8 +987,6 @@ d_agg <- dstudy(
 
 summary(d_agg)
 ```
-
-The `aggregation` parameter tells facet that you plan to *average over* this facet in the D-study rather than treat it as a separate dimension of inference. For example, if you have 4 raters per task and you plan to use the *mean* of the 4 ratings as the score for that task, then Rater is an "aggregation" facet. The reliability of the mean of n_r ratings depends on the rater variance component and the rater-by-person interaction. The `residual_is` parameter tells facet what to call the residual after aggregation; in this example, the residual becomes the three-way `Person:Task:Rater` interaction. Use aggregation whenever your D-study design involves taking means (e.g., mean of k ratings, mean of n items).
 
 ## Credible Intervals for D-Study Coefficients
 
@@ -1584,58 +1026,6 @@ d_ci_90 <- dstudy(
   probs = c(0.05, 0.95)
 )
 ```
-
-## Jackson et al.'s Uncoupling Approach
-
-### The Problem with Crossed Designs
-
-Traditional G-theory can confound variance sources when facets are crossed. @jackson2016 demonstrated this problem in assessment center research:
-
-**Person $\times$ Exercise $\times$ Rater design**: When raters are crossed with exercises (each rater rates each exercise), the traditional ANOVA decomposition conflates:
-
-1. **True rater variance**: Differences in rater leniency/severity
-2. **Exercise-specific rater variance**: Raters who are lenient on one exercise may be severe on another
-
-This conflation leads to misinterpretation of variance components.
-
-### The Uncoupling Solution
-
-@jackson2016 showed that Bayesian estimation can "uncouple" these sources by:
-
-1. **Modeling interactions explicitly**: Including Person $\times$ Rater, Person $\times$ Exercise, and Rater $\times$ Exercise interactions
-2. **Separating variance components**: Each interaction has its own variance component
-3. **Quantifying uncertainty**: Posterior distributions reveal which components are well-identified
-
-### Implementation in facet
-
-```{r, eval=FALSE}
-# Full crossed model with all interactions
-g_uncoupled <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-          (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-  data = brennan,
-  backend = "brms"
-)
-
-# Compare to traditional model
-g_traditional <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = "brms"
-)
-
-# The uncoupled model separates interaction variance
-# that traditional models conflate
-```
-
-### When to Use Uncoupling
-
-Uncoupling is valuable when:
-
-1. **Facets are fully crossed**: All combinations of facet levels are observed
-2. **Interactions are theoretically meaningful**: You care about specific interactions
-3. **Sample sizes are adequate**: More parameters require more data
-4. **You need accurate attribution**: For diagnostic or validity research
 
 ## Multivariate G-Study
 
@@ -1727,12 +1117,6 @@ When dimensions are positively correlated, the composite reliability benefits fr
 
 For example, if two subscales measure related constructs and persons who score high on one tend to score high on the other, the composite score is more reliable than either subscale alone because the correlation adds information.
 
-**Composite variance worked example.** Suppose you have two subscales, each with variance $\sigma^2_1 = \sigma^2_2 = 1.0$, and a correlation between subscales of $\rho_{12} = 0.5$ (so the covariance $\sigma_{12} = 0.5$). With equal weights $w = (0.5, 0.5)$, the composite variance is:
-
-$$\sigma^2_{composite} = w_1^2 \sigma^2_1 + w_2^2 \sigma^2_2 + 2 w_1 w_2 \sigma_{12} = (0.25)(1) + (0.25)(1) + 2(0.5)(0.5)(0.5) = 0.75$$
-
-Without the covariance term, you would have 0.50 — the correlation adds 50% more variance to the composite. This is the mathematical basis for the "composite reliability often exceeds the average of dimension reliabilities" claim: the cross-product term $2 w_1 w_2 \sigma_{12}$ contributes *positively* when the subscales are positively correlated. Conversely, if the subscales were *negatively* correlated (a rare but theoretically possible situation), the composite variance would be *smaller* than the average of the dimension variances — and the composite reliability would be lower. This is why it is essential to inspect `g_mv_wide$correlations$residual_cor` before forming a composite: the sign and magnitude of the correlations determine whether combining subscales helps or hurts.
-
 #### Using Composite Coefficients
 
 By default, `dstudy()` uses equal weights (1 for each dimension):
@@ -1819,153 +1203,6 @@ Composite coefficients are useful when:
 
 4. **Posterior estimation**: For Bayesian models, composite coefficients are computed for each posterior draw, properly propagating uncertainty
 
-### Why Multivariate Models?
-
-Multivariate G-theory estimates variance-covariance matrices for random effects across multiple dimensions. This enables:
-
-1. **Composite reliability**: Overall reliability for multi-scale instruments
-2. **Dimension-specific reliability**: Separate reliability for each subscale
-3. **Correlation structure**: Understanding relationships between dimensions
-4. **VAR computation**: Value Added Ratio for subscore usefulness
-
-### Data Formats
-
-**Wide Format (`mvbind`)** — When each dimension is a separate column:
-
-```{r, eval=FALSE}
-# Reshape to wide format
-library(tidyr)
-brennan_wide <- brennan %>%
-  pivot_wider(
-    names_from = Task,
-    values_from = Score,
-    names_prefix = "Task"
-  )
-
-head(brennan_wide)
-#   Person Rater Task1 Task2 Task3
-# 1      1     1     4     5     6
-# 2      1     2     3     4     5
-# ...
-
-# Multivariate G-study
-g_mv_wide <- gstudy(
-  mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
-  backend = "brms"
-)
-```
-
-**Long Format (`bf`)** — When dimensions are identified by a grouping variable:
-
-```{r, eval=FALSE}
-# Use rajaratnam dataset (nested: items within subtests)
-data(rajaratnam)
-
-head(rajaratnam)
-#   Person Subtest Item Score
-# 1      1       1    1     4
-# 2      1       1    2     5
-# ...
-
-# Multivariate G-study with long format
-g_mv_long <- gstudy(
-  bf(Score ~ 0 + Subtest +
-         (0 + Subtest | r | Person) +
-         (0 + Subtest || Item)),
-  sigma ~ 0 + Subtest,
-  data = rajaratnam,
-  backend = "brms"
-)
-```
-
-**Key Differences**:
-
-| Feature | Wide Format (`mvbind`) | Long Format (`bf`) |
-|---------|------------------------|--------------------|
-| **Data structure** | One row per person | One row per observation |
-| **Missing data** | Listwise deletion | Uses available data |
-| **Unbalanced designs** | Not supported | Fully supported |
-| **Residual correlation** | Estimated | Estimated separately |
-| **Syntax** | Simpler | More flexible |
-
-### Variance Components and Correlation Matrices
-
-```{r, eval=FALSE}
-# Variance components by dimension
-g_mv_wide$variance_components
-
-# Residual correlations
-g_mv_wide$correlations$residual_cor
-
-# Random effect correlations (e.g., Person effects)
-g_mv_wide$correlations$random_effect_cor$Person
-```
-
-Interpretation:
-
-- **Positive correlations**: Persons who score high on one dimension tend to score high on others
-- **Negative correlations**: Trade-offs between dimensions
-- **Near-zero correlations**: Dimensions are independent
-
-### Multivariate Bayesian D-Study
-
-```{r, eval=FALSE}
-d_mv <- dstudy(g_mv_wide, n = list(Rater = 4), ci = c("g", "phi"))
-
-print(d_mv)
-```
-
-For composite scores with equal weights:
-
-$$Y_{\text{composite}} = \frac{1}{D}\sum_{d=1}^{D} Y_d$$
-
-Specify custom weights:
-
-```{r, eval=FALSE}
-# Custom weights: Task1=50%, Task2=30%, Task3=20%
-d_weighted <- dstudy(
-  g_mv_wide,
-  n = list(Rater = 4),
-  weights = c(0.5, 0.3, 0.2),
-  ci = c("g", "phi")
-)
-
-print(d_weighted)
-```
-
-### Wide vs Long Format: A Worked Comparison
-
-The two formats are not interchangeable — wide format requires balanced data and uses simpler syntax, while long format is the only option for unbalanced data and gives you more modeling flexibility. The chunk below shows both formats on the same `brennan` data (which happens to be balanced, so both are valid):
-
-```{r, eval=FALSE}
-# Wide format: one column per dimension
-brennan_wide <- brennan %>%
-  tidyr::pivot_wider(
-    names_from = Task,
-    values_from = Score,
-    names_prefix = "Task"
-  )
-
-# Long format on a multivariate variable: each row is a (person, item) score
-# For brennan, we treat Score as the response and Task as the dimension
-# indicator. (The brms bf() syntax is more complex; see Multivariate G-Study
-# section for the full multivariate model.)
-
-# Wide-format G-study (default for multivariate)
-g_wide_run <- gstudy(
-  mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
-  backend = "brms",
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
-)
-
-# Print the wide-format variance components
-tidy(g_wide_run)
-```
-
-**Reading the comparison.** When the data are balanced (as `brennan` is), wide format is the natural choice: simpler syntax, faster to fit, and gives you residual correlations between dimensions for free. When the data are *unbalanced* — for example, some persons have Task1 and Task2 but not Task3, or items are nested within subtests with different numbers of items per subtest — wide format is not viable, because `mvbind()` requires complete cases. Long format with `bf()` is the only option in that case, and it also lets you model dimension-specific residual variances (`sigma ~ 0 + Subtest`). Use **wide format** as your default when the data are balanced and dimensions have the same sample size; use **long format** whenever there is missingness, nesting, or unequal sample sizes across dimensions.
-
 ## Value Added Ratio (VAR)
 
 ### Historical Context
@@ -1981,7 +1218,7 @@ When a test contains multiple subscales, researchers often face a practical dile
 The **Value Added Ratio (VAR)** quantifies whether a subscale's own scores better estimate its universe score than would be obtained by projecting the composite score onto that subscale. Specifically:
 
 - **VAR > 1**: The subscale's own scores provide a better estimate of its universe score than the composite does. Reporting this subscale score separately adds value.
-- **VAR $\approx$ 1**: The subscale and composite provide equally good estimates. Either approach is defensible.
+- **VAR ≈ 1**: The subscale and composite provide equally good estimates. Either approach is defensible.
 - **VAR < 1**: The composite provides a better estimate of the subscale's universe score than the subscale's own scores. Reporting only the composite is recommended.
 
 ### Mathematical Foundation
@@ -2050,7 +1287,7 @@ prmse(d_mv)
 The output shows PRMSE and VAR for each subscale:
 
 ```
-# A tibble: 3 x 13
+# A tibble: 3 × 13
   dim prmse_c_rel prmse_c_rel_LL prmse_c_rel_UL prmse_c_abs prmse_c_abs_LL prmse_c_abs_UL
   <chr> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>
 1 1 1.12 0.98 1.28 0.98 0.84 1.12
@@ -2059,11 +1296,7 @@ The output shows PRMSE and VAR for each subscale:
 # … with 6 more variables: var_rel, var_rel_LL, var_rel_UL,
 # var_abs, var_abs_LL, var_abs_UL
 ```
-
-The same call can be pivoted to show VAR columns first:
-
-```
-# A tibble: 3 x 13
+# A tibble: 3 × 13
   dim   var_rel var_rel_LL var_rel_UL var_abs var_abs_LL var_abs_UL
   <chr>   <dbl>      <dbl>      <dbl>   <dbl>      <dbl>      <dbl>
 1 1        1.12       0.98       1.28    0.98       0.84       1.12
@@ -2084,8 +1317,8 @@ prmse(d_mv)
 # Access posterior means directly (use [[ to avoid partial matching with variance_components)
 d_mv[["var"]]$var_rel     # VAR (relative) means
 d_mv[["var"]]$var_abs     # VAR (absolute) means
-d_mv[["var"]]$prmse_c_rel # PRMSE(C->S_i) (relative) means
-d_mv[["var"]]$prmse_c_abs # PRMSE(C->S_i) (absolute) means
+d_mv[["var"]]$prmse_c_rel # PRMSE(C→S_i) (relative) means
+d_mv[["var"]]$prmse_c_abs # PRMSE(C→S_i) (absolute) means
 
 # Access full posterior draws (for custom analysis)
 dim(d_mv[["var"]]$var_rel_draws)     # [n_draws, n_dims]
@@ -2106,8 +1339,8 @@ prmse(d_mv, probs = c(0.05, 0.95))
 
 The `prmse()` function returns:
 
-- `prmse_c_rel_LL`, `prmse_c_rel_UL`: Lower and upper limits for PRMSE(C->S_i) (relative)
-- `prmse_c_abs_LL`, `prmse_c_abs_UL`: Lower and upper limits for PRMSE(C->S_i) (absolute)
+- `prmse_c_rel_LL`, `prmse_c_rel_UL`: Lower and upper limits for PRMSE(C→S_i) (relative)
+- `prmse_c_abs_LL`, `prmse_c_abs_UL`: Lower and upper limits for PRMSE(C→S_i) (absolute)
 - `var_rel_LL`, `var_rel_UL`: Lower and upper limits for VAR (relative)
 - `var_abs_LL`, `var_abs_UL`: Lower and upper limits for VAR (absolute)
 
@@ -2116,7 +1349,7 @@ The `prmse()` function returns:
 | VAR Value | Interpretation | Recommendation |
 |-----------|----------------|----------------|
 | VAR > 1.0 | Subscale provides better estimate than composite | Report subscale score separately |
-| VAR $\approx$ 1.0 | Subscale and composite provide similar estimates | Either approach acceptable |
+| VAR ≈ 1.0 | Subscale and composite provide similar estimates | Either approach acceptable |
 | VAR < 1.0 | Composite provides better estimate than subscale | Report composite score only |
 
 **Practical considerations:**
@@ -2204,8 +1437,6 @@ latent_scores <- latent(g)
 head(latent_scores)
 ```
 
-**What latent scores represent.** The values returned by `latent()` are estimates of each person's *universe score* — the score they would receive on average across the entire universe of admissible observations (all possible items, raters, occasions, etc., sampled from the population represented by the G-study). Two important properties: (1) latent scores are *shrunk* toward the grand mean compared to raw person means — shrinkage is larger for persons with fewer observations or more extreme observed scores, and (2) the latent scores are on the same scale as the original data, so you can interpret them directly. Use these as your "best estimate" of person standing, not raw person means, especially when you have unbalanced observations per person.
-
 ### Custom Universe for Latent Scores
 
 ```{r}
@@ -2260,8 +1491,6 @@ plot_ranef(g)
 # Specific facet
 plot_ranef(g, which = "Person")
 ```
-
-**Reading caterpillar plots.** Each row is one level of the facet (e.g., one rater, one task); the point is the BLUP (best linear unbiased predictor) of the random effect, and the horizontal bar is its 95% confidence interval. Three patterns to look for: (1) **levels whose CIs exclude zero** — these levels behave differently from the average (e.g., a lenient rater, a hard item); (2) **CIs that overlap heavily** — these levels are not meaningfully different from one another; (3) **asymmetry in one direction** — if most rater effects are above zero, the average rater is more lenient than the grand mean would suggest, which is a signal to check for rater training issues. The plot is sorted by effect size, so the most extreme levels are at the top and bottom.
 
 ### D-Study Sweep Plots
 
@@ -2322,8 +1551,6 @@ g$model@optinfo$conv$lme4
 lme4::isSingular(g$model)
 ```
 
-**What to do about a singular fit.** A singular fit means one of your variance components has been estimated at (or very near) zero, and the optimizer could not move it away from the boundary. Three remedies: (1) **drop the offending facet from the formula** if it is theoretically unimportant; (2) **switch to `backend = "mom"`** to get a positive truncated estimate, which is often more interpretable in practice (it acknowledges that the component is small but positive); (3) **switch to `backend = "brms"` with a slightly informative prior** such as `exponential(1)` on the SD — this regularizes the estimate away from exactly zero. Singular fits are not necessarily a problem if you can defend the model without that component, but they should not be silently ignored.
-
 ### Negative Variance (MOM)
 
 Method of moments can produce negative estimates, which are truncated to zero:
@@ -2333,8 +1560,6 @@ Method of moments can produce negative estimates, which are truncated to zero:
 g_mom$variance_components %>%
   filter(var == 0)
 ```
-
-**What to do when many components are truncated.** If two or more of your variance components are estimated at exactly zero, the design is underpowered for the facets you've included — the data simply don't have enough information to distinguish those sources of variation from noise. Remedies: (1) **collect more data**, especially more levels of the facets that are being truncated; (2) **reduce the number of facets** in the model by aggregating over theoretically unimportant ones; (3) **switch to REML or Bayesian** — these are constrained to non-negative estimates and may give small but positive values that are more useful for planning. If a single component is truncated, this is often a sign that the facet is genuinely unimportant in your context, and you can drop it from the design going forward.
 
 ### Convergence Diagnostics (Bayesian)
 
@@ -2350,8 +1575,6 @@ g_bayes$variance_components %>%
 # View estimation issues
 g_bayes$estimation_issues
 ```
-
-**Diagnosing and fixing convergence problems.** If R-hat > 1.05 for any component: (a) increase `iter` (try 8000+) and `warmup` (try 2000+); (b) check for model misspecification — a missing interaction, a wrongly crossed/nested term, or an unusual data pattern; (c) consider manually specifying the `bf()` formula with `bf(y ~ ..., sigma ~ ...)` to control parameterization. If Bulk_ESS < 400: try the same fixes, plus `thin = 2` to reduce autocorrelation in the chains. If only one component has poor diagnostics (a common pattern when the component is small or near zero), the variance estimate may still be approximately correct, but the credible interval is unreliable; in that case, re-run with stronger priors that keep the component away from the boundary (e.g., `exponential(1)` instead of the default Student-t).
 
 ## Complete Workflow Example
 
@@ -2455,8 +1678,6 @@ cat("Original (3 tasks, 4 raters/task): G =", d_orig$coefficients$g, "\n")
 cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 ```
 
-**Reading this comparison.** A 5-task × 2-rater design achieves comparable or higher G than a 3-task × 4-rater design (10 total observation cells vs 12), with one fewer level per task and one more task overall. The reason: in this dataset, the Task facet has more variance than the Rater:Task facet, so adding tasks reduces error faster than adding raters does. The general lesson: when a sweep shows that one facet contributes disproportionately to error, investing in more levels of that facet is more cost-effective than investing in the facets with small variance components. Always inspect `tidy(d_sweep)` and look for the facet with the largest ratio of variance to current n before deciding where to spend your next round of data collection.
-
 ## Weight Optimization for Composite Scores
 
 When a test contains multiple subscales, researchers often face a fundamental tension: weights that maximize composite reliability often differ from weights that maximize subscale viability (VAR). The `prmse()` function provides three optimization methods to find optimal weights under different objectives.
@@ -2533,24 +1754,22 @@ result$n_viable
 
 ### Comparison of Methods
 
-The three optimization methods often give different weights for the same data, because they optimize different objectives. The chunk below fits all three and prints a side-by-side comparison:
-
 ```{r, eval=FALSE}
-# Fit all three methods on the same multivariate D-study
+# Compare all three methods
 comp <- prmse(d_mv, optimize = "composite")
-sub  <- prmse(d_mv, optimize = "subscale")
-tun  <- prmse(d_mv, optimize = "tuning", grid_resolution = 0.1)
+sub <- prmse(d_mv, optimize = "subscale")
+tun <- prmse(d_mv, optimize = "tuning", grid_resolution = 0.1)
 
-# Build a small comparison tibble
-tribble(
-  ~method,        ~weights,                            ~objective_value,    ~objective_name,
-  "composite",    round(comp$weights, 3),             round(comp$composite_reliability, 3),  "composite reliability",
-  "subscale (minimax)", round(sub$minimax$weights, 3), round(sub$minimax$min_var, 3),       "min VAR across subscales",
-  "tuning",       round(tun$best$weights, 3),         round(tun$best$min_var, 3),           "min VAR (grid search)"
-)
+# Compare weights
+cat("Composite optimization weights:", round(comp$weights, 3), "\n")
+cat("Subscale minimax weights:", round(sub$minimax$weights, 3), "\n")
+cat("Tuning best weights:", round(tun$best$weights, 3), "\n")
+
+# Compare metrics
+cat("Composite reliability:", round(comp$composite_reliability, 3), "\n")
+cat("Minimum VAR (minimax):", round(sub$minimax$min_var, 3), "\n")
+cat("Minimum VAR (tuning):", round(tun$best$min_var, 3), "\n")
 ```
-
-**Reading the comparison.** The `composite` method puts more weight on reliable, highly correlated subscales — they "borrow strength" from each other. The `subscale` and `tuning` methods spread weight more evenly (or toward less-correlated subscales) to keep the minimum VAR across subscales high. The "right" choice depends on the decision context: **selection** (e.g., admit the top 20%) cares only about composite reliability, so use `composite`; **profile interpretation** (e.g., a school report showing strengths and weaknesses across subjects) needs all subscales to be useful, so use `subscale`. When the two objectives conflict strongly, this is a useful signal that your subscales are too redundant (consider dropping one) or too unreliable (consider adding items).
 
 ### Including the Composite Row
 
@@ -2581,490 +1800,56 @@ The Composite row shows:
 - Vispoel, W. P., Lee, H., Hong, H., & Chen, T. (2023). Applying multivariate generalizability theory to psychological assessments. *Psychological Methods*, 28(4), 847-870.
 - Marcoulides, G. A. (1994). Selecting weighting schemes in multivariate generalizability studies. *Educational and Psychological Measurement*, 54(1), 3-10.
 
-# Advanced Topics
-
-## Model Comparison
-
-### Leave-One-Out Cross-Validation
-
-```{r, eval=FALSE}
-# Compare models with LOO-CV
-library(loo)
-
-# Fit alternative models
-g_simple <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                   data = brennan, backend = "brms")
-g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-                 data = brennan, backend = "brms")
-
-# LOO comparison
-loo_simple <- loo(g_simple$model)
-loo_full <- loo(g_full$model)
-
-loo_compare(loo_simple, loo_full)
-```
-
-### Bayes Factors
-
-```{r, eval=FALSE}
-# Bayes factor approximation
-bayes_factor(g_full$model, g_simple$model)
-```
-
-## Handling Missing Data
-
-Bayesian methods handle missing data through multiple imputation:
-
-```{r, eval=FALSE}
-# Missing data is automatically handled by brms
-# using Bayesian imputation during model fitting
-
-g_missing <- gstudy(
-  Score ~ (1 | Person) + (1 | Task),
-  data = data_with_missing,
-  backend = "brms"
-)
-```
-
-## Robust Estimation
-
-For data with outliers, use robust likelihood:
-
-```{r, eval=FALSE}
-# Student-t likelihood for robustness
-g_robust <- gstudy(
-  bf(Score ~ (1 | Person) + (1 | Task),
-     family = student()),
-  data = brennan,
-  backend = "brms"
-)
-```
-
-# Reporting Guidelines
-
-## Methods Section
-
-When reporting G-theory analyses, include:
-
-> "Generalizability theory analyses were conducted using the **facet** package (Version X.X) for R. A G-study was conducted using [Method of Moments/Restricted Maximum Likelihood] estimation. Variance components were estimated for [list facets]. 95% confidence intervals were computed using [Satterthwaite approximation/profile likelihood/bootstrap with X simulations]. D-studies projected reliability for designs with [range of sample sizes]."
-
-## Results Section
-
-### Variance Components Table
-
-Create a formatted table:
-
-```{r, eval=FALSE}
-tidy(g) %>%
-  mutate(
-    Variance = sprintf("%.3f", var),
-    `95% CI` = if("lower" %in% names(.)) {
-      sprintf("[%.3f, %.3f]", lower, upper)
-    } else {
-      "---"
-    },
-    `% of Total` = sprintf("%.1f%%", pct)
-  ) %>%
-  select(Component = component, Variance, `95% CI`, `% of Total`) %>%
-  knitr::kable()
-```
-
-### Reliability Coefficients
-
-> "For a design with X tasks and Y raters per task, the generalizability coefficient was G = X.XX (95% CI: X.XX-X.XX) and the dependability coefficient was $\Phi$ = X.XX (95% CI: X.XX-X.XX)."
-
-### Sample Size Recommendations
-
-> "To achieve G $\geq$ 0.80, a minimum of X tasks and Y raters per task are required. Increasing to X+1 tasks would achieve G = X.XX with Y-1 raters per task, reducing assessment burden while maintaining acceptable reliability."
-
-## Reporting Bayesian G-Theory
-
-### Methods Section Template
-
-**Bayesian Estimation**:
-
-> Variance components were estimated using Bayesian methods via the brms package [@burkner2017] in R, which implements Hamiltonian Monte Carlo sampling through Stan [@carpenter2017]. We specified weakly informative half-Cauchy(0, 2) priors on all variance components [@gelman2006], reflecting minimal prior information while ensuring proper posterior concentration. Four chains were run for 4,000 iterations each (2,000 warmup), yielding 8,000 posterior samples for inference. Convergence was assessed using the Gelman-Rubin statistic (R-hat < 1.01) and effective sample size (ESS > 400; [@vehtari2021]).
-
-**Prior Specification**:
-
-> We conducted prior sensitivity analyses by comparing results under weakly informative [specify prior] and more informative [specify prior] priors. Posterior estimates were robust to prior specification, with differences in variance component estimates < [X]% across prior choices.
-
-### Results Section Template
-
-**Variance Components**:
-
-> Table [X] presents posterior summaries for variance components. Person variance accounted for the largest proportion of total variance (posterior median = [X], 95% CI = [X, X]), indicating substantial individual differences in [construct]. The [facet] variance component was smaller (posterior median = [X], 95% CI = [X, X]), suggesting [interpretation].
-
-**Reliability Coefficients**:
-
-> For a design with [n] [facet]s, the generalizability coefficient was [X] (95% CI = [X, X]), indicating [interpretation] reliability for relative decisions. The dependability coefficient was [X] (95% CI = [X, X]) for absolute decisions.
-
-**Multivariate Results**:
-
-> For the multivariate model, dimension-specific reliabilities ranged from [X] to [X] (Table [X]). The composite reliability was [X] (95% CI = [X, X]) with equal weights. Value Added Ratios indicated that [subscale name] (VAR = [X], 95% CI = [X, X]) [adds value / provides no added value] beyond the composite.
-
-## APA-Style Tables
-
-### Table: Variance Components
-
-```{r, eval=FALSE}
-# Function to create APA-style table for variance components
-make_apa_variance_table <- function(gstudy_obj) {
-  vc <- gstudy_obj$variance_components
-
-  # Create formatted table
-  data.frame(
-    Source = vc$component,
-    Estimate = sprintf("%.3f", vc$estimate),
-    SD = sprintf("%.3f", vc$sd),
-    `95% CI` = sprintf("[%.3f, %.3f]", vc$lower, vc$upper),
-    Rhat = sprintf("%.3f", vc$Rhat),
-    ESS = round(vc$Bulk_ESS)
-  )
-}
-```
-
-**Table X. Bayesian Variance Component Estimates**
-
-| Source | Estimate | SD | 95% CI | R-hat | ESS |
-|--------|----------|-----|--------|-------|-----|
-| Person | 1.234 | 0.456 | [0.567, 2.345] | 1.000 | 2345 |
-| Task | 0.345 | 0.123 | [0.156, 0.623] | 1.001 | 2890 |
-| Rater | 0.123 | 0.067 | [0.034, 0.289] | 1.000 | 3012 |
-| Residual | 0.567 | 0.089 | [0.412, 0.756] | 1.000 | 4123 |
-
-*Note.* SD = Posterior standard deviation; CI = Credible interval; ESS = Effective sample size.
-
-### Table: Reliability Coefficients
-
-**Table X. D-Study Reliability Coefficients**
-
-| Design | G | 95% CI | Phi | 95% CI |
-|--------|---|--------|-----|--------|
-| 3 tasks, 2 raters | 0.82 | [0.71, 0.91] | 0.76 | [0.64, 0.86] |
-| 5 tasks, 2 raters | 0.88 | [0.79, 0.94] | 0.83 | [0.73, 0.90] |
-| 3 tasks, 4 raters | 0.85 | [0.75, 0.92] | 0.80 | [0.69, 0.89] |
-
-*Note.* G = Generalizability coefficient (relative decisions); Phi = Dependability coefficient (absolute decisions); CI = Credible interval.
-
-# Exercises
-
-## Conceptual Questions
-
-1. **EMS Derivation**: For a $p \times i \times r$ design, derive the EMS for the Person main effect. What sources of variance does it contain?
-
-2. **Relative vs. Absolute Error**: In a $p \times i$ design, which variance components contribute to relative error? Which contribute to absolute error? Why is absolute error always larger?
-
-3. **Nested vs. Crossed**: Explain the difference between items crossed with persons and items nested within persons. How does the EMS differ?
-
-4. **REML vs. MOM**: When would you prefer REML estimation over Method of Moments? What are the trade-offs?
-
-5. **Phi-Cut**: Why does the phi-cut coefficient depend on the distance between the cut-score and the grand mean?
-
-6. **Prior Selection**: Explain why half-Cauchy priors are recommended for variance components over inverse-gamma priors. What problems can arise with inverse-gamma priors when the true variance is near zero?
-
-7. **Posterior Propagation**: A colleague argues that computing G coefficients from posterior means of variance components is equivalent to computing G coefficients for each posterior draw and then taking the mean. Explain why this is incorrect and which approach is proper.
-
-8. **Convergence Diagnostics**: You fit a Bayesian G-study and observe R-hat = 1.03 for one variance component. What does this indicate? What steps should you take?
-
-9. **VAR Interpretation**: A subscale has VAR = 0.85 with 95% CI = [0.65, 1.10]. What can you conclude about the usefulness of reporting this subscale separately?
-
-10. **Computational Trade-offs**: When would you choose frequentist (MOM or REML) over Bayesian estimation? Consider computational cost, sample size, design complexity, and inferential goals.
-
-## Computational Exercises
-
-### Calculate Variance Components
-
-Given the following ANOVA output for a $p \times i$ design with 20 persons and 10 items:
-
-- $MS_p = 18.5$, $df_p = 19$
-- $MS_i = 12.3$, $df_i = 9$
-- $MS_{pi} = 4.2$, $df_{pi} = 171$
-
-Calculate the variance components and the percentage of total variance for each.
-
-### D-Study Projections
-
-Using the variance components from the previous exercise, calculate G and $\Phi$ for designs with:
-
-- 5 items
-- 10 items
-- 20 items
-
-How many items are needed for G $\geq$ 0.85?
-
-### Satterthwaite Approximation
-
-For the person variance component in the first exercise, compute the approximate degrees of freedom and 95% confidence interval.
-
-### Three-Facet Design
-
-Analyze a simulated dataset with person $\times$ task $\times$ rater design. Compute variance components and determine whether tasks or raters contribute more to measurement error.
-
-### Nested Design
-
-Use the `rajaratnam` dataset to conduct a G-study and D-study. How many items per subtest are needed to achieve acceptable reliability?
-
-### Basic Bayesian G-Study
-
-Using the `brennan` dataset:
-
-a) Fit a Bayesian G-study with Person, Task, and Rater facets using default priors.
-
-b) Report posterior means, 95% credible intervals, and convergence diagnostics.
-
-c) Compare results to a frequentist REML estimate. How do the interval estimates differ?
-
-```{r, eval=FALSE}
-library(facet)
-data(brennan)
-
-# a) Bayesian G-study
-g_bayes <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = "brms"
-)
-
-# b) Posterior summaries
-print(g_bayes)
-
-# c) Compare to REML
-g_reml <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = "lme4"
-)
-
-# Compare estimates
-g_bayes$variance_components$estimate
-g_reml$variance_components$var
-```
-
-### Custom Priors
-
-a) Define custom priors that encode prior information: "Person variance is expected to be moderate (around 1.0 on the score scale) with some uncertainty."
-
-b) Fit the G-study with these priors and compare to default priors.
-
-c) Conduct a prior sensitivity analysis by varying the prior scale parameter.
-
-```{r, eval=FALSE}
-library(brms)
-
-# a) Custom prior encoding prior information
-# "Moderate" variance with SD around 1.0 suggests half-Cauchy(0, 1)
-# or exponential(1) for the SD
-custom_prior <- c(
-  set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
-  set_prior("cauchy(0, 2)", class = "sd", group = "Task"),
-  set_prior("cauchy(0, 2)", class = "sd", group = "Rater"),
-  set_prior("cauchy(0, 2)", class = "sigma")
-)
-
-# b) Fit with custom priors
-g_custom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = "brms",
-  prior = custom_prior
-)
-
-# Compare
-g_bayes$variance_components$estimate
-g_custom$variance_components$estimate
-
-# c) Sensitivity analysis
-scales <- c(0.5, 1, 2, 5)
-results <- lapply(scales, function(s) {
-  prior_s <- set_prior(paste0("cauchy(0, ", s, ")"), class = "sd")
-  g_s <- gstudy(
-    Score ~ (1 | Person) + (1 | Task),
-    data = brennan,
-    backend = "brms",
-    prior = prior_s
-  )
-  g_s$variance_components$estimate[1]  # Person variance
-})
-```
-
-### D-Study with Uncertainty
-
-a) Fit a Bayesian G-study on the `brennan` data.
-
-b) Compute D-study coefficients for designs with 2-5 tasks and 1-3 raters.
-
-c) Create a table showing which designs achieve G > 0.80 with 95% probability.
-
-d) Visualize the relationship between design and reliability.
-
-```{r, eval=FALSE}
-# a) G-study
-g_ex3 <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = "brms",
-  chains = 4,
-  iter = 4000
-)
-
-# b) D-study sweep
-d_ex3 <- dstudy(
-  g_ex3,
-  n = list(Task = 2:5, Rater = 1:3),
-  ci = c("g", "phi")
-)
-
-# c) Designs achieving G > 0.80
-library(dplyr)
-d_ex3$coefficients %>%
-  filter(g_lower > 0.80) %>%
-  arrange(g_lower)
-
-# d) Visualization
-plot(d_ex3, type = "sweep")
-```
-
-### Multivariate Analysis
-
-Using the `rajaratnam` dataset:
-
-a) Fit a multivariate Bayesian G-study with items nested within subtests.
-
-b) Compute VAR for each subtest with 95% credible intervals.
-
-c) Which subtests should be reported separately? Justify using VAR results.
-
-```{r, eval=FALSE}
-data(rajaratnam)
-
-# a) Multivariate G-study
-g_mv_ex4 <- gstudy(
-  bf(Score ~ 0 + Subtest +
-         (0 + Subtest | r | Person) +
-         (0 + Subtest || Item)),
-  sigma ~ 0 + Subtest,
-  data = rajaratnam,
-  backend = "brms",
-  chains = 2,
-  iter = 2000
-)
-
-# b) VAR with credible intervals
-d_mv_ex4 <- dstudy(
-  g_mv_ex4,
-  n = list(Person = 5),
-  ci = c("var_rel", "var_abs")
-)
-
-prmse(d_mv_ex4)
-
-# c) Interpretation
-# VAR > 1 indicates subscale adds value
-# VAR < 1 indicates composite is better
-# VAR $\approx$ 1 means either approach acceptable
-```
-
-### Prior Sensitivity
-
-a) Fit three models with increasingly informative priors on variance components.
-
-b) Compare posterior distributions of variance components across models.
-
-c) Discuss when prior sensitivity matters most.
-
-```{r, eval=FALSE}
-# a) Three prior specifications
-prior_weak <- set_prior("cauchy(0, 5)", class = "sd")
-prior_mod <- set_prior("cauchy(0, 1)", class = "sd")
-prior_strong <- set_prior("exponential(2)", class = "sd")
-
-g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                 data = brennan, backend = "brms", prior = prior_weak)
-g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                data = brennan, backend = "brms", prior = prior_mod)
-g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                   data = brennan, backend = "brms", prior = prior_strong)
-
-# b) Compare posteriors
-library(ggplot2)
-draws_weak <- as_draws_df(g_weak$model)
-draws_mod <- as_draws_df(g_mod$model)
-draws_strong <- as_draws_df(g_strong$model)
-
-# c) Prior sensitivity matters most when:
-# - Sample size is small
-# - Variance components are near zero
-# - Priors strongly conflict with data
-```
-
-# Technical Appendix: Bayesian Computation
-
-## Stan Model Structure
-
-brms compiles models to Stan. For a simple person $\times$ item design:
-
-```stan
-// Translated to Stan pseudocode
-data {
-  int<lower=0> N;           // Observations
-  int<lower=0> J;           // Persons
-  int<lower=0> K;           // Items
-  array[N] int<lower=1,upper=J> person;
-  array[N] int<lower=1,upper=K> item;
-  vector[N] score;
-}
-
-parameters {
-  real mu;                  // Grand mean
-  vector[J] z_p;            // Person random effects (std normal)
-  vector[K] z_i;            // Item random effects (std normal)
-  real<lower=0> sigma_p;    // Person SD
-  real<lower=0> sigma_i;    // Item SD
-  real<lower=0> sigma_e;    // Residual SD
-}
-
-model {
-  // Priors
-  mu ~ normal(0, 10);
-  sigma_p ~ cauchy(0, 2);   // Half-Cauchy
-  sigma_i ~ cauchy(0, 2);
-  sigma_e ~ cauchy(0, 2);
-
-  // Random effects
-  z_p ~ std_normal();
-  z_i ~ std_normal();
-
-  // Likelihood
-  score ~ normal(mu + sigma_p * z_p[person] + sigma_i * z_i[item], sigma_e);
-}
-
-generated quantities {
-  // Variance components (on variance scale)
-  real var_p = square(sigma_p);
-  real var_i = square(sigma_i);
-  real var_e = square(sigma_e);
-}
-```
-
-## Non-Centered Parameterization
-
-For models with small variance components, brms uses non-centered parameterization:
-
-$$\tau_p = \sigma_\tau \cdot z_p, \quad z_p \sim N(0, 1)$$
-
-This avoids posterior geometries that cause slow sampling when $\sigma_\tau \approx 0$.
-
-**The "funnel of doom" — why non-centered parameterization matters.** When a variance component $\sigma_\tau$ is near zero, the centered parameterization $\tau_p = \sigma_\tau \cdot z_p$ creates a pathological posterior geometry known as *Neal's funnel*. As $\sigma_\tau \to 0$, the distribution of $\tau_p$ becomes extremely narrow: any particular draw of $z_p$ gets multiplied by a tiny $\sigma_\tau$, so $\tau_p$ is squeezed toward zero. The result is a curved, narrow region of high probability that opens up like a funnel as $\sigma_\tau$ grows. HMC's leapfrog integrator, which assumes roughly Euclidean geometry, struggles to navigate this funnel — proposals land in low-probability regions and get rejected, leading to slow mixing or divergent transitions. The non-centered parameterization decouples the geometry: instead of $\tau_p = \sigma_\tau \cdot z_p$ with $z_p \sim N(0, 1)$ and $\sigma_\tau$ with its own prior, you sample $\tau_p \sim N(0, 1)$ directly and let $\sigma_\tau$ act as a scale. The posterior becomes much closer to a Gaussian, and HMC samples it efficiently. brms automatically uses non-centered parameterization when the data suggest it is needed (small variance components, near-singular fits); you can force it manually by setting `bf(y ~ ..., autoscale = FALSE)` or by specifying the model in a form that separates location and scale. The diagnostic to watch for: if you see divergent transitions in `brms` output (printed as "divergent transitions after warmup"), it usually indicates that the centered parameterization is the wrong choice and non-centered would help.
-
-## Adaptive Tuning
-
-During warmup, NUTS adapts:
-
-1. **Step size $\epsilon$**: Target acceptance rate ~0.8
-2. **Diagonal mass matrix**: Estimated from sample variance
-3. **Dense mass matrix**: Optional, for correlated posteriors
-
-Adaptation typically requires 500-1000 iterations.
-
 # References
+
+- Andersen, F. S., Nayahangan, L. J., Park, Y. S., & Konge, L. (2021). Use of generalizability theory for exploring reliability of and sources of variance in assessment of technical skills: A systematic review and meta-analysis. *Academic Medicine*, 96(1), 117-124. https://doi.org/10.1097/ACM.0000000000003764
+- Atılgan, H. (2019). Reliability of essay ratings: A study on generalizability theory. *Eurasian Journal of Educational Research*, 19(82), 73-92.
+- Bates, D., Mächler, M., Bolker, B., & Walker, S. (2015). Fitting linear mixed-effects models using lme4. *Journal of Statistical Software*, 67(1), 1-48. https://doi.org/10.18637/jss.v067.i01
+- Bloch, R., & Norman, G. (2012). Generalizability theory for the perplexed: A practical introduction and guide: AMEE Guide No. 68. *Medical Teacher*, 34(11), 960-992. https://doi.org/10.3109/0142159X.2012.703618
+- Brennan, R. L. (1983). *Elements of Generalizability Theory*. American College Testing Program.
+- Brennan, R. L. (2001). *Generalizability Theory*. Springer-Verlag. https://doi.org/10.1007/978-1-4757-3545-6
+- Brennan, R. L. (2001). *Manual for urGENOVA* (Version 2.1). Iowa Testing Programs, University of Iowa.
+- Brennan, R. L., & Kane, M. T. (1977). An index of dependability for mastery tests. *Journal of Educational Measurement*, 14(3), 277-289. https://doi.org/10.1111/j.1745-3984.1977.tb00037.x
+- Brennan, R. L., Kim, S. Y., & Lee, W. C. (2022). Extended multivariate generalizability theory with complex design structures. *Educational and Psychological Measurement*, 82(2), 243-264. https://doi.org/10.1177/00131644211043296
+- Briesch, A. M., Chafouleas, S. M., & Machek, C. S. (2016). Use of generalizability theory within K–12 school-based assessment: A critical review. *Applied Measurement in Education*, 29(3), 189-203.
+- Bürkner, P.-C. (2017). brms: An R package for Bayesian multilevel models using Stan. *Journal of Statistical Software*, 80(1), 1-28. https://doi.org/10.18637/jss.v080.i01
+- Casale, G., Strauß, S., Hennemann, T., & König, J. (2016). How can classroom management expertise be measured? An examination of a video-based assessment for teachers using generalizability theory. *European Journal of Psychological Assessment*, 32(2), 149-160.
+- Crick, J. E., & Brennan, R. L. (1983). *GENOVA: A Generalized Analysis of Variance System* [Computer software]. University of Iowa.
+- Cronbach, L. J., Gleser, G. C., Nanda, H., & Rajaratnam, N. (1972). *The Dependability of Behavioral Measurements: Theory of Generalizability for Scores and Profiles*. Wiley.
+- Cronbach, L. J., Rajaratnam, N., & Gleser, G. C. (1963). Theory of generalizability: A liberalization of reliability theory. *British Journal of Statistical Psychology*, 16(2), 137-163. https://doi.org/10.1111/j.2044-8317.1963.tb00206.x
+- Haberman, S. J. (2008). When can subscores have value? *Journal of Educational and Behavioral Statistics*, 33(2), 204-229. https://doi.org/10.3102/1076998607302897
+- Hartley, H. O., & Rao, J. N. K. (1967). Maximum-likelihood estimation for the mixed analysis of variance model. *Biometrika*, 54(1/2), 93-108. https://doi.org/10.1093/biomet/54.1-2.93
+- Harville, D. A. (1974). Optimal procedures for estimating variance components. *Biometrics*, 30(4), 763-770.
+- Harville, D. A. (1977). Maximum likelihood approaches to variance component estimation and to related problems. *Journal of the American Statistical Association*, 72(358), 320-338. https://doi.org/10.1080/01621459.1977.10480990
+- Henderson, C. R. (1953). Estimation of variance and covariance components. *Biometrics*, 9(2), 226-252. https://doi.org/10.2307/3001851
+- Jackson, D. J. R., Michaelides, G., Dewberry, C., & Kim, Y. J. (2016). Everything that you have ever been told about assessment center ratings is confounded. *Journal of Applied Psychology*, 101(7), 976-991. https://doi.org/10.1037/apl0000098
+- Jackson, D. J. R., Michaelides, G., Dewberry, C., Schwencke, B., & Toms, S. (2020). The implications of unconfounding multisource performance ratings. *Journal of Applied Psychology*, 105(3), 312-327. https://doi.org/10.1037/apl0000457
+- Jackson, D. J. R., Michaelides, G., Dewberry, C., & Kim, Y. J. (2022). Uncertainty about rater variance and small dimension effects impact reliability in supervisor ratings. *Human Performance*, 35(4), 1-23. https://doi.org/10.1080/08959285.2022.2068476
+- Jackson, D. J. R., Michaelides, G., Stillman, J. A., & Atkins, S. G. (2023). Clarifying the scope of generalizability theory for multifaceted assessment. *New Zealand Journal of Psychology*, 52(1), 1-15.
+- Jiang, Z., & Skorupski, W. (2018). A Bayesian approach to estimating variance components within a multivariate generalizability theory framework. *Behavior Research Methods*, 50(5), 2193-2214. https://doi.org/10.3758/s13428-017-0979-x
+- Jiang, Z., Raymond, M., Shi, D., & DiStefano, C. (2020). Using a linear mixed-effect model framework to estimate multivariate generalizability theory parameters in R. *Behavior Research Methods*, 52(4), 1722-1735. https://doi.org/10.3758/s13428-019-01338-0
+- Joe, G. W., & Woodward, J. A. (1976). Some developments in multivariate generalizability. *Psychometrika*, 41(2), 205-217. https://doi.org/10.1007/BF02291836
+- Kane, M. T., & Brennan, R. L. (1980). Agreement coefficients as indices of dependability for domain-referenced tests. *Applied Psychological Measurement*, 4(4), 429-448. https://doi.org/10.1177/014662168000400409
+- LoPilato, A. C., Carter, N. T., & Wang, M. (2015). Updating generalizability theory in management research: Bayesian estimation of variance components. *Journal of Management*, 41(2), 692-713. https://doi.org/10.1177/0149206314528645
+- Marcoulides, G. A. (1990). An alternative method for estimating variance components in generalizability theory. *Psychometrika*, 55(2), 319-328. https://doi.org/10.1007/BF02295288
+- Marcoulides, G. A. (1994). Selecting weighting schemes in multivariate generalizability studies. *Educational and Psychological Measurement*, 54(1), 3-10. https://doi.org/10.1177/001316449405400101
+- Marcoulides, G. A. (1996). Estimating variance components in generalizability theory: The covariance structure analysis approach. *Structural Equation Modeling*, 3(3), 230-245. https://doi.org/10.1080/10705519609540043
+- Marcoulides, G. A., & Goldstein, Z. (1992). The optimization of multivariate generalizability studies with budget constraints. *Educational and Psychological Measurement*, 52(2), 301-308. https://doi.org/10.1177/001316449205200207
+- Merkulova, K., Melchers, K. G., & Kleinmann, M. (2016). A test of the generalizability of a recently suggested conceptual model for assessment center ratings. *Human Performance*, 29(4), 295-312.
+- Oliveri, M. E., Ercikan, K., & Simon, M. (2015). A framework for developing comparable multilingual assessments for minority populations. *International Journal of Testing*, 15(2), 167-185.
+- Patterson, H. D., & Thompson, R. (1971). Recovery of inter-block information when block sizes are unequal. *Biometrika*, 58(3), 545-554. https://doi.org/10.1093/biomet/58.3.545
+- Rajaratnam, N., Cronbach, L. J., & Gleser, G. C. (1965). Generalizability of stratified-parallel tests. *Psychometrika*, 30(1), 39-56. https://doi.org/10.1007/BF02289449
+- Satterthwaite, F. E. (1941). Synthesis of variance. *Psychometrika*, 6(5), 309-316. https://doi.org/10.1007/BF02288581
+- Satterthwaite, F. E. (1946). An approximate distribution of estimates of variance components. *Biometrics Bulletin*, 2(6), 110-114. https://doi.org/10.2307/3002019
+- Searle, S. R., Casella, G., & McCulloch, C. E. (1992). *Variance Components*. Wiley.
+- Shavelson, R. J., & Webb, N. M. (1991). *Generalizability Theory: A Primer*. Sage Publications.
+- Shavelson, R. J., & Webb, N. M. (2006). Generalizability theory. In C. R. Rao & S. Sinharay (Eds.), *Handbook of Statistics* (Vol. 26, pp. 749-776). Elsevier.
+- Solano-Flores, G., & Milbourn, T. (2016). Assessment capacity, cultural validity, and consequential validity in PISA. *RELIEVE*, 22(1), art1.
+- Solano-Flores, G., Trumbull, E., & Nelson-Barber, S. (2011). Cultural validity in assessment. In D. M. McInerney, E. F. I. van Aalst, & J. W. Pellegrino (Eds.), *Cultural Validity in Assessment* (pp. 41-58). Routledge.
+- Soysal, A. (2023). Examining cross-cultural applicability via generalizability theory: PISA mathematics attitude scales. *Participatory Educational Research*, 10(3), 453-469.
+- Trejo-Mejía, J. A., Sánchez-Mendiola, M., Vargas-Aguirre, A., & Martínez-González, A. (2016). Reliability analysis of the objective structured clinical examination using generalizability theory. *Medical Education Online*, 21(1), 31150. https://doi.org/10.3402/meo.v21.31150
+- Vispoel, W. P. (1998). Computer programs for generalizability theory. *Educational and Psychological Measurement*, 58(4), 642-656. https://doi.org/10.1177/0013164498058004009
+- Vispoel, W. P. (2000). Computer programs for generalizability theory: A comparative review. *Journal of Educational and Behavioral Statistics*, 25(2), 205-220. https://doi.org/10.3102/10769986025002205
+- Vispoel, W. P., & Cook, C. L. (1994). Using generalizability theory to enhance the interpretation of personality scales. *Journal of Personality Assessment*, 62(3), 504-520. https://doi.org/10.1207/s15327752jpa6203_8
+- Vispoel, W. P., Lee, H., Hong, H., & Chen, T. (2023). Applying multivariate generalizability theory to psychological assessments. *Psychological Methods*, 28(4), 847-870. https://doi.org/10.1037/met0000479
+- Webb, N. M., & Shavelson, R. J. (1981). Multivariate generalizability of general educational development ratings. *Journal of Educational Measurement*, 18(1), 13-22.

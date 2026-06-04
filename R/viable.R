@@ -176,9 +176,9 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
 #' Compute Scale Factors for Viable Recalculation
 #'
 #' Computes scale factors for multiple variance components.
-#' This function computes the same values as `compute_scale_factor()` from
-#' scale-factors.R, but returns a named list for all components instead of
-#' a single value.
+#' Universe components always receive a scale factor of 1 (unscaled).
+#' Non-universe components are scaled by the product of non-object facet
+#' sample sizes in that component.
 #'
 #' @param components Character vector of variance component names
 #' @param n Named list of sample sizes
@@ -189,7 +189,7 @@ compute_scale_factors_for_viable <- function(components, n, universe_spec, objec
   scale_factors <- list()
 
   for (comp in components) {
-    if (comp %in% object_spec) {
+    if (comp %in% universe_spec) {
       scale_factors[[comp]] <- 1
     } else if (comp == "Residual") {
       sf <- 1

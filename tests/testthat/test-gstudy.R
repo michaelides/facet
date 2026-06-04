@@ -277,17 +277,139 @@ test_that("gstudy detects long-format multivariate models", {
     Subtest = factor(rep(c("A", "B"), each = 30)),
     Item = factor(rep(1:4, 15))
   )
-  formula <- brms::bf(Score ~ 0 + Subtest + (0+Subtest|Person), sigma ~ 0 + Subtest)
-  # Test detection logic
-  detection <- is_long_format_multivariate(formula)
-  expect_true(detection$is_long)
-  expect_equal(detection$dimension_var, "Subtest")
+formula <- brms::bf(Score ~ 0 + Subtest + (0+Subtest|Person), sigma ~ 0 + Subtest)
+# Test detection logic
+detection <- is_long_format_multivariate(formula)
+expect_true(detection$is_long)
+expect_equal(detection$dimension_var, "Subtest")
 })
 
 test_that("gstudy long_format detection sets is_mv correctly", {
+skip_if_not_installed("brms")
+formula <- brms::bf(Score ~ 0 + Subtest + (0+Subtest|Person), sigma ~ 0 + Subtest)
+detection <- is_long_format_multivariate(formula)
+# Detection should identify this as long-format
+expect_true(detection$is_long)
+})
+
+# =============================================================================
+# Unbalanced multivariate tests
+# =============================================================================
+
+test_that("unbalanced = TRUE with mom backend works for multivariate", {
   skip_if_not_installed("brms")
-  formula <- brms::bf(Score ~ 0 + Subtest + (0+Subtest|Person), sigma ~ 0 + Subtest)
-  detection <- is_long_format_multivariate(formula)
-  # Detection should identify this as long-format
-  expect_true(detection$is_long)
+  
+  # Create test data with unbalanced design
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  # Make y1 missing for some persons (creates unbalanced design)
+  test_data$y1[test_data$person %in% c("1", "2")] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  
+  # Should NOT warn when unbalanced = TRUE
+  expect_no_warning(
+    result <- gstudy(formula, test_data, backend = "mom", unbalanced = TRUE)
+  )
+  
+  expect_s3_class(result, "mgstudy")
+  expect_true(result$model$is_unbalanced)
+  expect_true(!is.null(result$variance_components))
+})
+
+test_that("unbalanced = TRUE warns for univariate models", {
+  skip_if_not_installed("lme4")
+  
+  expect_warning(
+    gstudy(score ~ (1 | person), data = test_data, backend = "mom", unbalanced = TRUE),
+    "only applicable to multivariate"
+  )
+})
+
+test_that("unbalanced = TRUE warns for brms backend", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(50),
+    y2 = rnorm(50),
+    person = factor(rep(1:10, 5))
+  )
+  
+  expect_warning(
+    gstudy(brms::mvbind(y1, y2) ~ (1 | person), data = test_data, 
+           backend = "brms", unbalanced = TRUE),
+    "not implemented for brms"
+  )
+})
+
+test_that("unbalanced = TRUE errors for lme4 multivariate", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(50),
+    y2 = rnorm(50),
+    person = factor(rep(1:10, 5))
+  )
+  
+  expect_error(
+    gstudy(brms::mvbind(y1, y2) ~ (1 | person), data = test_data,
+           backend = "lme4", unbalanced = TRUE),
+    "Multivariate models are not supported by lme4"
+  )
+})
+
+test_that("check_multivariate_balance respects unbalanced flag", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  # Make y1 missing for ALL observations of person 1 (unbalanced design)
+  test_data$y1[test_data$person == "1"] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  
+  # Without unbalanced flag, should have warning
+  result1 <- check_multivariate_balance(formula, test_data, FALSE, unbalanced = FALSE)
+  expect_false(is.null(result1$warning_message))
+  expect_true(grepl("Unbalanced", result1$warning_message))
+  
+  # With unbalanced flag, should have info message instead
+  result2 <- check_multivariate_balance(formula, test_data, FALSE, unbalanced = TRUE)
+  expect_true(is.null(result2$warning_message))
+  expect_false(is.null(result2$info_message))
+  expect_true(grepl("Henderson", result2$info_message))
+})
+
+test_that("fit_mom_multivariate_unbalanced returns correct structure", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  # Make unbalanced
+  test_data$y1[test_data$person %in% c("1", "2")] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  
+  result <- fit_mom(formula, test_data, unbalanced = TRUE)
+  
+  expect_s3_class(result, "momfit")
+  expect_true(result$is_unbalanced)
+  expect_true(!is.null(result$n_per_dim))
+  expect_true(!is.null(result$variance_components))
+  expect_true("dim" %in% names(result$variance_components))
 })

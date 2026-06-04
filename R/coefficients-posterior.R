@@ -114,10 +114,31 @@ calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, unive
         dim_posteriors <- vector("list", length(mv_dims))
         names(dim_posteriors) <- mv_dims
 
-        for (d in mv_dims) {
+ for (d in mv_dims) {
+  # Use per-dimension sample sizes when available
+  n_dim <- n_current
+  if (!is.null(n_per_dim) && !is.null(n_per_dim$n_list[[d]])) {
+    dim_n <- n_per_dim$n_list[[d]]
+    if (is.data.frame(dim_n)) {
+      for (i in seq_len(nrow(dim_n))) {
+        f <- dim_n$facet[i]
+        if (f %in% names(n_dim)) {
+          n_dim[[f]] <- dim_n$n[i]
+        }
+      }
+    } else {
+      if (!is.null(dim_n$facet_n)) dim_n <- dim_n$facet_n
+      for (facet in names(dim_n)) {
+        if (facet %in% names(n_dim)) {
+          n_dim[[facet]] <- dim_n[[facet]]
+        }
+      }
+    }
+  }
+
           combo_result <- calculate_single_posterior(
             vc_draws = vc_draws[[d]],
-            n = n_current,
+            n = n_dim,
             object_spec = object_spec,
             universe_spec = universe_spec,
             error_spec = error_spec,
@@ -185,24 +206,47 @@ calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, unive
       dim_posteriors <- vector("list", length(mv_dims))
       names(dim_posteriors) <- mv_dims
 
-      for (d in mv_dims) {
-        result <- calculate_single_posterior(
-          vc_draws = vc_draws[[d]],
-          n = n,
-          object_spec = object_spec,
-          universe_spec = universe_spec,
-          error_spec = error_spec,
-          agg_facets = agg_facets,
-          residual_is = residual_is,
-          gstudy_obj = gstudy_obj,
-          n_provided = n_provided,
-          use_scaled = use_scaled,
-          cut_score = cut_score,
-          mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y,
-          ci = ci,
-          probs = probs
-        )
-        dim_results[[d]] <- cbind(dim = d, result$summary)
+ for (d in mv_dims) {
+  # Use per-dimension sample sizes when available
+  n_dim <- n
+  if (!is.null(n_per_dim) && !is.null(n_per_dim$n_list[[d]])) {
+    dim_n <- n_per_dim$n_list[[d]]
+    # Handle different structures: sweep returns list with $facet_n,
+    # non-sweep returns a data frame or a named list
+    if (is.data.frame(dim_n)) {
+      for (i in seq_len(nrow(dim_n))) {
+        f <- dim_n$facet[i]
+        if (f %in% names(n_dim)) {
+          n_dim[[f]] <- dim_n$n[i]
+        }
+      }
+    } else {
+      if (!is.null(dim_n$facet_n)) dim_n <- dim_n$facet_n
+      for (facet in names(dim_n)) {
+        if (facet %in% names(n_dim)) {
+          n_dim[[facet]] <- dim_n[[facet]]
+        }
+      }
+    }
+  }
+
+  result <- calculate_single_posterior(
+    vc_draws = vc_draws[[d]],
+    n = n_dim,
+    object_spec = object_spec,
+    universe_spec = universe_spec,
+    error_spec = error_spec,
+    agg_facets = agg_facets,
+    residual_is = residual_is,
+    gstudy_obj = gstudy_obj,
+    n_provided = n_provided,
+    use_scaled = use_scaled,
+    cut_score = cut_score,
+    mu_y = if (is.list(mu_y)) mu_y[[d]] else mu_y,
+    ci = ci,
+    probs = probs
+  )
+  dim_results[[d]] <- cbind(dim = d, result$summary)
         dim_posteriors[[d]] <- result$distributions
       }
 
@@ -472,8 +516,9 @@ extract_sd_draws_univariate <- function(draws, comp, vc) {
 #' @param gstudy_obj Original gstudy object.
 #' @param n_provided Logical indicating if n was explicitly provided.
 #' @param use_scaled Logical indicating whether to use scaled variance draws.
-#'   When FALSE, uses original variance draws and does not scale universe components.
-#'   When TRUE, uses scaled variance draws and scales non-object universe components.
+#'   When FALSE, uses original variance draws for both universe and error.
+#'   When TRUE, uses scaled variance draws for error components only;
+#'   universe components always use unscaled (G-study) variance draws.
 #' @param cut_score Optional cut score for phi-cut calculation.
 #' @param mu_y Optional grand mean for phi-cut calculation.
 #'
@@ -501,24 +546,11 @@ calculate_single_posterior <- function(vc_draws, n, object_spec, universe_spec,
   }
 
   # Calculate universe score variance (uni)
-  # Object components are NEVER scaled, non-object universe components are scaled only if use_scaled
+  # Universe score is always estimated from unscaled (G-study) variance components
   uni <- rep(0, n_draws)
   for (comp in universe_spec) {
-    if (comp %in% names(scaled_draws)) {
-      if (comp %in% object_spec) {
-        # Object component: NEVER scaled
-        uni <- uni + scaled_draws[[comp]]
-      } else {
-        # Non-object universe component
-        if (use_scaled) {
-          # Scale by sample sizes
-          scale_factor <- get_universe_scale_factor_for_component(comp, n, agg_facets, residual_is, comp)
-          uni <- uni + scaled_draws[[comp]] / scale_factor
-        } else {
-          # No scaling for unscaled estimate
-          uni <- uni + scaled_draws[[comp]]
-        }
-      }
+    if (comp %in% names(vc_draws)) {
+      uni <- uni + vc_draws[[comp]]
     }
   }
 

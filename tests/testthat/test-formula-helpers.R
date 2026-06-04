@@ -327,3 +327,343 @@ test_that("is_long_format_multivariate requires dimension var in random effects"
   result <- is_long_format_multivariate(formula)
   expect_false(result$is_long)
 })
+
+# =============================================================================
+# validate_interaction_levels tests
+# =============================================================================
+
+test_that("validate_interaction_levels passes for valid interaction terms", {
+  data <- data.frame(
+    score = rnorm(120),
+    person = factor(rep(1:10, 12)),
+    item = factor(rep(1:6, each = 20))
+  )
+  # person:item has 10*6 = 60 levels, which is < 120 observations
+  f <- score ~ (1 | person) + (1 | item) + (1 | person:item)
+  expect_silent(validate_interaction_levels(f, data, "lme4"))
+})
+
+test_that("validate_interaction_levels errors when interaction has same levels as observations", {
+  data <- data.frame(
+    score = rnorm(20),
+    person = factor(rep(1:10, 2)),
+    item = factor(rep(1:2, each = 10))
+  )
+  f <- score ~ (1 | person) + (1 | item) + (1 | person:item)
+  expect_error(
+    validate_interaction_levels(f, data, "lme4"),
+    "as many or more levels than observations"
+  )
+})
+
+test_that("validate_interaction_levels does not error for non-lme4 backends", {
+  data <- data.frame(
+    score = rnorm(20),
+    person = factor(rep(1:10, 2)),
+    item = factor(rep(1:2, each = 10))
+  )
+  f <- score ~ (1 | person) + (1 | item) + (1 | person:item)
+  expect_silent(validate_interaction_levels(f, data, "brms"))
+  expect_silent(validate_interaction_levels(f, data, "mom"))
+})
+
+test_that("validate_interaction_levels provides helpful error message", {
+  data <- data.frame(
+    score = rnorm(20),
+    person = factor(rep(1:10, 2)),
+    item = factor(rep(1:2, each = 10))
+  )
+  f <- score ~ (1 | person) + (1 | item) + (1 | person:item)
+  expect_error(
+    validate_interaction_levels(f, data, "lme4"),
+    "Solutions"
+  )
+})
+
+test_that("validate_interaction_levels handles multiple problematic terms", {
+  data <- data.frame(
+    score = rnorm(12),
+    a = factor(rep(1:3, 4)),
+    b = factor(rep(1:4, each = 3)),
+    c = factor(rep(1:2, each = 6))
+  )
+  # Both a:b and a:c would have 12 levels
+  f <- score ~ (1 | a) + (1 | b) + (1 | c) + (1 | a:b) + (1 | a:c)
+  expect_error(
+    validate_interaction_levels(f, data, "lme4"),
+    "Interaction term"
+  )
+})
+
+test_that("validate_interaction_levels passes for nested designs", {
+  data <- data.frame(
+    score = rnorm(24),
+    person = factor(rep(1:6, 4)),
+    task = factor(rep(1:2, each = 12)),
+    rater = factor(paste0(rep(1:2, each = 12), ".", rep(1:2, each = 12)))
+  )
+  # Rater nested in task - Rater:Task has 4 levels, not 24
+  f <- score ~ (1 | person) + (1 | task) + (1 | rater:task)
+  expect_silent(validate_interaction_levels(f, data, "lme4"))
+})
+
+# =============================================================================
+# check_multivariate_balance tests
+# =============================================================================
+
+test_that("check_multivariate_balance returns balanced for no missing values", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_true(result$is_balanced)
+  expect_false(result$has_missing)
+  expect_false(result$has_different_levels)
+  expect_null(result$warning_message)
+  expect_null(result$info_message)
+})
+
+test_that("check_multivariate_balance detects genuine missing values with consistent levels", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  # Add missing values that don't affect facet levels
+  test_data$y1[c(1, 50)] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_true(result$is_balanced)
+  expect_true(result$has_missing)
+  expect_false(result$has_different_levels)
+  expect_true(result$is_genuine_missing)
+  expect_null(result$warning_message)
+  expect_false(is.null(result$info_message))
+  expect_true(grepl("Missing values detected", result$info_message))
+})
+
+test_that("check_multivariate_balance detects unbalanced design with different levels", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  # Make y1 missing for ALL observations of person 1 (5 rows)
+  test_data$y1[test_data$person == "1"] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_false(result$is_balanced)
+  expect_true(result$has_missing)
+  expect_true(result$has_different_levels)
+  expect_false(result$is_genuine_missing)
+  expect_false(is.null(result$warning_message))
+  expect_true(grepl("Unbalanced multivariate design", result$warning_message))
+})
+
+test_that("check_multivariate_balance returns balanced for long-format", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, is_long_format = TRUE)
+  
+  expect_true(result$is_balanced)
+  expect_false(result$has_missing)
+  expect_null(result$warning_message)
+  expect_null(result$info_message)
+})
+
+test_that("check_multivariate_balance returns balanced for univariate formula", {
+  test_data <- data.frame(
+    y = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  formula <- y ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_true(result$is_balanced)
+  expect_false(result$has_missing)
+})
+
+test_that("check_multivariate_balance counts observations correctly", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  # Add 10 missing values
+  test_data$y1[1:10] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_equal(result$n_original, 100)
+  expect_equal(result$n_removed, 10)
+  expect_equal(result$n_complete, 90)
+})
+
+test_that("check_multivariate_balance extracts dimensions correctly", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    score1 = rnorm(50),
+    score2 = rnorm(50),
+    score3 = rnorm(50),
+    person = factor(rep(1:10, 5))
+  )
+  
+  formula <- brms::mvbind(score1, score2, score3) ~ (1 | person)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_equal(sort(result$dimensions), c("score1", "score2", "score3"))
+})
+
+test_that("check_multivariate_balance facet_levels_per_dim has correct structure", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_true(is.list(result$facet_levels_per_dim))
+  expect_true("y1" %in% names(result$facet_levels_per_dim))
+  expect_true("y2" %in% names(result$facet_levels_per_dim))
+  expect_true("person" %in% names(result$facet_levels_per_dim$y1))
+  expect_true("rater" %in% names(result$facet_levels_per_dim$y1))
+})
+
+test_that("check_multivariate_balance handles multiple facets with different levels", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  # Make y1 missing for all of person 1 and rater 1
+  test_data$y1[test_data$person == "1" | test_data$rater == "1"] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_false(result$is_balanced)
+  expect_true(result$has_different_levels)
+  # Should report both person and rater as having different levels
+  expect_true(grepl("person", result$warning_message))
+  expect_true(grepl("rater", result$warning_message))
+})
+
+test_that("check_multivariate_balance info message has correct format", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  test_data$y1[1:5] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_true(grepl("Original observations: 100", result$info_message))
+  expect_true(grepl("Complete cases used: 95", result$info_message))
+  expect_true(grepl("5 rows removed", result$info_message))
+  expect_true(grepl("consistent", result$info_message))
+})
+
+test_that("check_multivariate_balance warning message has correct format", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    y1 = rnorm(100),
+    y2 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    rater = factor(rep(1:5, each = 20))
+  )
+  
+  test_data$y1[test_data$person == "1"] <- NA
+  
+  formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_true(grepl("Unbalanced multivariate design", result$warning_message))
+  expect_true(grepl("person:", result$warning_message))
+  expect_true(grepl("long-format", result$warning_message))
+  expect_true(grepl("bf\\(", result$warning_message))
+})
+
+test_that("check_multivariate_balance works with mvbrmsformula and set_rescor", {
+  skip_if_not_installed("brms")
+  
+  test_data <- data.frame(
+    test1 = rnorm(100),
+    test2 = rnorm(100),
+    test3 = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    item = factor(rep(1:4, each = 25))
+  )
+  
+  # Make test1 missing for items 3 and 4
+  test_data$test1[test_data$item %in% c("3", "4")] <- NA
+  
+  formula <- brms::bf(brms::mvbind(test1, test2, test3) ~ (1 | person) + (1 | item)) + 
+    brms::set_rescor(FALSE)
+  result <- check_multivariate_balance(formula, test_data, FALSE)
+  
+  expect_equal(sort(result$dimensions), c("test1", "test2", "test3"))
+  expect_false(result$is_balanced)
+  expect_true(result$has_different_levels)
+  expect_true(grepl("item:", result$warning_message))
+})
+
+test_that("extract_response_names works with mvbrmsformula objects", {
+  skip_if_not_installed("brms")
+  
+  formula <- brms::bf(brms::mvbind(y1, y2, y3) ~ (1 | person)) + brms::set_rescor(TRUE)
+  result <- extract_response_names(formula)
+  
+  expect_equal(sort(result), c("y1", "y2", "y3"))
+})

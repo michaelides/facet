@@ -367,6 +367,54 @@ resolve_dim_n <- function(dim_name, n_per_dim, n_global) {
   n_dim
 }
 
+#' Should the D-Study Path Iterate Per Dimension?
+#'
+#' Returns TRUE when the mgstudy object has per-dim sample-size information
+#' and the user-provided `n` is a per-dim tibble (i.e., we should call the
+#' variance functions separately for each dim rather than once with scalar n).
+#'
+#' @param is_multivariate Logical: whether the model is multivariate.
+#' @param n_per_dim The `n_per_dim` slot from [resolve_dstudy_sample_sizes()].
+#' @param n_tibble The `n_tibble` slot from [resolve_dstudy_sample_sizes()].
+#' @return Logical scalar.
+#' @keywords internal
+needs_per_dim_vc_loop <- function(is_multivariate, n_per_dim, n_tibble) {
+  isTRUE(is_multivariate) &&
+    !is.null(n_per_dim) &&
+    !is.null(n_tibble) &&
+    nrow(n_tibble) > 0
+}
+
+#' Apply a Variance Function Per Dimension
+#'
+#' When [needs_per_dim_vc_loop()] is TRUE, splits the variance components
+#' tibble by `dim` and calls `fn(vc_dim, n_dim, ...)` for each dimension,
+#' then row-binds the results. Otherwise calls `fn(vc, n, ...)` once with
+#' the full vc and global n. Used to give the non-posterior D-study paths
+#' per-dim awareness without changing their signatures.
+#'
+#' @param vc Variance components tibble with a `dim` column.
+#' @param n Named list of facet -> n (global n; per-dim n overrides apply).
+#' @param n_per_dim The `n_per_dim` slot from [resolve_dstudy_sample_sizes()].
+#' @param n_tibble The `n_tibble` slot from [resolve_dstudy_sample_sizes()].
+#' @param fn A variance function such as [calculate_divided_variance()] or
+#'   [calculate_dstudy_variance()].
+#' @param ... Additional arguments passed to `fn`.
+#' @return Tibble of variance components (per-dim, row-bound).
+#' @keywords internal
+apply_per_dim <- function(vc, n, n_per_dim, n_tibble, fn, ...) {
+  if (!needs_per_dim_vc_loop(TRUE, n_per_dim, n_tibble)) {
+    return(fn(vc, n, ...))
+  }
+  dims <- unique(vc$dim)
+  parts <- lapply(dims, function(d) {
+    vc_dim <- vc[vc$dim == d, , drop = FALSE]
+    n_dim <- resolve_dim_n(d, n_per_dim, n)
+    fn(vc_dim, n_dim, ...)
+  })
+  do.call(rbind, parts)
+}
+
 #' Process Residual and Error Specification Overlap
 #'
 #' Determines residual composition from formula/data, handles overlap

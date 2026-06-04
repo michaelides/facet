@@ -99,12 +99,84 @@ expect_true("person:rater" %in% result$universe)
 })
 
 test_that("dstudy warns when object not in universe", {
-skip_if_not_installed("lme4")
-g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
-expect_warning(
-dstudy(g, n = list(rater = 3), universe = "person:rater"),
-"specification of the universe did not include the object of measurement"
-)
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  expect_warning(
+    dstudy(g, n = list(rater = 3), universe = "person:rater"),
+    "specification of the universe did not include the object of measurement"
+  )
+})
+
+test_that("universe score uses unscaled variance for all universe components", {
+  skip_if_not_installed("lme4")
+  set.seed(42)
+  data3 <- data.frame(
+    score = rnorm(120),
+    person = factor(rep(1:20, 6)),
+    task = factor(rep(1:3, each = 40)),
+    rater = factor(rep(rep(1:2, each = 20), 3))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) + (1 | person:task), data = data3)
+
+  result <- dstudy(g, n = list(task = 5, rater = 4), universe = c("person", "person:task"))
+
+  vc <- result$variance_components
+  var_person <- vc$var_unscaled[vc$component == "person"]
+  var_pt <- vc$var_unscaled[vc$component == "person:task"]
+  expected_uni <- var_person + var_pt
+
+  expect_equal(result$coefficients$uni, expected_uni, tolerance = 1e-10,
+    info = "universe score should be sum of unscaled G-study variances for all universe components")
+})
+
+test_that("universe score with expanded universe is larger than object-only universe", {
+  skip_if_not_installed("lme4")
+  set.seed(42)
+  data3 <- data.frame(
+    score = rnorm(120),
+    person = factor(rep(1:20, 6)),
+    task = factor(rep(1:3, each = 40)),
+    rater = factor(rep(rep(1:2, each = 20), 3))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) + (1 | person:task), data = data3)
+
+  result_default <- dstudy(g, n = list(task = 5, rater = 4))
+  result_expanded <- dstudy(g, n = list(task = 5, rater = 4), universe = c("person", "person:task"))
+
+  var_pt <- result_default$variance_components$var_unscaled[
+    result_default$variance_components$component == "person:task"]
+
+  expect_true(result_expanded$coefficients$uni > result_default$coefficients$uni,
+    info = "expanded universe should have larger universe score")
+  expect_equal(result_expanded$coefficients$uni,
+    result_default$coefficients$uni + var_pt, tolerance = 1e-10,
+    info = "expanded universe score = default uni + unscaled person:task variance")
+})
+
+test_that("universe score uses unscaled variance when n not provided", {
+  skip_if_not_installed("lme4")
+  set.seed(42)
+  data3 <- data.frame(
+    score = rnorm(120),
+    person = factor(rep(1:20, 6)),
+    task = factor(rep(1:3, each = 40)),
+    rater = factor(rep(rep(1:2, each = 20), 3))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) + (1 | person:task), data = data3)
+
+  result <- dstudy(g, universe = c("person", "person:task"))
+
+  vc <- result$variance_components
+  var_person <- vc$var_unscaled[vc$component == "person"]
+  var_pt <- vc$var_unscaled[vc$component == "person:task"]
+  expected_uni <- var_person + var_pt
+
+  if ("estimate" %in% names(result$coefficients)) {
+    uni_unscaled <- result$coefficients$uni[result$coefficients$estimate == "unscaled"]
+    expect_equal(uni_unscaled, expected_uni, tolerance = 1e-10)
+  } else {
+    expect_equal(result$coefficients$uni, expected_uni, tolerance = 1e-10)
+  }
 })
 
 # =============================================================================
@@ -1570,12 +1642,12 @@ test_that("composite coefficients include credible intervals when ci requested",
   expect_true(composite_row$g_UL >= composite_row$g, "g_UL should be >= g")
 })
 
-test_that("VAR is computed for long-format multivariate models", {
+test_that("VAR is stored in var element for long-format multivariate models", {
   skip_if_not_installed("brms")
   skip_on_cran()
-  
+
   data(rajaratnam)
-  
+
   gu <- gstudy(
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
        sigma ~ 0 + Subtest),
@@ -1585,38 +1657,57 @@ test_that("VAR is computed for long-format multivariate models", {
     iter = 500,
     refresh = 0
   )
-  
+
   # Use correct dimension names from gu$dimensions
   dims <- as.character(gu$dimensions)
   weights <- setNames(rep(1, length(dims)), dims)
-  
+
   d <- dstudy(gu, n = list(Person = 5), weights = weights)
-  
-  # VAR should not be NA for subscale rows
-  subscale_rows <- d$coefficients[d$coefficients$dim != "Composite", ]
-  expect_true(all(!is.na(subscale_rows$var_rel)))
-  expect_true(all(!is.na(subscale_rows$var_abs)))
-  
+
+  # VAR should NOT be in coefficients table
+  expect_false("var_rel" %in% names(d$coefficients))
+  expect_false("var_abs" %in% names(d$coefficients))
+
+  # VAR should be in var element (use [[ to avoid partial matching)
+  expect_false(is.null(d[["var"]]))
+  expect_true(is.list(d[["var"]]))
+
+  # Check posterior matrices
+  expect_true(is.matrix(d[["var"]]$var_rel_draws))
+  expect_true(is.matrix(d[["var"]]$var_abs_draws))
+  expect_true(is.matrix(d[["var"]]$prmse_c_rel_draws))
+  expect_true(is.matrix(d[["var"]]$prmse_c_abs_draws))
+
+  # Check dimensions
+  expect_equal(ncol(d[["var"]]$var_rel_draws), length(dims))
+  expect_equal(colnames(d[["var"]]$var_rel_draws), dims)
+
+  # Check summary vectors
+  expect_true(all(!is.na(d[["var"]]$var_rel)))
+  expect_true(all(!is.na(d[["var"]]$var_abs)))
+  expect_true(all(!is.na(d[["var"]]$prmse_c_rel)))
+  expect_true(all(!is.na(d[["var"]]$prmse_c_abs)))
+
   # VAR values should be positive and finite
-  expect_true(all(subscale_rows$var_rel > 0))
-  expect_true(all(subscale_rows$var_abs > 0))
+  expect_true(all(d[["var"]]$var_rel > 0))
+  expect_true(all(d[["var"]]$var_abs > 0))
 })
 
-test_that("VAR is computed for wide-format multivariate models (brms backend)", {
+test_that("VAR is stored in var element for wide-format multivariate models (brms backend)", {
   skip_if_not_installed("brms")
   skip_on_cran()
-  
+
   set.seed(456)
   n_persons <- 30
-  
+
   person_effect <- rnorm(n_persons, 0, 2)
-  
+
   data <- data.frame(
     person = 1:n_persons,
     A = person_effect + rnorm(n_persons, 0, 1),
     B = 0.7 * person_effect + rnorm(n_persons, 0, 1)
   )
-  
+
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
@@ -1625,15 +1716,235 @@ test_that("VAR is computed for wide-format multivariate models (brms backend)", 
     iter = 500,
     refresh = 0
   )
-  
+
   d <- dstudy(gu, n = list(person = 10), weights = c(A = 1, B = 1))
-  
-  # VAR should not be NA for subscale rows
-  subscale_rows <- d$coefficients[d$coefficients$dim != "Composite", ]
-  expect_true(all(!is.na(subscale_rows$var_rel)))
-  expect_true(all(!is.na(subscale_rows$var_abs)))
-  
+
+  # VAR should NOT be in coefficients table
+  expect_false("var_rel" %in% names(d$coefficients))
+  expect_false("var_abs" %in% names(d$coefficients))
+
+  # VAR should be in var element (use [[ to avoid partial matching)
+  expect_false(is.null(d[["var"]]))
+  expect_true(is.list(d[["var"]]))
+
+  # Check posterior matrices
+  expect_true(is.matrix(d[["var"]]$var_rel_draws))
+  expect_true(is.matrix(d[["var"]]$var_abs_draws))
+  expect_true(is.matrix(d[["var"]]$prmse_c_rel_draws))
+  expect_true(is.matrix(d[["var"]]$prmse_c_abs_draws))
+
+  # Check dimensions
+  expect_equal(ncol(d[["var"]]$var_rel_draws), 2)
+  expect_equal(sort(colnames(d[["var"]]$var_rel_draws)), c("A", "B"))
+
   # VAR values should be positive and finite
-  expect_true(all(subscale_rows$var_rel > 0))
-  expect_true(all(subscale_rows$var_abs > 0))
+  expect_true(all(d[["var"]]$var_rel > 0))
+  expect_true(all(d[["var"]]$var_abs > 0))
 })
+
+test_that("prmse returns correct structure", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  data(rajaratnam)
+
+  gu <- gstudy(
+  bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    sigma ~ 0 + Subtest),
+  data = rajaratnam,
+  backend = "brms",
+  chains = 2,
+  iter = 500,
+  refresh = 0
+  )
+
+  dims <- as.character(gu$dimensions)
+  weights <- setNames(rep(1, length(dims)), dims)
+
+  d <- dstudy(gu, n = list(Person = 5), weights = weights)
+
+  # prmse without ci should return point estimates only (no CI columns)
+  var_df <- prmse(d)
+  expect_s3_class(var_df, "tbl_df")
+  expect_equal(nrow(var_df), length(dims))
+
+  # Check column names - should NOT include CI columns by default
+  expected_cols_no_ci <- c("dim", "prmse_s_rel", "prmse_s_abs", 
+                           "prmse_c_rel", "prmse_c_abs",
+                           "prmse_p_rel", "prmse_p_abs",
+                           "var_rel", "var_abs")
+  expect_true(all(expected_cols_no_ci %in% names(var_df)))
+  # CI columns should NOT be present by default
+  expect_false(any(grepl("_LL$|_UL$", names(var_df))))
+
+  # Check values are positive
+  expect_true(all(var_df$var_rel > 0))
+  expect_true(all(var_df$var_abs > 0))
+})
+
+test_that("prmse with ci returns CI columns for brms backend", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  data(rajaratnam)
+
+  gu <- gstudy(
+  bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    sigma ~ 0 + Subtest),
+  data = rajaratnam,
+  backend = "brms",
+  chains = 2,
+  iter = 500,
+  refresh = 0
+  )
+
+  dims <- as.character(gu$dimensions)
+  weights <- setNames(rep(1, length(dims)), dims)
+
+  d <- dstudy(gu, n = list(Person = 5), weights = weights)
+
+  # prmse with ci should return CI columns
+  var_df <- prmse(d, ci = c("prmse", "var"))
+  expect_s3_class(var_df, "tbl_df")
+  expect_equal(nrow(var_df), length(dims))
+
+  # Check CI columns are present
+  expect_true("prmse_c_rel_LL" %in% names(var_df))
+  expect_true("prmse_c_rel_UL" %in% names(var_df))
+  expect_true("var_rel_LL" %in% names(var_df))
+  expect_true("var_rel_UL" %in% names(var_df))
+
+  # Check credible intervals are ordered
+  expect_true(all(var_df$var_rel_LL < var_df$var_rel_UL))
+  expect_true(all(var_df$var_abs_LL < var_df$var_abs_UL))
+})
+
+test_that("var is NULL for univariate models", {
+  data(brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
+  d <- dstudy(g, n = list(Task = 3))
+
+  # Use [[ instead of $ to avoid partial matching with variance_components$var
+  expect_true(is.null(d[["var"]]))
+})
+
+test_that("prmse returns G and Phi for univariate models", {
+  data(brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
+  d <- dstudy(g, n = list(Task = 3))
+
+  # Should return a tibble with prmse_rel and prmse_abs
+  result <- suppressMessages(prmse(d))
+
+  expect_s3_class(result, "tbl_df")
+  expect_true("dim" %in% names(result))
+  expect_true("prmse_rel" %in% names(result))
+  expect_true("prmse_abs" %in% names(result))
+
+  # prmse_rel should equal G, prmse_abs should equal Phi
+  expect_equal(result$prmse_rel, d$coefficients$g)
+  expect_equal(result$prmse_abs, d$coefficients$phi)
+})
+
+test_that("prmse warns that CIs only available for brms backend", {
+  data(brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
+  d <- dstudy(g, n = list(Task = 3))
+
+  # Should warn when ci is specified for mom backend
+  expect_warning(
+    prmse(d, ci = "prmse"),
+    "Credible intervals are only available for brms backend"
+  )
+
+  # Result should not have CI columns
+  result <- suppressWarnings(prmse(d, ci = "prmse"))
+  expect_false("prmse_rel_LL" %in% names(result))
+  expect_false("prmse_abs_LL" %in% names(result))
+})
+
+# =============================================================================
+# Tests for per-dimension sample size handling
+# =============================================================================
+
+test_that("validate_n_tibble validates correct tibble", {
+  n_tb <- tibble::tibble(
+    dim = c("A", "A", "B", "B"),
+    facet = c("Person", "Item", "Person", "Item"),
+    n = c(10, 5, 8, 4)
+  )
+  result <- validate_n_tibble(n_tb, c("A", "B"), c("Person", "Item"))
+  expect_true(result$valid)
+  expect_null(result$error)
+})
+
+test_that("validate_n_tibble rejects missing columns", {
+  n_tb <- tibble::tibble(
+    dim = c("A", "B"),
+    facet = c("Person", "Person")
+  )
+  result <- validate_n_tibble(n_tb, c("A", "B"), c("Person"))
+  expect_false(result$valid)
+  expect_true(grepl("n", result$error))
+})
+
+test_that("validate_n_tibble rejects unknown dimensions", {
+  n_tb <- tibble::tibble(
+    dim = c("A", "C"),
+    facet = c("Person", "Person"),
+    n = c(10, 8)
+  )
+  result <- validate_n_tibble(n_tb, c("A", "B"), c("Person"))
+  expect_false(result$valid)
+  expect_true(grepl("unknown", tolower(result$error)))
+})
+
+test_that("validate_n_tibble rejects negative n values", {
+  n_tb <- tibble::tibble(
+    dim = c("A", "B"),
+    facet = c("Person", "Person"),
+    n = c(-1, 5)
+  )
+  result <- validate_n_tibble(n_tb, c("A", "B"), c("Person"))
+  expect_false(result$valid)
+  expect_true(grepl("positive", tolower(result$error)))
+})
+
+test_that("expand_n_per_dim handles non-sweep case", {
+  n_tb <- tibble::tibble(
+    dim = c("A", "A", "B", "B"),
+    facet = c("Person", "Item", "Person", "Item"),
+    n = c(10, 5, 8, 4)
+  )
+  result <- expand_n_per_dim(n_tb, sweep = FALSE)
+  expect_false(result$is_sweep)
+  expect_null(result$grid)
+})
+
+test_that("expand_n_per_dim detects sweep when multiple n per facet", {
+  n_tb <- tibble::tibble(
+    dim = c("A", "A", "A", "A"),
+    facet = c("Person", "Person", "Item", "Item"),
+    n = c(10, 15, 5, 8)
+  )
+  result <- expand_n_per_dim(n_tb, sweep = TRUE)
+  expect_true(result$is_sweep)
+  expect_s3_class(result$grid, "data.frame")
+})
+
+test_that("create_n_tibble_from_list creates correct structure", {
+  n_list <- list(Person = 10, Item = 5)
+  result <- create_n_tibble_from_list(n_list, c("A", "B"))
+  expect_s3_class(result, "data.frame")
+  expect_equal(nrow(result), 4)  # 2 dimensions x 2 facets
+  expect_true(all(c("dim", "facet", "n") %in% names(result)))
+})
+
+test_that("extract_sample_sizes_per_dim returns NULL for non-mgstudy", {
+  skip_if_not_installed("lme4")
+  data(brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
+  result <- extract_sample_sizes_per_dim(g)
+  expect_null(result)
+})
+

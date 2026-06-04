@@ -123,7 +123,7 @@ test_that("extract_vc_lme4 includes residual variance", {
   f <- score ~ (1 | person) + (1 | rater)
   model <- lme4::lmer(f, test_data)
   vc <- extract_vc_lme4(model)
-  expect_true(any(grepl("Residual", vc$component) | grepl("Residual", vc$facet)))
+  expect_true(any(grepl("Residual", vc$component)))
 })
 
 # =============================================================================
@@ -301,12 +301,12 @@ test_that("mom backend warns about ci_method", {
 test_that("variance components order matches formula order for lme4 backend", {
   skip_if_not_installed("lme4")
   set.seed(42)
-  test_data <- data.frame(
-    score = rnorm(100),
-    person = factor(rep(1:20, each = 5)),
-    item = factor(rep(1:5, times = 20)),
-    rater = factor(rep(1:10, each = 10))
+  test_data <- expand.grid(
+    person = factor(1:10),
+    item = factor(1:5),
+    rater = factor(1:2)
   )
+  test_data$score <- rnorm(nrow(test_data))
 
   f <- score ~ (1 | person) + (1 | item) + (1 | rater)
   g <- gstudy(f, data = test_data, backend = "lme4")
@@ -319,12 +319,12 @@ test_that("variance components order matches formula order for lme4 backend", {
 
 test_that("variance components order matches formula order for mom backend", {
   set.seed(42)
-  balanced_data <- data.frame(
-    score = rnorm(100),
-    person = factor(rep(1:20, each = 5)),
-    item = factor(rep(1:5, times = 20)),
-    rater = factor(rep(1:10, each = 10))
+  balanced_data <- expand.grid(
+    person = factor(1:10),
+    item = factor(1:5),
+    rater = factor(1:2)
   )
+  balanced_data$score <- rnorm(nrow(balanced_data))
 
   f <- score ~ (1 | person) + (1 | item) + (1 | rater)
   g <- gstudy(f, data = balanced_data, backend = "mom")
@@ -381,12 +381,12 @@ test_that("interaction naming follows user specification", {
 test_that("variance components have consistent order across backends", {
   skip_if_not_installed("lme4")
   set.seed(42)
-  test_data <- data.frame(
-    score = rnorm(100),
-    person = factor(rep(1:20, each = 5)),
-    item = factor(rep(1:5, times = 20)),
-    rater = factor(rep(1:10, each = 10))
+  test_data <- expand.grid(
+    person = factor(1:10),
+    item = factor(1:5),
+    rater = factor(1:2)
   )
+  test_data$score <- rnorm(nrow(test_data))
 
   f <- score ~ (1 | person) + (1 | item) + (1 | rater)
 
