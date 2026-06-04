@@ -4,7 +4,11 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.width = 7,
   fig.height = 5,
-  fig.align = "center"
+  fig.align = "center",
+  cache = TRUE,
+  cache.lazy = FALSE,
+  message = FALSE,
+  warning = FALSE
 )
 
 ## -----------------------------------------------------------------------------
@@ -73,6 +77,29 @@ g_boot <- gstudy(
 summary(g_boot)
 
 ## -----------------------------------------------------------------------------
+# Fit the same model with both methods
+g_profile <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
+  data = brennan,
+  ci_method = "profile"
+)
+
+# Compare the CIs
+profile_ci <- tidy(g_profile) %>%
+  select(component, var, lower, upper) %>%
+  mutate(method = "profile")
+
+# Bootstrap CIs were computed above in g_boot
+boot_ci <- tidy(g_boot) %>%
+  select(component, var, lower, upper) %>%
+  mutate(method = "boot (nsim=50)")
+
+bind_rows(profile_ci, boot_ci) %>%
+  select(method, component, var, lower, upper) %>%
+  mutate(across(c(var, lower, upper), ~ sprintf("%.3f", .x)))
+
+## -----------------------------------------------------------------------------
 # Method of moments G-study with nested design (Rater nested in Task)
 g_mom <- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
@@ -95,6 +122,22 @@ g_nested <- gstudy(
 summary(g_nested)
 
 ## ----eval=FALSE---------------------------------------------------------------
+# library(facet)
+# data(brennan)
+# 
+# # Examine structure
+# head(brennan)
+# #   Person Task Rater Score
+# # 1      1    1     1     4
+# # 2      1    1     2     3
+# # 3      1    2     1     5
+# # 4      1    2     2     4
+# # 5      1    3     1     6
+# # 6      1    3     2     5
+# 
+# str(brennan)
+
+## ----eval=FALSE---------------------------------------------------------------
 # # Bayesian G-study with default priors
 # g_bayes <- gstudy(
 #   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
@@ -106,17 +149,37 @@ summary(g_nested)
 # summary(g_bayes)
 
 ## ----eval=FALSE---------------------------------------------------------------
+# g_full <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   data = brennan,
+#   backend = "brms",
+#   chains = 4,        # Number of chains
+#   iter = 4000,       # Total iterations per chain
+#   warmup = 1000,     # Warmup iterations
+#   thin = 1,          # Thinning interval
+#   cores = 4,         # Parallel processing
+#   seed = 123         # Reproducibility
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
 # # View default priors for a model
 # library(brms)
 # default_prior(Score ~ (1 | Person) + (1 | Task),
-#               data = brennan, backend = "brms")
+#               data = brennan)
 # 
 # # Define custom priors
 # my_prior <- c(
-#   set_prior("exponential(1)", class = "sd", group = "Person"),
-#   set_prior("exponential(0.5)", class = "sd", group = "Task"),
-#   set_prior("student_t(3, 0, 2)", class = "sd", group = "Rater"),
-#   set_prior("exponential(1)", class = "sigma")
+#   # Person variance: half-Cauchy with scale 1
+#   set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
+# 
+#   # Task variance: exponential with rate 1
+#   set_prior("exponential(1)", class = "sd", group = "Task"),
+# 
+#   # Rater variance: exponential with rate 0.5 (more spread)
+#   set_prior("exponential(0.5)", class = "sd", group = "Rater"),
+# 
+#   # Residual: half-Cauchy with scale 1
+#   set_prior("cauchy(0, 1)", class = "sigma")
 # )
 # 
 # g_custom <- gstudy(
@@ -127,6 +190,57 @@ summary(g_nested)
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
+# # Weakly informative prior
+# prior_weak <- set_prior("cauchy(0, 5)", class = "sd")
+# g_weak <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task),
+#   data = brennan,
+#   backend = "brms",
+#   prior = prior_weak
+# )
+# 
+# # More informative prior
+# prior_info <- set_prior("exponential(1)", class = "sd")
+# g_info <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task),
+#   data = brennan,
+#   backend = "brms",
+#   prior = prior_info
+# )
+# 
+# # Compare posterior means
+# g_weak$variance_components$estimate
+# g_info$variance_components$estimate
+
+## ----eval=TRUE----------------------------------------------------------------
+# Fit two models with contrasting priors
+prior_weak_run <- set_prior("cauchy(0, 5)", class = "sd")
+g_weak_run <- gstudy(
+  Score ~ (1 | Person) + (1 | Task),
+  data = brennan,
+  backend = "brms",
+  prior = prior_weak_run,
+  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+)
+
+prior_info_run <- set_prior("exponential(1)", class = "sd")
+g_info_run <- gstudy(
+  Score ~ (1 | Person) + (1 | Task),
+  data = brennan,
+  backend = "brms",
+  prior = prior_info_run,
+  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+)
+
+# Side-by-side comparison
+bind_rows(
+  tidy(g_weak_run)  %>% mutate(prior = "cauchy(0, 5)"),
+  tidy(g_info_run)  %>% mutate(prior = "exponential(1)")
+) %>%
+  select(prior, component, var, lower, upper) %>%
+  mutate(across(c(var, lower, upper), ~ sprintf("%.3f", .x)))
+
+## ----eval=FALSE---------------------------------------------------------------
 # # Extract and check diagnostics
 # library(posterior)
 # 
@@ -134,11 +248,63 @@ summary(g_nested)
 # g_bayes$variance_components %>%
 #   select(component, Rhat, Bulk_ESS, Tail_ESS)
 # 
+# # Check for convergence problems
+# any(g_bayes$variance_components$Rhat > 1.01)
+# any(g_bayes$variance_components$Bulk_ESS < 400)
+# 
 # # Extract posterior draws
 # draws <- as_draws_matrix(g_bayes$model)
 # 
 # # Plot posterior distributions
 # plot(g_bayes, type = "variance")
+
+## ----eval=FALSE---------------------------------------------------------------
+# library(posterior)
+# 
+# # Extract draws matrix
+# draws <- as_draws_matrix(g_bayes$model)
+# 
+# # View parameter names
+# colnames(draws)
+# 
+# # Summary statistics
+# summarise_draws(draws)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Variance components with posterior summaries
+# g_bayes$variance_components
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Different credible interval levels
+# g_bayes$variance_components %>%
+#   dplyr::mutate(
+#     q50 = posterior::quantile2(draws[, "sd_Person__Intercept"], probs = 0.5),
+#     q90_lower = posterior::quantile2(draws[, "sd_Person__Intercept"], probs = 0.05),
+#     q90_upper = posterior::quantile2(draws[, "sd_Person__Intercept"], probs = 0.95)
+#   )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Variance component distributions
+# plot(g_bayes, type = "variance")
+# 
+# # Using bayesplot
+# library(bayesplot)
+# 
+# # Posterior density plots
+# mcmc_dens(draws, pars = c("sd_Person__Intercept", "sd_Task__Intercept"))
+# 
+# # Trace plots (should look like "fuzzy caterpillars")
+# mcmc_trace(draws, pars = c("sd_Person__Intercept", "sd_Task__Intercept"))
+# 
+# # Pairs plot (check for correlations)
+# mcmc_pairs(draws, pars = c("sd_Person__Intercept", "sd_Task__Intercept", "sigma"))
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Posterior predictive check
+# pp_check(g_bayes$model)
+# 
+# # Group-specific checks
+# pp_check(g_bayes$model, type = "dens_overlay", group = "Person")
 
 ## -----------------------------------------------------------------------------
 # Conduct D-study with 3 tasks and 4 raters
@@ -207,6 +373,26 @@ d_universe <- dstudy(
 summary(d_universe)
 
 ## -----------------------------------------------------------------------------
+# Default universe: only Person is in the universe
+d_default <- dstudy(g, n = list(Task = 3, Rater = 4))
+
+# Custom universe: Person + Person:Task
+d_custom <- dstudy(
+  g,
+  n = list(Task = 3, Rater = 4),
+  universe = c("Person", "Person:Task")
+)
+
+# Side-by-side comparison
+tribble(
+  ~universe,                            ~G,    ~Phi,
+  "default (Person only)",              round(d_default$coefficients$g, 3),
+                                         round(d_default$coefficients$phi, 3),
+  "custom (Person + Person:Task)",      round(d_custom$coefficients$g, 3),
+                                         round(d_custom$coefficients$phi, 3)
+)
+
+## -----------------------------------------------------------------------------
 # Only use specific interactions as error sources
 d_error <- dstudy(
   g,
@@ -252,6 +438,25 @@ summary(d_agg)
 #   ci = "g",
 #   probs = c(0.05, 0.95)
 # )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Full crossed model with all interactions
+# g_uncoupled <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#           (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+#   data = brennan,
+#   backend = "brms"
+# )
+# 
+# # Compare to traditional model
+# g_traditional <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   data = brennan,
+#   backend = "brms"
+# )
+# 
+# # The uncoupled model separates interaction variance
+# # that traditional models conflate
 
 ## ----eval=FALSE---------------------------------------------------------------
 # # Prepare multivariate data (wide format)
@@ -325,6 +530,100 @@ summary(d_agg)
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
+# # Reshape to wide format
+# library(tidyr)
+# brennan_wide <- brennan %>%
+#   pivot_wider(
+#     names_from = Task,
+#     values_from = Score,
+#     names_prefix = "Task"
+#   )
+# 
+# head(brennan_wide)
+# #   Person Rater Task1 Task2 Task3
+# # 1      1     1     4     5     6
+# # 2      1     2     3     4     5
+# # ...
+# 
+# # Multivariate G-study
+# g_mv_wide <- gstudy(
+#   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
+#   data = brennan_wide,
+#   backend = "brms"
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Use rajaratnam dataset (nested: items within subtests)
+# data(rajaratnam)
+# 
+# head(rajaratnam)
+# #   Person Subtest Item Score
+# # 1      1       1    1     4
+# # 2      1       1    2     5
+# # ...
+# 
+# # Multivariate G-study with long format
+# g_mv_long <- gstudy(
+#   bf(Score ~ 0 + Subtest +
+#          (0 + Subtest | r | Person) +
+#          (0 + Subtest || Item)),
+#   sigma ~ 0 + Subtest,
+#   data = rajaratnam,
+#   backend = "brms"
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Variance components by dimension
+# g_mv_wide$variance_components
+# 
+# # Residual correlations
+# g_mv_wide$correlations$residual_cor
+# 
+# # Random effect correlations (e.g., Person effects)
+# g_mv_wide$correlations$random_effect_cor$Person
+
+## ----eval=FALSE---------------------------------------------------------------
+# d_mv <- dstudy(g_mv_wide, n = list(Rater = 4), ci = c("g", "phi"))
+# 
+# print(d_mv)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Custom weights: Task1=50%, Task2=30%, Task3=20%
+# d_weighted <- dstudy(
+#   g_mv_wide,
+#   n = list(Rater = 4),
+#   weights = c(0.5, 0.3, 0.2),
+#   ci = c("g", "phi")
+# )
+# 
+# print(d_weighted)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Wide format: one column per dimension
+# brennan_wide <- brennan %>%
+#   tidyr::pivot_wider(
+#     names_from = Task,
+#     values_from = Score,
+#     names_prefix = "Task"
+#   )
+# 
+# # Long format on a multivariate variable: each row is a (person, item) score
+# # For brennan, we treat Score as the response and Task as the dimension
+# # indicator. (The brms bf() syntax is more complex; see Multivariate G-Study
+# # section for the full multivariate model.)
+# 
+# # Wide-format G-study (default for multivariate)
+# g_wide_run <- gstudy(
+#   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
+#   data = brennan_wide,
+#   backend = "brms",
+#   chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+# )
+# 
+# # Print the wide-format variance components
+# tidy(g_wide_run)
+
+## ----eval=FALSE---------------------------------------------------------------
 # library(facet)
 # library(brms)
 # 
@@ -355,8 +654,8 @@ summary(d_agg)
 # # Access posterior means directly (use [[ to avoid partial matching with variance_components)
 # d_mv[["var"]]$var_rel     # VAR (relative) means
 # d_mv[["var"]]$var_abs     # VAR (absolute) means
-# d_mv[["var"]]$prmse_c_rel # PRMSE(C→S_i) (relative) means
-# d_mv[["var"]]$prmse_c_abs # PRMSE(C→S_i) (absolute) means
+# d_mv[["var"]]$prmse_c_rel # PRMSE(C->S_i) (relative) means
+# d_mv[["var"]]$prmse_c_abs # PRMSE(C->S_i) (absolute) means
 # 
 # # Access full posterior draws (for custom analysis)
 # dim(d_mv[["var"]]$var_rel_draws)     # [n_draws, n_dims]
@@ -624,22 +923,231 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # result$n_viable
 
 ## ----eval=FALSE---------------------------------------------------------------
-# # Compare all three methods
+# # Fit all three methods on the same multivariate D-study
 # comp <- prmse(d_mv, optimize = "composite")
-# sub <- prmse(d_mv, optimize = "subscale")
-# tun <- prmse(d_mv, optimize = "tuning", grid_resolution = 0.1)
+# sub  <- prmse(d_mv, optimize = "subscale")
+# tun  <- prmse(d_mv, optimize = "tuning", grid_resolution = 0.1)
 # 
-# # Compare weights
-# cat("Composite optimization weights:", round(comp$weights, 3), "\n")
-# cat("Subscale minimax weights:", round(sub$minimax$weights, 3), "\n")
-# cat("Tuning best weights:", round(tun$best$weights, 3), "\n")
-# 
-# # Compare metrics
-# cat("Composite reliability:", round(comp$composite_reliability, 3), "\n")
-# cat("Minimum VAR (minimax):", round(sub$minimax$min_var, 3), "\n")
-# cat("Minimum VAR (tuning):", round(tun$best$min_var, 3), "\n")
+# # Build a small comparison tibble
+# tribble(
+#   ~method,        ~weights,                            ~objective_value,    ~objective_name,
+#   "composite",    round(comp$weights, 3),             round(comp$composite_reliability, 3),  "composite reliability",
+#   "subscale (minimax)", round(sub$minimax$weights, 3), round(sub$minimax$min_var, 3),       "min VAR across subscales",
+#   "tuning",       round(tun$best$weights, 3),         round(tun$best$min_var, 3),           "min VAR (grid search)"
+# )
 
 ## ----eval=FALSE---------------------------------------------------------------
 # # Include composite reliability row
 # prmse(d_mv, include_composite = TRUE)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Compare models with LOO-CV
+# library(loo)
+# 
+# # Fit alternative models
+# g_simple <- gstudy(Score ~ (1 | Person) + (1 | Task),
+#                    data = brennan, backend = "brms")
+# g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#                  data = brennan, backend = "brms")
+# 
+# # LOO comparison
+# loo_simple <- loo(g_simple$model)
+# loo_full <- loo(g_full$model)
+# 
+# loo_compare(loo_simple, loo_full)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Bayes factor approximation
+# bayes_factor(g_full$model, g_simple$model)
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Missing data is automatically handled by brms
+# # using Bayesian imputation during model fitting
+# 
+# g_missing <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task),
+#   data = data_with_missing,
+#   backend = "brms"
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Student-t likelihood for robustness
+# g_robust <- gstudy(
+#   bf(Score ~ (1 | Person) + (1 | Task),
+#      family = student()),
+#   data = brennan,
+#   backend = "brms"
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# tidy(g) %>%
+#   mutate(
+#     Variance = sprintf("%.3f", var),
+#     `95% CI` = if("lower" %in% names(.)) {
+#       sprintf("[%.3f, %.3f]", lower, upper)
+#     } else {
+#       "---"
+#     },
+#     `% of Total` = sprintf("%.1f%%", pct)
+#   ) %>%
+#   select(Component = component, Variance, `95% CI`, `% of Total`) %>%
+#   knitr::kable()
+
+## ----eval=FALSE---------------------------------------------------------------
+# # Function to create APA-style table for variance components
+# make_apa_variance_table <- function(gstudy_obj) {
+#   vc <- gstudy_obj$variance_components
+# 
+#   # Create formatted table
+#   data.frame(
+#     Source = vc$component,
+#     Estimate = sprintf("%.3f", vc$estimate),
+#     SD = sprintf("%.3f", vc$sd),
+#     `95% CI` = sprintf("[%.3f, %.3f]", vc$lower, vc$upper),
+#     Rhat = sprintf("%.3f", vc$Rhat),
+#     ESS = round(vc$Bulk_ESS)
+#   )
+# }
+
+## ----eval=FALSE---------------------------------------------------------------
+# library(facet)
+# data(brennan)
+# 
+# # a) Bayesian G-study
+# g_bayes <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   data = brennan,
+#   backend = "brms"
+# )
+# 
+# # b) Posterior summaries
+# print(g_bayes)
+# 
+# # c) Compare to REML
+# g_reml <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   data = brennan,
+#   backend = "lme4"
+# )
+# 
+# # Compare estimates
+# g_bayes$variance_components$estimate
+# g_reml$variance_components$var
+
+## ----eval=FALSE---------------------------------------------------------------
+# library(brms)
+# 
+# # a) Custom prior encoding prior information
+# # "Moderate" variance with SD around 1.0 suggests half-Cauchy(0, 1)
+# # or exponential(1) for the SD
+# custom_prior <- c(
+#   set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
+#   set_prior("cauchy(0, 2)", class = "sd", group = "Task"),
+#   set_prior("cauchy(0, 2)", class = "sd", group = "Rater"),
+#   set_prior("cauchy(0, 2)", class = "sigma")
+# )
+# 
+# # b) Fit with custom priors
+# g_custom <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   data = brennan,
+#   backend = "brms",
+#   prior = custom_prior
+# )
+# 
+# # Compare
+# g_bayes$variance_components$estimate
+# g_custom$variance_components$estimate
+# 
+# # c) Sensitivity analysis
+# scales <- c(0.5, 1, 2, 5)
+# results <- lapply(scales, function(s) {
+#   prior_s <- set_prior(paste0("cauchy(0, ", s, ")"), class = "sd")
+#   g_s <- gstudy(
+#     Score ~ (1 | Person) + (1 | Task),
+#     data = brennan,
+#     backend = "brms",
+#     prior = prior_s
+#   )
+#   g_s$variance_components$estimate[1]  # Person variance
+# })
+
+## ----eval=FALSE---------------------------------------------------------------
+# # a) G-study
+# g_ex3 <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   data = brennan,
+#   backend = "brms",
+#   chains = 4,
+#   iter = 4000
+# )
+# 
+# # b) D-study sweep
+# d_ex3 <- dstudy(
+#   g_ex3,
+#   n = list(Task = 2:5, Rater = 1:3),
+#   ci = c("g", "phi")
+# )
+# 
+# # c) Designs achieving G > 0.80
+# library(dplyr)
+# d_ex3$coefficients %>%
+#   filter(g_lower > 0.80) %>%
+#   arrange(g_lower)
+# 
+# # d) Visualization
+# plot(d_ex3, type = "sweep")
+
+## ----eval=FALSE---------------------------------------------------------------
+# data(rajaratnam)
+# 
+# # a) Multivariate G-study
+# g_mv_ex4 <- gstudy(
+#   bf(Score ~ 0 + Subtest +
+#          (0 + Subtest | r | Person) +
+#          (0 + Subtest || Item)),
+#   sigma ~ 0 + Subtest,
+#   data = rajaratnam,
+#   backend = "brms",
+#   chains = 2,
+#   iter = 2000
+# )
+# 
+# # b) VAR with credible intervals
+# d_mv_ex4 <- dstudy(
+#   g_mv_ex4,
+#   n = list(Person = 5),
+#   ci = c("var_rel", "var_abs")
+# )
+# 
+# prmse(d_mv_ex4)
+# 
+# # c) Interpretation
+# # VAR > 1 indicates subscale adds value
+# # VAR < 1 indicates composite is better
+# # VAR $\approx$ 1 means either approach acceptable
+
+## ----eval=FALSE---------------------------------------------------------------
+# # a) Three prior specifications
+# prior_weak <- set_prior("cauchy(0, 5)", class = "sd")
+# prior_mod <- set_prior("cauchy(0, 1)", class = "sd")
+# prior_strong <- set_prior("exponential(2)", class = "sd")
+# 
+# g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task),
+#                  data = brennan, backend = "brms", prior = prior_weak)
+# g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task),
+#                 data = brennan, backend = "brms", prior = prior_mod)
+# g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task),
+#                    data = brennan, backend = "brms", prior = prior_strong)
+# 
+# # b) Compare posteriors
+# library(ggplot2)
+# draws_weak <- as_draws_df(g_weak$model)
+# draws_mod <- as_draws_df(g_mod$model)
+# draws_strong <- as_draws_df(g_strong$model)
+# 
+# # c) Prior sensitivity matters most when:
+# # - Sample size is small
+# # - Variance components are near zero
+# # - Priors strongly conflict with data
 

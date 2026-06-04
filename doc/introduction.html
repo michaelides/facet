@@ -47,7 +47,6 @@ ul.task-list{list-style: none;}
 div.csl-bib-body { }
 div.csl-entry {
 clear: both;
-margin-bottom: 0em;
 }
 .hanging div.csl-entry {
 margin-left:2em;
@@ -2323,9 +2322,9 @@ summary(g_boot)
 #&gt; # A tibble: 3 × 5
 #&gt;   component estimate   pct `2.5% CI` `97.5% CI`
 #&gt;   &lt;chr&gt;        &lt;dbl&gt; &lt;dbl&gt;     &lt;dbl&gt;      &lt;dbl&gt;
-#&gt; 1 Person       0.584  13.3     0.002       1.6 
-#&gt; 2 Task         0.52   11.8     0           2.63
-#&gt; 3 Residual     3.29   74.9     2.64        4.04
+#&gt; 1 Person       0.584  13.3      0.01       2.07
+#&gt; 2 Task         0.52   11.8      0          1.89
+#&gt; 3 Residual     3.29   74.9      2.54       3.97
 #&gt; 
 #&gt; Total variance: 4.397</code></pre>
 <p>For production use, increase <code>nsim</code> to 500-1000 for stable
@@ -2365,9 +2364,9 @@ bind_rows(profile_ci, boot_ci) %&gt;%
 #&gt; 3 profile        Rater:Task  0.647 0.149 2.283
 #&gt; 4 profile        Person:Task 0.560 0.000 1.883
 #&gt; 5 profile        Residual    2.380 1.776 3.293
-#&gt; 6 boot (nsim=50) Person      0.584 0.002 1.600
-#&gt; 7 boot (nsim=50) Task        0.520 0.000 2.626
-#&gt; 8 boot (nsim=50) Residual    3.293 2.644 4.037</code></pre>
+#&gt; 6 boot (nsim=50) Person      0.584 0.010 2.071
+#&gt; 7 boot (nsim=50) Task        0.520 0.000 1.892
+#&gt; 8 boot (nsim=50) Residual    3.293 2.540 3.973</code></pre>
 <p><strong>Reading the comparison.</strong> In this small balanced
 design, the two methods usually agree closely on point estimates but can
 differ on CI width — particularly for components near zero, where the
@@ -2685,8 +2684,8 @@ g_weak_run &lt;- gstudy(
 #&gt; 
 #&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 1).
 #&gt; Chain 1: 
-#&gt; Chain 1: Gradient evaluation took 3.2e-05 seconds
-#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.32 seconds.
+#&gt; Chain 1: Gradient evaluation took 3.5e-05 seconds
+#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.35 seconds.
 #&gt; Chain 1: Adjust your expectations accordingly!
 #&gt; Chain 1: 
 #&gt; Chain 1: 
@@ -2703,68 +2702,9 @@ g_weak_run &lt;- gstudy(
 #&gt; Chain 1: Iteration: 900 / 1000 [ 90%]  (Sampling)
 #&gt; Chain 1: Iteration: 1000 / 1000 [100%]  (Sampling)
 #&gt; Chain 1: 
-#&gt; Chain 1:  Elapsed Time: 0.145 seconds (Warm-up)
-#&gt; Chain 1:                0.116 seconds (Sampling)
-#&gt; Chain 1:                0.261 seconds (Total)
-#&gt; Chain 1: 
-#&gt; 
-#&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 2).
-#&gt; Chain 2: 
-#&gt; Chain 2: Gradient evaluation took 1.3e-05 seconds
-#&gt; Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.13 seconds.
-#&gt; Chain 2: Adjust your expectations accordingly!
-#&gt; Chain 2: 
-#&gt; Chain 2: 
-#&gt; Chain 2: Iteration:   1 / 1000 [  0%]  (Warmup)
-#&gt; Chain 2: Iteration: 100 / 1000 [ 10%]  (Warmup)
-#&gt; Chain 2: Iteration: 200 / 1000 [ 20%]  (Warmup)
-#&gt; Chain 2: Iteration: 300 / 1000 [ 30%]  (Warmup)
-#&gt; Chain 2: Iteration: 400 / 1000 [ 40%]  (Warmup)
-#&gt; Chain 2: Iteration: 500 / 1000 [ 50%]  (Warmup)
-#&gt; Chain 2: Iteration: 501 / 1000 [ 50%]  (Sampling)
-#&gt; Chain 2: Iteration: 600 / 1000 [ 60%]  (Sampling)
-#&gt; Chain 2: Iteration: 700 / 1000 [ 70%]  (Sampling)
-#&gt; Chain 2: Iteration: 800 / 1000 [ 80%]  (Sampling)
-#&gt; Chain 2: Iteration: 900 / 1000 [ 90%]  (Sampling)
-#&gt; Chain 2: Iteration: 1000 / 1000 [100%]  (Sampling)
-#&gt; Chain 2: 
-#&gt; Chain 2:  Elapsed Time: 0.139 seconds (Warm-up)
-#&gt; Chain 2:                0.136 seconds (Sampling)
-#&gt; Chain 2:                0.275 seconds (Total)
-#&gt; Chain 2:
-
-prior_info_run &lt;- set_prior(&quot;exponential(1)&quot;, class = &quot;sd&quot;)
-g_info_run &lt;- gstudy(
-  Score ~ (1 | Person) + (1 | Task),
-  data = brennan,
-  backend = &quot;brms&quot;,
-  prior = prior_info_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
-)
-#&gt; 
-#&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 1).
-#&gt; Chain 1: 
-#&gt; Chain 1: Gradient evaluation took 3.6e-05 seconds
-#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.36 seconds.
-#&gt; Chain 1: Adjust your expectations accordingly!
-#&gt; Chain 1: 
-#&gt; Chain 1: 
-#&gt; Chain 1: Iteration:   1 / 1000 [  0%]  (Warmup)
-#&gt; Chain 1: Iteration: 100 / 1000 [ 10%]  (Warmup)
-#&gt; Chain 1: Iteration: 200 / 1000 [ 20%]  (Warmup)
-#&gt; Chain 1: Iteration: 300 / 1000 [ 30%]  (Warmup)
-#&gt; Chain 1: Iteration: 400 / 1000 [ 40%]  (Warmup)
-#&gt; Chain 1: Iteration: 500 / 1000 [ 50%]  (Warmup)
-#&gt; Chain 1: Iteration: 501 / 1000 [ 50%]  (Sampling)
-#&gt; Chain 1: Iteration: 600 / 1000 [ 60%]  (Sampling)
-#&gt; Chain 1: Iteration: 700 / 1000 [ 70%]  (Sampling)
-#&gt; Chain 1: Iteration: 800 / 1000 [ 80%]  (Sampling)
-#&gt; Chain 1: Iteration: 900 / 1000 [ 90%]  (Sampling)
-#&gt; Chain 1: Iteration: 1000 / 1000 [100%]  (Sampling)
-#&gt; Chain 1: 
-#&gt; Chain 1:  Elapsed Time: 0.109 seconds (Warm-up)
-#&gt; Chain 1:                0.067 seconds (Sampling)
-#&gt; Chain 1:                0.176 seconds (Total)
+#&gt; Chain 1:  Elapsed Time: 0.141 seconds (Warm-up)
+#&gt; Chain 1:                0.107 seconds (Sampling)
+#&gt; Chain 1:                0.248 seconds (Total)
 #&gt; Chain 1: 
 #&gt; 
 #&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 2).
@@ -2787,9 +2727,68 @@ g_info_run &lt;- gstudy(
 #&gt; Chain 2: Iteration: 900 / 1000 [ 90%]  (Sampling)
 #&gt; Chain 2: Iteration: 1000 / 1000 [100%]  (Sampling)
 #&gt; Chain 2: 
-#&gt; Chain 2:  Elapsed Time: 0.112 seconds (Warm-up)
-#&gt; Chain 2:                0.075 seconds (Sampling)
-#&gt; Chain 2:                0.187 seconds (Total)
+#&gt; Chain 2:  Elapsed Time: 0.127 seconds (Warm-up)
+#&gt; Chain 2:                0.155 seconds (Sampling)
+#&gt; Chain 2:                0.282 seconds (Total)
+#&gt; Chain 2:
+
+prior_info_run &lt;- set_prior(&quot;exponential(1)&quot;, class = &quot;sd&quot;)
+g_info_run &lt;- gstudy(
+  Score ~ (1 | Person) + (1 | Task),
+  data = brennan,
+  backend = &quot;brms&quot;,
+  prior = prior_info_run,
+  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+)
+#&gt; 
+#&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 1).
+#&gt; Chain 1: 
+#&gt; Chain 1: Gradient evaluation took 2.5e-05 seconds
+#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.25 seconds.
+#&gt; Chain 1: Adjust your expectations accordingly!
+#&gt; Chain 1: 
+#&gt; Chain 1: 
+#&gt; Chain 1: Iteration:   1 / 1000 [  0%]  (Warmup)
+#&gt; Chain 1: Iteration: 100 / 1000 [ 10%]  (Warmup)
+#&gt; Chain 1: Iteration: 200 / 1000 [ 20%]  (Warmup)
+#&gt; Chain 1: Iteration: 300 / 1000 [ 30%]  (Warmup)
+#&gt; Chain 1: Iteration: 400 / 1000 [ 40%]  (Warmup)
+#&gt; Chain 1: Iteration: 500 / 1000 [ 50%]  (Warmup)
+#&gt; Chain 1: Iteration: 501 / 1000 [ 50%]  (Sampling)
+#&gt; Chain 1: Iteration: 600 / 1000 [ 60%]  (Sampling)
+#&gt; Chain 1: Iteration: 700 / 1000 [ 70%]  (Sampling)
+#&gt; Chain 1: Iteration: 800 / 1000 [ 80%]  (Sampling)
+#&gt; Chain 1: Iteration: 900 / 1000 [ 90%]  (Sampling)
+#&gt; Chain 1: Iteration: 1000 / 1000 [100%]  (Sampling)
+#&gt; Chain 1: 
+#&gt; Chain 1:  Elapsed Time: 0.11 seconds (Warm-up)
+#&gt; Chain 1:                0.061 seconds (Sampling)
+#&gt; Chain 1:                0.171 seconds (Total)
+#&gt; Chain 1: 
+#&gt; 
+#&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 2).
+#&gt; Chain 2: 
+#&gt; Chain 2: Gradient evaluation took 9e-06 seconds
+#&gt; Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.09 seconds.
+#&gt; Chain 2: Adjust your expectations accordingly!
+#&gt; Chain 2: 
+#&gt; Chain 2: 
+#&gt; Chain 2: Iteration:   1 / 1000 [  0%]  (Warmup)
+#&gt; Chain 2: Iteration: 100 / 1000 [ 10%]  (Warmup)
+#&gt; Chain 2: Iteration: 200 / 1000 [ 20%]  (Warmup)
+#&gt; Chain 2: Iteration: 300 / 1000 [ 30%]  (Warmup)
+#&gt; Chain 2: Iteration: 400 / 1000 [ 40%]  (Warmup)
+#&gt; Chain 2: Iteration: 500 / 1000 [ 50%]  (Warmup)
+#&gt; Chain 2: Iteration: 501 / 1000 [ 50%]  (Sampling)
+#&gt; Chain 2: Iteration: 600 / 1000 [ 60%]  (Sampling)
+#&gt; Chain 2: Iteration: 700 / 1000 [ 70%]  (Sampling)
+#&gt; Chain 2: Iteration: 800 / 1000 [ 80%]  (Sampling)
+#&gt; Chain 2: Iteration: 900 / 1000 [ 90%]  (Sampling)
+#&gt; Chain 2: Iteration: 1000 / 1000 [100%]  (Sampling)
+#&gt; Chain 2: 
+#&gt; Chain 2:  Elapsed Time: 0.105 seconds (Warm-up)
+#&gt; Chain 2:                0.07 seconds (Sampling)
+#&gt; Chain 2:                0.175 seconds (Total)
 #&gt; Chain 2:
 
 # Side-by-side comparison
@@ -3600,8 +3599,14 @@ depends on the correlations between dimensions. If dimensions are
 uncorrelated, the composite is simply the weighted sum of
 variances</p></li>
 <li><p><strong>Sample size requirements</strong>: For unbalanced designs
-(different sample sizes per dimension), use long-format models with the
-<code>brms</code> backend</p></li>
+(different sample sizes per dimension), you have two options. With the
+<code>mom</code> backend, pass <code>unbalanced = TRUE</code> to
+<code>gstudy()</code> and supply a per-dimension <code>n</code> tibble
+to <code>dstudy()</code> — facet <code>g</code> and <code>phi</code>
+coefficients are then computed per-dimension with the correct divisor.
+With the <code>brms</code> backend, reshape to long format and use
+<code>bf()</code> syntax; this also handles nesting and
+dimension-specific residual variances</p></li>
 <li><p><strong>Posterior estimation</strong>: For Bayesian models,
 composite coefficients are computed for each posterior draw, properly
 propagating uncertainty</p></li>
@@ -3782,13 +3787,24 @@ dimensions for free. When the data are <em>unbalanced</em> — for
 example, some persons have Task1 and Task2 but not Task3, or items are
 nested within subtests with different numbers of items per subtest —
 wide format is not viable, because <code>mvbind()</code> requires
-complete cases. Long format with <code>bf()</code> is the only option in
-that case, and it also lets you model dimension-specific residual
-variances (<code>sigma ~ 0 + Subtest</code>). Use <strong>wide
-format</strong> as your default when the data are balanced and
-dimensions have the same sample size; use <strong>long format</strong>
-whenever there is missingness, nesting, or unequal sample sizes across
-dimensions.</p>
+complete cases. You have two paths forward: (1) <strong>stay in wide
+format with the <code>mom</code> backend</strong> by passing
+<code>unbalanced = TRUE</code> to <code>gstudy()</code>. Mom uses
+Henderson’s Method III, so pairwise complete cases are used for the
+correlation matrix; the per-dimension totals are preserved and surfaced
+in <code>gstudy_obj$n_per_dim</code>. You can then pass a per-dimension
+<code>n</code> tibble to <code>dstudy()</code> (with columns
+<code>dim</code>, <code>facet</code>, <code>n</code>) and facet
+<code>g</code> and <code>phi</code> coefficients are computed
+per-dimension with the correct divisor. (2) <strong>reshape to long
+format with the <code>brms</code> backend</strong> and use
+<code>bf()</code> syntax. This also handles nesting and lets you model
+dimension-specific residual variances
+(<code>sigma ~ 0 + Subtest</code>). Use <strong>wide format with
+<code>mom</code> + <code>unbalanced = TRUE</code></strong> when you want
+the simplest code path and accept Henderson-style estimation; use
+<strong>long format with <code>brms</code></strong> when you need full
+Bayesian inference under missingness or non-Gaussian residuals.</p>
 </div>
 </div>
 <div id="value-added-ratio-var" class="section level2">
@@ -5410,17 +5426,16 @@ posteriors</li>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1 class="unnumbered">References</h1>
-<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-burkner2017" class="csl-entry">
 Bürkner, P.-C. 2017. <span>“Brms: An r Package for Bayesian Multilevel
 Models Using Stan.”</span> <em>Journal of Statistical Software</em> 80
 (1): 1–28. <a href="https://doi.org/10.18637/jss.v080.i01">https://doi.org/10.18637/jss.v080.i01</a>.
 </div>
 <div id="ref-carpenter2017" class="csl-entry">
-Carpenter, B., A. Gelman, M. D. Hoffman, D. Lee, B. Goodrich, M.
-Betancourt, M. Brubaker, J. Guo, P. Li, and A. Riddell. 2017.
-<span>“Stan: A Probabilistic Programming Language.”</span> <em>Journal
-of Statistical Software</em> 76 (1): 1–32. <a href="https://doi.org/10.18637/jss.v076.i01">https://doi.org/10.18637/jss.v076.i01</a>.
+Carpenter, B., A. Gelman, M. D. Hoffman, et al. 2017. <span>“Stan: A
+Probabilistic Programming Language.”</span> <em>Journal of Statistical
+Software</em> 76 (1): 1–32. <a href="https://doi.org/10.18637/jss.v076.i01">https://doi.org/10.18637/jss.v076.i01</a>.
 </div>
 <div id="ref-gelman2006" class="csl-entry">
 Gelman, A. 2006. <span>“Prior Distributions for Variance Parameters in
@@ -5442,8 +5457,9 @@ Satterthwaite, F. E. 1941. <span>“Synthesis of Variance.”</span>
 <em>Psychometrika</em> 6 (5): 309–16. <a href="https://doi.org/10.1007/BF02288581">https://doi.org/10.1007/BF02288581</a>.
 </div>
 <div id="ref-satterthwaite1946" class="csl-entry">
-———. 1946. <span>“An Approximate Distribution of Estimates of Variance
-Components.”</span> <em>Biometrics Bulletin</em> 2 (6): 110–14. <a href="https://doi.org/10.2307/3002019">https://doi.org/10.2307/3002019</a>.
+Satterthwaite, F. E. 1946. <span>“An Approximate Distribution of
+Estimates of Variance Components.”</span> <em>Biometrics Bulletin</em> 2
+(6): 110–14. <a href="https://doi.org/10.2307/3002019">https://doi.org/10.2307/3002019</a>.
 </div>
 <div id="ref-vehtari2021" class="csl-entry">
 Vehtari, A., A. Gelman, D. Simpson, B. Carpenter, and P.-C. Bürkner.

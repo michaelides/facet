@@ -1,6 +1,6 @@
 Package: facet
 Title: facet: Univariate and Multivariate Generalizability Theory with frequentist and Bayesian methods
-Version: 0.0.2.1
+Version: 0.0.5.0
 Authors@R: c(
     person("George", "Michaelides", email = "g.michaelides@uea.ac.uk", role = c("aut", "cre")),
     person("Duncan", "Jackson", email = "duncan.jackson@kcl.ac.uk", role = "aut")

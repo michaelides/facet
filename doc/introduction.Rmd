@@ -1815,7 +1815,7 @@ Composite coefficients are useful when:
 
 2. **Correlation structure**: Composite reliability depends on the correlations between dimensions. If dimensions are uncorrelated, the composite is simply the weighted sum of variances
 
-3. **Sample size requirements**: For unbalanced designs (different sample sizes per dimension), use long-format models with the `brms` backend
+3. **Sample size requirements**: For unbalanced designs (different sample sizes per dimension), you have two options. With the `mom` backend, pass `unbalanced = TRUE` to `gstudy()` and supply a per-dimension `n` tibble to `dstudy()` — facet `g` and `phi` coefficients are then computed per-dimension with the correct divisor. With the `brms` backend, reshape to long format and use `bf()` syntax; this also handles nesting and dimension-specific residual variances
 
 4. **Posterior estimation**: For Bayesian models, composite coefficients are computed for each posterior draw, properly propagating uncertainty
 
@@ -1964,7 +1964,7 @@ g_wide_run <- gstudy(
 tidy(g_wide_run)
 ```
 
-**Reading the comparison.** When the data are balanced (as `brennan` is), wide format is the natural choice: simpler syntax, faster to fit, and gives you residual correlations between dimensions for free. When the data are *unbalanced* — for example, some persons have Task1 and Task2 but not Task3, or items are nested within subtests with different numbers of items per subtest — wide format is not viable, because `mvbind()` requires complete cases. Long format with `bf()` is the only option in that case, and it also lets you model dimension-specific residual variances (`sigma ~ 0 + Subtest`). Use **wide format** as your default when the data are balanced and dimensions have the same sample size; use **long format** whenever there is missingness, nesting, or unequal sample sizes across dimensions.
+**Reading the comparison.** When the data are balanced (as `brennan` is), wide format is the natural choice: simpler syntax, faster to fit, and gives you residual correlations between dimensions for free. When the data are *unbalanced* — for example, some persons have Task1 and Task2 but not Task3, or items are nested within subtests with different numbers of items per subtest — wide format is not viable, because `mvbind()` requires complete cases. You have two paths forward: (1) **stay in wide format with the `mom` backend** by passing `unbalanced = TRUE` to `gstudy()`. Mom uses Henderson's Method III, so pairwise complete cases are used for the correlation matrix; the per-dimension totals are preserved and surfaced in `gstudy_obj$n_per_dim`. You can then pass a per-dimension `n` tibble to `dstudy()` (with columns `dim`, `facet`, `n`) and facet `g` and `phi` coefficients are computed per-dimension with the correct divisor. (2) **reshape to long format with the `brms` backend** and use `bf()` syntax. This also handles nesting and lets you model dimension-specific residual variances (`sigma ~ 0 + Subtest`). Use **wide format with `mom` + `unbalanced = TRUE`** when you want the simplest code path and accept Henderson-style estimation; use **long format with `brms`** when you need full Bayesian inference under missingness or non-Gaussian residuals.
 
 ## Value Added Ratio (VAR)
 
