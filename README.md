@@ -9,10 +9,11 @@ Modern Generalizability Theory with Variance Component Models
 ## :writing_hand: Author
 
 George Michaelides <https://research-portal.uea.ac.uk/en/persons/george-michaelides/>
+
 Norwich Business School, University of East Anglia  
 
-Duncan Jackson
-Kings College London <https://www.kcl.ac.uk/people/duncan-jackson/>
+Duncan Jackson <https://www.kcl.ac.uk/people/duncan-jackson/>
+Kings Business School, Kings College London 
 
 ## Overview
 
