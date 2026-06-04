@@ -1,11 +1,18 @@
 # facet
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/michaelides/facet/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/michaelides/facet/actions/workflows/R-CMD-check.yaml)
-[![CRAN status](https://www.r-pkg.org/badges/version/facet)](https://CRAN.R-project.org/package=facet)
 <!-- badges: end -->
 
 Modern Generalizability Theory with Variance Component Models
+
+
+## :writing_hand: Author
+
+George Michaelides <https://research-portal.uea.ac.uk/en/persons/george-michaelides/>
+Norwich Business School, University of East Anglia  
+
+Duncan Jackson
+Kings College London <https://www.kcl.ac.uk/people/duncan-jackson/>
 
 ## Overview
 
@@ -154,4 +161,4 @@ Shavelson, R. J., & Webb, N. M. (1991). *Generalizability theory: A primer*. Sag
 
 ## License
 
-MIT
+GPL-3.0 
