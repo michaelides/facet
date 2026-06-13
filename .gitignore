@@ -41,7 +41,6 @@ Thumbs.db
 
 # Project-local docs
 site/
-docs/
 _pkgdown.yml
 figure/
 graphify-out/
