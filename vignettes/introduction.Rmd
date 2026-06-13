@@ -578,19 +578,30 @@ The implementation:
 
 ### Bayesian Advances in Generalizability Theory
 
-A significant advancement in Bayesian G-theory comes from the work of Duncan J.R. Jackson and colleagues, who demonstrated that traditional frequentist G-theory can confound multiple variance sources when facets are crossed (Jackson, Michaelides, Dewberry, & Kim, 2016).
+A growing body of research has advocated for Bayesian estimation of G-theory models, providing full posterior distributions for variance components and G-coefficients rather than point estimates. **Putka & Hoffman (2013)** pioneered the application of Bayesian G-theory to assessment center data, demonstrating advantages over ANOVA-based approaches. **LoPilato, Carter, & Wang (2015)** provided foundational simulation evidence for prior selection and posterior summarization in management research.
 
-Jackson et al.'s seminal work on assessment center ratings showed that when multiple facets are crossed (e.g., Person $\times$ Exercise $\times$ Rater designs), traditional ANOVA-based methods can conflate variance components, leading to misleading conclusions about the relative contribution of different sources. Their Bayesian unconfounding approach:
+Jackson and colleagues applied properly specified Bayesian G-theory models to assessment center and performance rating data, addressing a specific problem in the applied literature: prior AC research had often used *mis-specified* G-theory models that omitted interaction terms, leading to confounded variance component estimates. In a properly specified G-theory model, all relevant interaction terms are included by design (@cronbach1972; @brennan2001). Jackson et al.'s contributions were twofold:
 
-1. **Separates variance sources**: Uses Bayesian estimation to properly attribute variance to each source
-2. **Quantifies uncertainty**: Provides full posterior distributions for variance components, enabling credible intervals for G-coefficients
-3. **Handles small samples**: Performs better than frequentist methods with limited data
+1. **Substantive findings**: Using Bayesian G-theory with fully crossed Person $\times$ Exercise $\times$ Rater designs, they showed that dimension-related variance was negligibly small in AC ratings (@jackson2016), a finding replicated with multisource performance ratings (@jackson2020). Subsequent work showed that reliability in ACs depends on general and exercise effects, but not on dimensions (@jackson2022b), and that uncertainty about whether rater variance constitutes signal or error fundamentally impacts reliability estimates for supervisor ratings (@jackson2022).
 
-This work was extended to multisource performance ratings (Jackson, Michaelides, Dewberry, Schwencke, & Toms, 2020), demonstrating that unconfounding reveals different patterns of variance attribution in 360-degree feedback systems. Subsequent work examined uncertainty quantification (Jackson, Michaelides, Dewberry, & Kim, 2022) and provided comprehensive tutorials for G-theory application (Jackson, Michaelides, Stillman, & Atkins, 2023).
-
-**LoPilato, Carter, & Wang (2015)** laid groundwork for Bayesian G-theory in management research, providing simulation evidence for prior selection and posterior summarization, demonstrating the advantages of Bayesian methods for variance component estimation.
+2. **Interpretive reframing**: @jackson2023 demonstrated that G-theory random effects models and CFA models yield equivalent variance components, generalizability coefficients, and latent scores, arguing that G-theory can address both reliability *and* structural validity questions---not just reliability as traditionally assumed.
 
 **Jiang & Skorupski (2018)** developed Bayesian estimation methods for multivariate G-theory, handling variance-covariance matrices and providing uncertainty quantification for multivariate designs through BUGS/JAGS implementations.
+
+### Full Crossed Designs with Bayesian Estimation
+
+In crossed designs where all facet combinations are observed, a properly specified G-theory model includes all relevant interaction terms. For example, a Person $\times$ Task $\times$ Rater design:
+
+```{r, eval=FALSE}
+g_crossed <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+  data = brennan,
+  backend = "brms"
+)
+```
+
+Omitting interaction terms from a crossed design constitutes model mis-specification---the omitted interaction variance is absorbed by the included terms, producing confounded estimates. This is not a limitation of G-theory itself but a consequence of under-specifying the model. Bayesian estimation via `backend = "brms"` provides full posterior distributions for each variance component, including interactions, enabling credible intervals for G-coefficients and D-study projections.
 
 The **facet** package's `backend = "brms"` option implements these methodological advances through the Stan probabilistic programming language (Bürkner, 2017), providing researchers with tools for Bayesian G-theory that properly handle variance component estimation in complex designs.
 
@@ -1584,58 +1595,6 @@ d_ci_90 <- dstudy(
   probs = c(0.05, 0.95)
 )
 ```
-
-## Jackson et al.'s Uncoupling Approach
-
-### The Problem with Crossed Designs
-
-Traditional G-theory can confound variance sources when facets are crossed. @jackson2016 demonstrated this problem in assessment center research:
-
-**Person $\times$ Exercise $\times$ Rater design**: When raters are crossed with exercises (each rater rates each exercise), the traditional ANOVA decomposition conflates:
-
-1. **True rater variance**: Differences in rater leniency/severity
-2. **Exercise-specific rater variance**: Raters who are lenient on one exercise may be severe on another
-
-This conflation leads to misinterpretation of variance components.
-
-### The Uncoupling Solution
-
-@jackson2016 showed that Bayesian estimation can "uncouple" these sources by:
-
-1. **Modeling interactions explicitly**: Including Person $\times$ Rater, Person $\times$ Exercise, and Rater $\times$ Exercise interactions
-2. **Separating variance components**: Each interaction has its own variance component
-3. **Quantifying uncertainty**: Posterior distributions reveal which components are well-identified
-
-### Implementation in facet
-
-```{r, eval=FALSE}
-# Full crossed model with all interactions
-g_uncoupled <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-          (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-  data = brennan,
-  backend = "brms"
-)
-
-# Compare to traditional model
-g_traditional <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = "brms"
-)
-
-# The uncoupled model separates interaction variance
-# that traditional models conflate
-```
-
-### When to Use Uncoupling
-
-Uncoupling is valuable when:
-
-1. **Facets are fully crossed**: All combinations of facet levels are observed
-2. **Interactions are theoretically meaningful**: You care about specific interactions
-3. **Sample sizes are adequate**: More parameters require more data
-4. **You need accurate attribution**: For diagnostic or validity research
 
 ## Multivariate G-Study
 

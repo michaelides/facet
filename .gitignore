@@ -4,10 +4,9 @@
 *.Rproj
 .Rproj*
 /plans
-/docs
 /ai_plans
 .Rproj.user
-/doc/
+/docs
 .positai
 /graphify-out
 /graphify-raw

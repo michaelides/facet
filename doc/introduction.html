@@ -344,6 +344,8 @@ NUTS/HMC</a>
 <ul>
 <li><a href="#bayesian-advances-in-generalizability-theory" id="toc-bayesian-advances-in-generalizability-theory">Bayesian Advances
 in Generalizability Theory</a></li>
+<li><a href="#full-crossed-designs-with-bayesian-estimation" id="toc-full-crossed-designs-with-bayesian-estimation">Full Crossed
+Designs with Bayesian Estimation</a></li>
 <li><a href="#mathematical-foundation-2" id="toc-mathematical-foundation-2">Mathematical Foundation</a></li>
 <li><a href="#convergence-diagnostics" id="toc-convergence-diagnostics">Convergence Diagnostics</a></li>
 <li><a href="#posterior-inference" id="toc-posterior-inference">Posterior Inference</a></li>
@@ -451,15 +453,6 @@ Custom Universe</a></li>
 for D-Study Coefficients</a>
 <ul>
 <li><a href="#custom-probability-levels" id="toc-custom-probability-levels">Custom Probability Levels</a></li>
-</ul></li>
-<li><a href="#jackson-et-al.s-uncoupling-approach" id="toc-jackson-et-al.s-uncoupling-approach">Jackson et al.’s Uncoupling
-Approach</a>
-<ul>
-<li><a href="#the-problem-with-crossed-designs" id="toc-the-problem-with-crossed-designs">The Problem with Crossed
-Designs</a></li>
-<li><a href="#the-uncoupling-solution" id="toc-the-uncoupling-solution">The Uncoupling Solution</a></li>
-<li><a href="#implementation-in-facet-3" id="toc-implementation-in-facet-3">Implementation in facet</a></li>
-<li><a href="#when-to-use-uncoupling" id="toc-when-to-use-uncoupling">When to Use Uncoupling</a></li>
 </ul></li>
 <li><a href="#multivariate-g-study" id="toc-multivariate-g-study">Multivariate G-Study</a>
 <ul>
@@ -1521,40 +1514,66 @@ g_boot &lt;- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater),
 <h2>Bayesian Estimation with NUTS/HMC</h2>
 <div id="bayesian-advances-in-generalizability-theory" class="section level3">
 <h3>Bayesian Advances in Generalizability Theory</h3>
-<p>A significant advancement in Bayesian G-theory comes from the work of
-Duncan J.R. Jackson and colleagues, who demonstrated that traditional
-frequentist G-theory can confound multiple variance sources when facets
-are crossed (Jackson, Michaelides, Dewberry, &amp; Kim, 2016).</p>
-<p>Jackson et al.’s seminal work on assessment center ratings showed
-that when multiple facets are crossed (e.g., Person <span class="math inline">\(\times\)</span> Exercise <span class="math inline">\(\times\)</span> Rater designs), traditional
-ANOVA-based methods can conflate variance components, leading to
-misleading conclusions about the relative contribution of different
-sources. Their Bayesian unconfounding approach:</p>
+<p>A growing body of research has advocated for Bayesian estimation of
+G-theory models, providing full posterior distributions for variance
+components and G-coefficients rather than point estimates. <strong>Putka
+&amp; Hoffman (2013)</strong> pioneered the application of Bayesian
+G-theory to assessment center data, demonstrating advantages over
+ANOVA-based approaches. <strong>LoPilato, Carter, &amp; Wang
+(2015)</strong> provided foundational simulation evidence for prior
+selection and posterior summarization in management research.</p>
+<p>Jackson and colleagues applied properly specified Bayesian G-theory
+models to assessment center and performance rating data, addressing a
+specific problem in the applied literature: prior AC research had often
+used <em>mis-specified</em> G-theory models that omitted interaction
+terms, leading to confounded variance component estimates. In a properly
+specified G-theory model, all relevant interaction terms are included by
+design (<span class="citation">Cronbach et al. (1972)</span>; <span class="citation">Brennan (2001)</span>). Jackson et al.’s contributions
+were twofold:</p>
 <ol style="list-style-type: decimal">
-<li><strong>Separates variance sources</strong>: Uses Bayesian
-estimation to properly attribute variance to each source</li>
-<li><strong>Quantifies uncertainty</strong>: Provides full posterior
-distributions for variance components, enabling credible intervals for
-G-coefficients</li>
-<li><strong>Handles small samples</strong>: Performs better than
-frequentist methods with limited data</li>
+<li><p><strong>Substantive findings</strong>: Using Bayesian G-theory
+with fully crossed Person <span class="math inline">\(\times\)</span>
+Exercise <span class="math inline">\(\times\)</span> Rater designs, they
+showed that dimension-related variance was negligibly small in AC
+ratings (<span class="citation">Jackson et al. (2016)</span>), a finding
+replicated with multisource performance ratings (<span class="citation">Jackson et al. (2020)</span>). Subsequent work showed
+that reliability in ACs depends on general and exercise effects, but not
+on dimensions (<span class="citation">(<strong>jackson2022b?</strong>)</span>), and that
+uncertainty about whether rater variance constitutes signal or error
+fundamentally impacts reliability estimates for supervisor ratings
+(<span class="citation">Jackson et al. (2022)</span>).</p></li>
+<li><p><strong>Interpretive reframing</strong>: <span class="citation">Jackson et al. (2023)</span> demonstrated that G-theory
+random effects models and CFA models yield equivalent variance
+components, generalizability coefficients, and latent scores, arguing
+that G-theory can address both reliability <em>and</em> structural
+validity questions—not just reliability as traditionally
+assumed.</p></li>
 </ol>
-<p>This work was extended to multisource performance ratings (Jackson,
-Michaelides, Dewberry, Schwencke, &amp; Toms, 2020), demonstrating that
-unconfounding reveals different patterns of variance attribution in
-360-degree feedback systems. Subsequent work examined uncertainty
-quantification (Jackson, Michaelides, Dewberry, &amp; Kim, 2022) and
-provided comprehensive tutorials for G-theory application (Jackson,
-Michaelides, Stillman, &amp; Atkins, 2023).</p>
-<p><strong>LoPilato, Carter, &amp; Wang (2015)</strong> laid groundwork
-for Bayesian G-theory in management research, providing simulation
-evidence for prior selection and posterior summarization, demonstrating
-the advantages of Bayesian methods for variance component
-estimation.</p>
 <p><strong>Jiang &amp; Skorupski (2018)</strong> developed Bayesian
 estimation methods for multivariate G-theory, handling
 variance-covariance matrices and providing uncertainty quantification
 for multivariate designs through BUGS/JAGS implementations.</p>
+</div>
+<div id="full-crossed-designs-with-bayesian-estimation" class="section level3">
+<h3>Full Crossed Designs with Bayesian Estimation</h3>
+<p>In crossed designs where all facet combinations are observed, a
+properly specified G-theory model includes all relevant interaction
+terms. For example, a Person <span class="math inline">\(\times\)</span>
+Task <span class="math inline">\(\times\)</span> Rater design:</p>
+<pre class="r"><code>g_crossed &lt;- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+  data = brennan,
+  backend = &quot;brms&quot;
+)</code></pre>
+<p>Omitting interaction terms from a crossed design constitutes model
+mis-specification—the omitted interaction variance is absorbed by the
+included terms, producing confounded estimates. This is not a limitation
+of G-theory itself but a consequence of under-specifying the model.
+Bayesian estimation via <code>backend = &quot;brms&quot;</code> provides full
+posterior distributions for each variance component, including
+interactions, enabling credible intervals for G-coefficients and D-study
+projections.</p>
 <p>The <strong>facet</strong> package’s <code>backend = &quot;brms&quot;</code>
 option implements these methodological advances through the Stan
 probabilistic programming language (Bürkner, 2017), providing
@@ -2295,7 +2314,7 @@ g_boot &lt;- gstudy(
   nsim = 50,
   boot.type = &quot;perc&quot;
 )
-#&gt; ================================================================================
+#&gt; =========================================================================
 
 summary(g_boot)
 #&gt; === G-Study Summary ===
@@ -2322,9 +2341,9 @@ summary(g_boot)
 #&gt; # A tibble: 3 × 5
 #&gt;   component estimate   pct `2.5% CI` `97.5% CI`
 #&gt;   &lt;chr&gt;        &lt;dbl&gt; &lt;dbl&gt;     &lt;dbl&gt;      &lt;dbl&gt;
-#&gt; 1 Person       0.584  13.3      0.01       2.07
-#&gt; 2 Task         0.52   11.8      0          1.89
-#&gt; 3 Residual     3.29   74.9      2.54       3.97
+#&gt; 1 Person       0.584  13.3     0.055       1.56
+#&gt; 2 Task         0.52   11.8     0           2.28
+#&gt; 3 Residual     3.29   74.9     2.59        4.27
 #&gt; 
 #&gt; Total variance: 4.397</code></pre>
 <p>For production use, increase <code>nsim</code> to 500-1000 for stable
@@ -2364,9 +2383,9 @@ bind_rows(profile_ci, boot_ci) %&gt;%
 #&gt; 3 profile        Rater:Task  0.647 0.149 2.283
 #&gt; 4 profile        Person:Task 0.560 0.000 1.883
 #&gt; 5 profile        Residual    2.380 1.776 3.293
-#&gt; 6 boot (nsim=50) Person      0.584 0.010 2.071
-#&gt; 7 boot (nsim=50) Task        0.520 0.000 1.892
-#&gt; 8 boot (nsim=50) Residual    3.293 2.540 3.973</code></pre>
+#&gt; 6 boot (nsim=50) Person      0.584 0.055 1.557
+#&gt; 7 boot (nsim=50) Task        0.520 0.000 2.279
+#&gt; 8 boot (nsim=50) Residual    3.293 2.587 4.271</code></pre>
 <p><strong>Reading the comparison.</strong> In this small balanced
 design, the two methods usually agree closely on point estimates but can
 differ on CI width — particularly for components near zero, where the
@@ -2684,8 +2703,8 @@ g_weak_run &lt;- gstudy(
 #&gt; 
 #&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 1).
 #&gt; Chain 1: 
-#&gt; Chain 1: Gradient evaluation took 3.5e-05 seconds
-#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.35 seconds.
+#&gt; Chain 1: Gradient evaluation took 2.2e-05 seconds
+#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.22 seconds.
 #&gt; Chain 1: Adjust your expectations accordingly!
 #&gt; Chain 1: 
 #&gt; Chain 1: 
@@ -2702,15 +2721,15 @@ g_weak_run &lt;- gstudy(
 #&gt; Chain 1: Iteration: 900 / 1000 [ 90%]  (Sampling)
 #&gt; Chain 1: Iteration: 1000 / 1000 [100%]  (Sampling)
 #&gt; Chain 1: 
-#&gt; Chain 1:  Elapsed Time: 0.141 seconds (Warm-up)
-#&gt; Chain 1:                0.107 seconds (Sampling)
-#&gt; Chain 1:                0.248 seconds (Total)
+#&gt; Chain 1:  Elapsed Time: 0.082 seconds (Warm-up)
+#&gt; Chain 1:                0.061 seconds (Sampling)
+#&gt; Chain 1:                0.143 seconds (Total)
 #&gt; Chain 1: 
 #&gt; 
 #&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 2).
 #&gt; Chain 2: 
-#&gt; Chain 2: Gradient evaluation took 1e-05 seconds
-#&gt; Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.1 seconds.
+#&gt; Chain 2: Gradient evaluation took 6e-06 seconds
+#&gt; Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.06 seconds.
 #&gt; Chain 2: Adjust your expectations accordingly!
 #&gt; Chain 2: 
 #&gt; Chain 2: 
@@ -2727,9 +2746,9 @@ g_weak_run &lt;- gstudy(
 #&gt; Chain 2: Iteration: 900 / 1000 [ 90%]  (Sampling)
 #&gt; Chain 2: Iteration: 1000 / 1000 [100%]  (Sampling)
 #&gt; Chain 2: 
-#&gt; Chain 2:  Elapsed Time: 0.127 seconds (Warm-up)
-#&gt; Chain 2:                0.155 seconds (Sampling)
-#&gt; Chain 2:                0.282 seconds (Total)
+#&gt; Chain 2:  Elapsed Time: 0.073 seconds (Warm-up)
+#&gt; Chain 2:                0.072 seconds (Sampling)
+#&gt; Chain 2:                0.145 seconds (Total)
 #&gt; Chain 2:
 
 prior_info_run &lt;- set_prior(&quot;exponential(1)&quot;, class = &quot;sd&quot;)
@@ -2743,8 +2762,8 @@ g_info_run &lt;- gstudy(
 #&gt; 
 #&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 1).
 #&gt; Chain 1: 
-#&gt; Chain 1: Gradient evaluation took 2.5e-05 seconds
-#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.25 seconds.
+#&gt; Chain 1: Gradient evaluation took 9e-05 seconds
+#&gt; Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.9 seconds.
 #&gt; Chain 1: Adjust your expectations accordingly!
 #&gt; Chain 1: 
 #&gt; Chain 1: 
@@ -2761,15 +2780,15 @@ g_info_run &lt;- gstudy(
 #&gt; Chain 1: Iteration: 900 / 1000 [ 90%]  (Sampling)
 #&gt; Chain 1: Iteration: 1000 / 1000 [100%]  (Sampling)
 #&gt; Chain 1: 
-#&gt; Chain 1:  Elapsed Time: 0.11 seconds (Warm-up)
-#&gt; Chain 1:                0.061 seconds (Sampling)
-#&gt; Chain 1:                0.171 seconds (Total)
+#&gt; Chain 1:  Elapsed Time: 0.063 seconds (Warm-up)
+#&gt; Chain 1:                0.035 seconds (Sampling)
+#&gt; Chain 1:                0.098 seconds (Total)
 #&gt; Chain 1: 
 #&gt; 
 #&gt; SAMPLING FOR MODEL &#39;anon_model&#39; NOW (CHAIN 2).
 #&gt; Chain 2: 
-#&gt; Chain 2: Gradient evaluation took 9e-06 seconds
-#&gt; Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.09 seconds.
+#&gt; Chain 2: Gradient evaluation took 8e-06 seconds
+#&gt; Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.08 seconds.
 #&gt; Chain 2: Adjust your expectations accordingly!
 #&gt; Chain 2: 
 #&gt; Chain 2: 
@@ -2786,9 +2805,9 @@ g_info_run &lt;- gstudy(
 #&gt; Chain 2: Iteration: 900 / 1000 [ 90%]  (Sampling)
 #&gt; Chain 2: Iteration: 1000 / 1000 [100%]  (Sampling)
 #&gt; Chain 2: 
-#&gt; Chain 2:  Elapsed Time: 0.105 seconds (Warm-up)
-#&gt; Chain 2:                0.07 seconds (Sampling)
-#&gt; Chain 2:                0.175 seconds (Total)
+#&gt; Chain 2:  Elapsed Time: 0.067 seconds (Warm-up)
+#&gt; Chain 2:                0.038 seconds (Sampling)
+#&gt; Chain 2:                0.105 seconds (Total)
 #&gt; Chain 2:
 
 # Side-by-side comparison
@@ -3017,18 +3036,18 @@ d_sweep &lt;- dstudy(g, n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)))
 # View all combinations
 tidy(d_sweep)
 #&gt; # A tibble: 9 × 10
-#&gt;    Task Rater dim     uni sigma2_delta sigma2_delta_abs     g   phi sem_rel
-#&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;dbl&gt;        &lt;dbl&gt;            &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
-#&gt; 1     3     2 Score 0.584        1.10             1.27  0.347 0.315   1.05 
-#&gt; 2     5     2 Score 0.584        0.659            0.763 0.470 0.434   0.812
-#&gt; 3    10     2 Score 0.584        0.329            0.381 0.639 0.605   0.574
-#&gt; 4     3     4 Score 0.584        1.10             1.27  0.347 0.315   1.05 
-#&gt; 5     5     4 Score 0.584        0.659            0.763 0.470 0.434   0.812
-#&gt; 6    10     4 Score 0.584        0.329            0.381 0.639 0.605   0.574
-#&gt; 7     3     8 Score 0.584        1.10             1.27  0.347 0.315   1.05 
-#&gt; 8     5     8 Score 0.584        0.659            0.763 0.470 0.434   0.812
-#&gt; 9    10     8 Score 0.584        0.329            0.381 0.639 0.605   0.574
-#&gt; # ℹ 1 more variable: sem_abs &lt;dbl&gt;</code></pre>
+#&gt;    Task Rater dim     uni sigma2_delta sigma2_delta_abs     g   phi
+#&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;dbl&gt;        &lt;dbl&gt;            &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+#&gt; 1     3     2 Score 0.584        1.10             1.27  0.347 0.315
+#&gt; 2     5     2 Score 0.584        0.659            0.763 0.470 0.434
+#&gt; 3    10     2 Score 0.584        0.329            0.381 0.639 0.605
+#&gt; 4     3     4 Score 0.584        1.10             1.27  0.347 0.315
+#&gt; 5     5     4 Score 0.584        0.659            0.763 0.470 0.434
+#&gt; 6    10     4 Score 0.584        0.329            0.381 0.639 0.605
+#&gt; 7     3     8 Score 0.584        1.10             1.27  0.347 0.315
+#&gt; 8     5     8 Score 0.584        0.659            0.763 0.470 0.434
+#&gt; 9    10     8 Score 0.584        0.329            0.381 0.639 0.605
+#&gt; # ℹ 2 more variables: sem_rel &lt;dbl&gt;, sem_abs &lt;dbl&gt;</code></pre>
 <p>This allows answering questions like: “How many tasks and raters are
 needed to achieve G &gt; 0.80?”</p>
 </div>
@@ -3321,74 +3340,6 @@ d_ci_90 &lt;- dstudy(
   ci = &quot;g&quot;,
   probs = c(0.05, 0.95)
 )</code></pre>
-</div>
-</div>
-<div id="jackson-et-al.s-uncoupling-approach" class="section level2">
-<h2>Jackson et al.’s Uncoupling Approach</h2>
-<div id="the-problem-with-crossed-designs" class="section level3">
-<h3>The Problem with Crossed Designs</h3>
-<p>Traditional G-theory can confound variance sources when facets are
-crossed. <span class="citation">Jackson et al. (2016)</span>
-demonstrated this problem in assessment center research:</p>
-<p><strong>Person <span class="math inline">\(\times\)</span> Exercise
-<span class="math inline">\(\times\)</span> Rater design</strong>: When
-raters are crossed with exercises (each rater rates each exercise), the
-traditional ANOVA decomposition conflates:</p>
-<ol style="list-style-type: decimal">
-<li><strong>True rater variance</strong>: Differences in rater
-leniency/severity</li>
-<li><strong>Exercise-specific rater variance</strong>: Raters who are
-lenient on one exercise may be severe on another</li>
-</ol>
-<p>This conflation leads to misinterpretation of variance
-components.</p>
-</div>
-<div id="the-uncoupling-solution" class="section level3">
-<h3>The Uncoupling Solution</h3>
-<p><span class="citation">Jackson et al. (2016)</span> showed that
-Bayesian estimation can “uncouple” these sources by:</p>
-<ol style="list-style-type: decimal">
-<li><strong>Modeling interactions explicitly</strong>: Including Person
-<span class="math inline">\(\times\)</span> Rater, Person <span class="math inline">\(\times\)</span> Exercise, and Rater <span class="math inline">\(\times\)</span> Exercise interactions</li>
-<li><strong>Separating variance components</strong>: Each interaction
-has its own variance component</li>
-<li><strong>Quantifying uncertainty</strong>: Posterior distributions
-reveal which components are well-identified</li>
-</ol>
-</div>
-<div id="implementation-in-facet-3" class="section level3">
-<h3>Implementation in facet</h3>
-<pre class="r"><code># Full crossed model with all interactions
-g_uncoupled &lt;- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-          (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-  data = brennan,
-  backend = &quot;brms&quot;
-)
-
-# Compare to traditional model
-g_traditional &lt;- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan,
-  backend = &quot;brms&quot;
-)
-
-# The uncoupled model separates interaction variance
-# that traditional models conflate</code></pre>
-</div>
-<div id="when-to-use-uncoupling" class="section level3">
-<h3>When to Use Uncoupling</h3>
-<p>Uncoupling is valuable when:</p>
-<ol style="list-style-type: decimal">
-<li><strong>Facets are fully crossed</strong>: All combinations of facet
-levels are observed</li>
-<li><strong>Interactions are theoretically meaningful</strong>: You care
-about specific interactions</li>
-<li><strong>Sample sizes are adequate</strong>: More parameters require
-more data</li>
-<li><strong>You need accurate attribution</strong>: For diagnostic or
-validity research</li>
-</ol>
 </div>
 </div>
 <div id="multivariate-g-study" class="section level2">
@@ -5427,6 +5378,9 @@ posteriors</li>
 <div id="references" class="section level1 unnumbered">
 <h1 class="unnumbered">References</h1>
 <div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-brennan2001" class="csl-entry">
+Brennan, R. L. 2001. <em>Generalizability Theory</em>. Springer. <a href="https://doi.org/10.1007/978-1-4757-3457-4">https://doi.org/10.1007/978-1-4757-3457-4</a>.
+</div>
 <div id="ref-burkner2017" class="csl-entry">
 Bürkner, P.-C. 2017. <span>“Brms: An r Package for Bayesian Multilevel
 Models Using Stan.”</span> <em>Journal of Statistical Software</em> 80
@@ -5437,6 +5391,11 @@ Carpenter, B., A. Gelman, M. D. Hoffman, et al. 2017. <span>“Stan: A
 Probabilistic Programming Language.”</span> <em>Journal of Statistical
 Software</em> 76 (1): 1–32. <a href="https://doi.org/10.18637/jss.v076.i01">https://doi.org/10.18637/jss.v076.i01</a>.
 </div>
+<div id="ref-cronbach1972" class="csl-entry">
+Cronbach, L. J., G. C. Gleser, H. Nanda, and N. Rajaratnam. 1972.
+<em>The Dependability of Behavioral Measurements: Theory of
+Generalizability for Scores and Profiles</em>. Wiley.
+</div>
 <div id="ref-gelman2006" class="csl-entry">
 Gelman, A. 2006. <span>“Prior Distributions for Variance Parameters in
 Hierarchical Models (Comment on Discussion).”</span> <em>Bayesian
@@ -5446,11 +5405,29 @@ Analysis</em> 1 (3): 515–34. <a href="https://doi.org/10.1214/06-BA117A">https
 Henderson, C. R. 1953. <span>“Estimation of Variance and Covariance
 Components.”</span> <em>Biometrics</em> 9 (2): 226–52. <a href="https://doi.org/10.2307/3001851">https://doi.org/10.2307/3001851</a>.
 </div>
+<div id="ref-jackson2022" class="csl-entry">
+Jackson, D. J. R., G. Michaelides, C. Dewberry, and Y. J. Kim. 2022.
+<span>“Uncertainty about Rater Variance and Small Dimension Effects
+Impact Reliability in Supervisor Ratings.”</span> <em>Human
+Performance</em> 35 (4): 1–23. <a href="https://doi.org/10.1080/08959285.2022.2068476">https://doi.org/10.1080/08959285.2022.2068476</a>.
+</div>
+<div id="ref-jackson2023" class="csl-entry">
+Jackson, D. J. R., G. Michaelides, J. A. Stillman, and S. G. Atkins.
+2023. <span>“Clarifying the Scope of Generalizability Theory for
+Multifaceted Assessment.”</span> <em>New Zealand Journal of
+Psychology</em> 52 (1): 1–15.
+</div>
 <div id="ref-jackson2016" class="csl-entry">
 Jackson, D. J. R., M. Michaelides, C. Dewberry, and Y. Kim. 2016.
 <span>“Assessments That Separate Variance Components Help Clarify the
 Relative Importance of Rating Sources.”</span> <em>Journal of
 Management</em> 42 (3): 646–67. <a href="https://doi.org/10.1177/0149206313486695">https://doi.org/10.1177/0149206313486695</a>.
+</div>
+<div id="ref-jackson2020" class="csl-entry">
+Jackson, D. J. R., M. Michaelides, C. Dewberry, D. Schwencke, and A.
+Toms. 2020. <span>“Multisource Performance Ratings: Unconfounding the
+Constituent Factors.”</span> <em>Journal of Management</em> 46 (5):
+764–87. <a href="https://doi.org/10.1177/0149206319833128">https://doi.org/10.1177/0149206319833128</a>.
 </div>
 <div id="ref-satterthwaite1941" class="csl-entry">
 Satterthwaite, F. E. 1941. <span>“Synthesis of Variance.”</span>

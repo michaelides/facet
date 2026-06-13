@@ -11,6 +11,14 @@ knitr::opts_chunk$set(
   warning = FALSE
 )
 
+## ----eval=FALSE---------------------------------------------------------------
+# g_crossed <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#     (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+#   data = brennan,
+#   backend = "brms"
+# )
+
 ## -----------------------------------------------------------------------------
 library(facet)
 library(broom)
@@ -438,25 +446,6 @@ summary(d_agg)
 #   ci = "g",
 #   probs = c(0.05, 0.95)
 # )
-
-## ----eval=FALSE---------------------------------------------------------------
-# # Full crossed model with all interactions
-# g_uncoupled <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-#           (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
-#   data = brennan,
-#   backend = "brms"
-# )
-# 
-# # Compare to traditional model
-# g_traditional <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-#   data = brennan,
-#   backend = "brms"
-# )
-# 
-# # The uncoupled model separates interaction variance
-# # that traditional models conflate
 
 ## ----eval=FALSE---------------------------------------------------------------
 # # Prepare multivariate data (wide format)
