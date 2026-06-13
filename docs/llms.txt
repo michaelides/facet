@@ -1,0 +1,313 @@
+# facet
+
+Modern Generalizability Theory with Variance Component Models
+
+## ✍️ Author
+
+George Michaelides
+<https://research-portal.uea.ac.uk/en/persons/george-michaelides/>
+
+Norwich Business School, University of East Anglia
+
+Duncan Jackson <https://www.kcl.ac.uk/people/duncan-jackson/> Kings
+Business School, Kings College London
+
+## Overview
+
+**facet** provides a comprehensive framework for conducting
+Generalizability Theory (G-theory) analyses using variance component
+models. It provides a bridge between classical test theory and standard
+linear mixed-effects models, offering:
+
+- **Multiple backends**: Frequentist approaches using **mom** (Method of
+  Moments/ANOVA) and **lme4** (Restricted Maximum Likelihood); Bayesian
+  approachs using **brms** (NUTS / Hamiltonian Monte Carlo)
+- **Univariate and multivariate analyses** using
+  [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md)
+- **Built-in datasets**: Includes classic G-theory datasets like
+  `brennan` and `rajaratnam`
+- **Rich Visualization**: Built-in support for variance plots, D-study
+  sweeps, and random effects caterpillar plots
+
+## Installation
+
+``` r
+# Install from GitHub
+# install.packages("devtools")
+devtools::install_github("michaelides/facet")
+```
+
+## Usage
+
+### G-Study
+
+A G-study estimates variance components for each facet in your
+measurement design. The **facet** package uses standard **lme4** formula
+syntax:
+
+``` r
+library(facet)
+
+# Load included Brennan dataset (10 persons, 3 tasks, 12 raters)
+data(brennan)
+
+# Conduct a G-study with Persons, Tasks, and Raters
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
+            (1 | Person:Task) + (1 | Person:Rater), 
+            data = brennan)
+
+# View variance components
+summary(g)
+```
+
+### D-Study
+
+A D-study computes reliability coefficients for specific measurement
+designs:
+
+``` r
+# Conduct a D-study with 5 tasks and 2 raters
+d <- dstudy(g, n = list(Task = 5, Rater = 2))
+
+# View Generalizability (G) and Dependability (D) coefficients
+summary(d)
+```
+
+### Exploring Sample Sizes (Sweep)
+
+Rapidly evaluate reliability across multiple sample size combinations:
+
+``` r
+# Explore different numbers of Tasks and Raters
+d_sweep <- dstudy(g, n = list(Task = c(2, 5, 10), Rater = c(1, 2, 5)))
+
+# Plot the results
+plot(d_sweep, type = "sweep")
+```
+
+### Visualization
+
+Visualize random effects and uncertainty using caterpillar plots:
+
+``` r
+# Plot random effects for Persons
+plot_ranef(g, which = "Person")
+```
+
+## Features
+
+### Analysis Capabilities
+
+- **Automatic backend selection** — intelligently chooses between lme4,
+  brms, and method of moments based on your formula structure
+- **Univariate and multivariate G-studies** — analyze multiple outcomes
+  simultaneously using
+  [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md)
+- **Support for Complex Designs** — full support for crossed, nested,
+  and mixed designs
+- **Sample size exploration** — rapidly evaluate reliability across
+  multiple designs using simple list-based input
+- **Advanced D-study options** — support for custom universe scores,
+  error specifications, and score aggregation
+
+### Variance Component Analysis
+
+- **Confidence/credible intervals** — all backends provide interval
+  estimates: brms offers Bayesian credible intervals, lme4/mom provide
+  bootstrap or analytical intervals
+- **Flexible display scales** — view variance components as variances or
+  standard deviations using the `scale` argument
+- **Proportion of variance** — each component expressed as percentage of
+  total variance for easy interpretation
+
+### Bayesian Features (brms backend)
+
+- **Full Posterior Control** — full access to MCMC samples and
+  convergence diagnostics (Rhat, ESS)
+- **Custom priors** — specify informative priors on variance components
+- **Multivariate Models** — estimated residual correlations and
+  cross-component variances
+
+### Output and Integration
+
+- **Tidyverse Compatible** — fully compatible with `broom` methods like
+  `tidy()` and `glance()`
+- **Model inspection** — easily access underlying model objects
+  (`g$model`)
+- **Rich Visualization** — built-in `ggplot2`-based plotting for
+  G-studies, D-studies, and random effects
+
+## Backends
+
+### lme4 (Default)
+
+- Fast frequentist estimation for univariate designs
+- Best for routine analysis and large datasets
+
+### brms (Bayesian)
+
+- Bayesian estimation using Stan
+- Required for multivariate models and custom priors
+- Provides full posterior distributions
+
+### Method of Moments (MOM)
+
+- Fast closed-form solution for balanced designs
+- Analytical confidence intervals without bootstrapping
+- Useful for large balanced datasets where lme4 might be slow
+
+## Output Structure
+
+### G-Study Object
+
+``` r
+# Variance components
+tidy(g)
+
+# Summary statistics
+glance(g)
+
+# Plot
+plot(g)
+```
+
+### D-Study Object
+
+``` r
+# Coefficients
+tidy(d)
+
+# Summary
+summary(d)
+
+# Plot
+plot(d)
+```
+
+## References
+
+Brennan, R. L. (2001). *Generalizability theory*. Springer.
+
+Shavelson, R. J., & Webb, N. M. (1991). *Generalizability theory: A
+primer*. Sage Publications.
+
+## License
+
+GPL-3.0
+
+# Package index
+
+## All functions
+
+- [`VarCorr()`](https://github.com/yourorg/facet/reference/VarCorr.md) :
+  Variance-Covariance Matrix Extractor Generic
+- [`VarCorr(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/VarCorr.gstudy.md)
+  : Extract Variance-Covariance Matrices from gstudy Objects
+- [`alpha_example`](https://github.com/yourorg/facet/reference/alpha_example.md)
+  : Example Dataset for Cronbach's Alpha
+- [`bf()`](https://github.com/yourorg/facet/reference/bf.md) : Set up
+  brms formulas
+- [`brennan`](https://github.com/yourorg/facet/reference/brennan.md) :
+  Brennan's (2001) Generalizability Theory Example Data
+- [`brms-formula-helpers`](https://github.com/yourorg/facet/reference/brms-formula-helpers.md)
+  : Wrapper Functions for brms Formula Components
+- [`default_prior()`](https://github.com/yourorg/facet/reference/default_prior.md)
+  : Get Default Priors for Bayesian Models
+- [`dstudy()`](https://github.com/yourorg/facet/reference/dstudy.md) :
+  Conduct a Decision (D) Study
+- [`empty_prior()`](https://github.com/yourorg/facet/reference/empty_prior.md)
+  : Create an Empty Prior Object
+- [`extract_draws.gstudy()`](https://github.com/yourorg/facet/reference/extract_draws.gstudy.md)
+  : Extract Draws from gstudy Objects
+- [`extract_vc_mom()`](https://github.com/yourorg/facet/reference/extract_vc_mom.md)
+  : Extract Variance Components from Method of Moments Fit
+- [`fit_mom()`](https://github.com/yourorg/facet/reference/fit_mom.md) :
+  Fit a Model Using Method of Moments
+- [`glance(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/glance.dstudy.md)
+  : Glance Method for dstudy Objects
+- [`glance(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/glance.gstudy.md)
+  [`glance(`*`<mgstudy>`*`)`](https://github.com/yourorg/facet/reference/glance.gstudy.md)
+  : Glance Method for gstudy Objects
+- [`gstudy()`](https://github.com/yourorg/facet/reference/gstudy.md) :
+  Conduct a Generalizability (G) Study
+- [`gt_draws()`](https://github.com/yourorg/facet/reference/gt_draws.md)
+  : Extract Posterior Draws from gstudy or dstudy Objects
+- [`is.dstudy()`](https://github.com/yourorg/facet/reference/is.dstudy.md)
+  : Check if Object is a dstudy Object
+- [`is.gstudy()`](https://github.com/yourorg/facet/reference/is.gstudy.md)
+  : Check if Object is a gstudy Object
+- [`is.mgstudy()`](https://github.com/yourorg/facet/reference/is.mgstudy.md)
+  : Check if Object is an mgstudy Object
+- [`latent()`](https://github.com/yourorg/facet/reference/latent.md) :
+  Extract Latent Scores from G-Study Objects
+- [`mgt-methods`](https://github.com/yourorg/facet/reference/mgt-methods.md)
+  : S3 Methods for mgt Classes
+- [`momfit`](https://github.com/yourorg/facet/reference/momfit.md) :
+  Method of Moments Fit Object
+- [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md) :
+  Bind response variables for multivariate models
+- [`pairs(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/pairs.gstudy.md)
+  : Pairs Method for gstudy Objects
+- [`plot(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/plot.dstudy.md)
+  : Plot Method for dstudy Objects
+- [`plot(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/plot.gstudy.md)
+  : Plot Method for gstudy Objects
+- [`plot(`*`<mgstudy>`*`)`](https://github.com/yourorg/facet/reference/plot.mgstudy.md)
+  : Plot Method for mgstudy Objects
+- [`plot_ranef()`](https://github.com/yourorg/facet/reference/plot_ranef.md)
+  : Caterpillar Plot for Random Effects
+- [`print(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/print.dstudy.md)
+  : Print Method for dstudy Objects
+- [`print(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/print.gstudy.md)
+  : Print Method for gstudy Objects
+- [`print(`*`<mgstudy>`*`)`](https://github.com/yourorg/facet/reference/print.mgstudy.md)
+  : Print Method for mgstudy Objects
+- [`prior-functions`](https://github.com/yourorg/facet/reference/prior-functions.md)
+  : Prior Wrapper Functions for brms
+- [`prior()`](https://github.com/yourorg/facet/reference/prior.md) :
+  Define Priors Using Tidy Evaluation
+- [`prior_()`](https://github.com/yourorg/facet/reference/prior_.md) :
+  Define Priors Using Formula Syntax
+- [`prior_string()`](https://github.com/yourorg/facet/reference/prior_string.md)
+  : Define Priors Using Character Strings
+- [`prmse()`](https://github.com/yourorg/facet/reference/prmse.md) :
+  Tidy PRMSE and VAR Results
+- [`rajaratnam`](https://github.com/yourorg/facet/reference/rajaratnam.md)
+  : Rajaratnam, Cronbach, & Gleser (1965) Example Data
+- [`ranef()`](https://github.com/yourorg/facet/reference/ranef.md) :
+  Random Effects Extractor Generic
+- [`ranef(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/ranef.gstudy.md)
+  : Extract Random Effects from gstudy Objects
+- [`set_prior()`](https://github.com/yourorg/facet/reference/set_prior.md)
+  : Define Priors for brms Models
+- [`set_rescor()`](https://github.com/yourorg/facet/reference/set_rescor.md)
+  : Set residual correlation between response variables
+- [`simulate_gtheory_data()`](https://github.com/yourorg/facet/reference/simulate_gtheory_data.md)
+  : Simulate Data for Generalizability Theory Analysis
+- [`simulate_gtheory_legacy()`](https://github.com/yourorg/facet/reference/simulate_gtheory_legacy.md)
+  : Simulate Data with Individual SD Parameters (Legacy Style)
+- [`summary(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/summary.dstudy.md)
+  : Summary Method for dstudy Objects
+- [`summary(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/summary.gstudy.md)
+  : Summary Method for gstudy Objects
+- [`summary(`*`<mgstudy>`*`)`](https://github.com/yourorg/facet/reference/summary.mgstudy.md)
+  : Summary Method for mgstudy Objects
+- [`summary(`*`<momfit>`*`)`](https://github.com/yourorg/facet/reference/summary.momfit.md)
+  : Summary Method for momfit Objects
+- [`tidy(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/tidy.dstudy.md)
+  : Tidy Method for dstudy Objects
+- [`tidy(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/tidy.gstudy.md)
+  [`tidy(`*`<mgstudy>`*`)`](https://github.com/yourorg/facet/reference/tidy.gstudy.md)
+  : Tidy Method for gstudy Objects
+
+# Articles
+
+### Getting Started
+
+- [Get Started with
+  facet](https://github.com/yourorg/facet/articles/facet.md):
+
+### Methodology
+
+- [Using facet for Generalizability
+  Theory](https://github.com/yourorg/facet/articles/introduction.md):
