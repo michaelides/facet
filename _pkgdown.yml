@@ -1,0 +1,16 @@
+destination: docs
+
+url: https://github.com/yourorg/facet
+template:
+  bootstrap: 5
+
+articles:
+- title: Getting Started
+  navbar: ~
+  contents:
+  - facet
+- title: Methodology
+  navbar: ~
+  contents:
+  - introduction
+

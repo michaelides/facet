@@ -1,4 +1,4 @@
-# /doc/
+/doc/
 /Meta/
 /.worktrees/
 *.Rproj
@@ -41,7 +41,6 @@ Thumbs.db
 
 # Project-local docs
 site/
-_pkgdown.yml
 figure/
 graphify-out/
 graphify-raw/
