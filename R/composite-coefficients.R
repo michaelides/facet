@@ -207,8 +207,8 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
     names(dim_phi) <- dimensions
 
     # Build model-based covariance matrices from variance components
-    # This ensures consistency with the draws-based path and Equation 38's
-    # requirement for disattenuated (universe-score) covariances
+    # This ensures consistency with the draws-based path and Haberman's (2008)
+    # requirement for disattenuated (universe-score) covariances.
     k <- length(dimensions)
 
     # Sigma_tau: universe-score covariance matrix from model VCs
@@ -282,8 +282,8 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
 
     # Compute PRMSE_C for all dimensions using model-based Sigma_tau %*% w
     # PRMSE_C = [Cov(tau_d, C)]^2 / [Var(tau_d) * Rel(C) * Var(C)]
-    # This is equivalent to Equation 38 when expanded, using universe-score
-    # (disattenuated) covariances as the paper specifies.
+    # This is the Haberman (2008) correct form, NOT the printed Equation 38 of
+    # Vispoel et al. (2023) which contains a typesetting error.
     w <- weights[dimensions]
     cov_tau_C <- as.numeric(Sigma_tau %*% w)  # Cov(tau_d, C) for each d
     var_C_rel <- as.numeric(t(w) %*% Sigma_obs_rel %*% w)
@@ -299,7 +299,7 @@ calculate_composite_coefficients <- function(vc, n, weights, object, error = NUL
       # PRMSE_C numerator: (Cov(tau_d, C))^2
       # where Cov(tau_d, C) = [Sigma_tau %*% w][d]
       #   = sigma^2_tau_d * w_d + sum_{j != d} sigma_tau_{d,j} * w_j
-      # This matches Equation 38's numerator using disattenuated covariances
+      # This matches Haberman's (2008) numerator using disattenuated covariances.
       num_c <- cov_tau_C[d_idx]^2
 
       # PRMSE_C denominator: Var(tau_d) * Rel(C) * Var(C)
@@ -880,77 +880,6 @@ calculate_composite_coefficients_from_draws <- function(vc_draws, cov_draws,
     summary = summary_df,
     distributions = distributions,
     var_results = var_results
-  )
-}
-
-
-#' Compute Observed Score Variances and Covariances for VAR Calculation
-#'
-#' Computes observed score variances and covariances from the original data,
-#' which are required for the Haberman (2008) formula in VAR calculation.
-#' These are data quantities (not model estimates) and are constant across
-#' posterior draws.
-#'
-#' @param data A data frame containing the subscale scores.
-#' @param dimensions Character vector of dimension/subscale names.
-#' @param weights Named numeric vector of weights for each dimension.
-#'
-#' @return A list with:
-#' \describe{
-#' \item{obs_var}{Named vector of observed score variances per dimension}
-#' \item{obs_cov}{Matrix of observed score covariances between dimensions}
-#' \item{obs_var_C}{Observed variance of the weighted composite}
-#' }
-#'
-#' @keywords internal
-compute_observed_covariances <- function(data, dimensions, weights, dimension_var = NULL) {
-  # Handle long-format data: reshape to wide format
-  if (!is.null(dimension_var) && dimension_var %in% names(data)) {
-    # Find the score column (first numeric column that isn't dimension_var)
-    score_col <- NULL
-    for (col in names(data)) {
-      if (col != dimension_var && is.numeric(data[[col]])) {
-        score_col <- col
-        break
-      }
-    }
-
-    if (!is.null(score_col)) {
-      # Reshape from long to wide format
-      data <- tidyr::pivot_wider(
-        data,
-        id_cols = setdiff(names(data), c(dimension_var, score_col)),
-        names_from = all_of(dimension_var),
-        values_from = all_of(score_col)
-      )
-    }
-  }
-
-  n_dims <- length(dimensions)
-  obs_var <- vapply(dimensions, function(d) {
-    var(data[[d]], na.rm = TRUE)
-  }, numeric(1))
-  names(obs_var) <- dimensions
-
-  obs_cov <- matrix(0, nrow = n_dims, ncol = n_dims)
-  rownames(obs_cov) <- colnames(obs_cov) <- dimensions
-  for (i in seq_len(n_dims)) {
-    for (j in seq_len(n_dims)) {
-      if (i == j) {
-        obs_cov[i, j] <- obs_var[i]
-      } else {
-        obs_cov[i, j] <- cov(data[[dimensions[i]]], data[[dimensions[j]]], use = "complete.obs")
-      }
-    }
-  }
-
-  w <- weights[dimensions]
-  obs_var_C <- as.numeric(t(w) %*% obs_cov %*% w)
-
-  list(
-    obs_var = obs_var,
-    obs_cov = obs_cov,
-    obs_var_C = obs_var_C
   )
 }
 

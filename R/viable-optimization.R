@@ -39,7 +39,7 @@ extract_variance_matrices <- function(dstudy_obj, use_posterior_mean = TRUE) {
     n_draws <- mom_draws$n_draws
   } else {
     vc_draws <- extract_variance_draws_from_gstudy(gstudy_obj)
-    cov_draws <- gstudy_obj$correlations
+    cov_draws <- extract_covariance_draws(gstudy_obj$model, dimensions)
     n_draws <- length(vc_draws[[1]][[1]])
   }
 

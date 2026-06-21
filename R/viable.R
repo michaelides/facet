@@ -26,7 +26,7 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
     n_draws <- mom_draws$n_draws
   } else {
     vc_draws <- extract_variance_draws_from_gstudy(gstudy_obj)
-    cov_draws <- gstudy_obj$correlations
+    cov_draws <- extract_covariance_draws(gstudy_obj$model, dimensions)
     n_draws <- length(vc_draws[[1]][[1]])
   }
 
@@ -156,17 +156,17 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
       base_cols$prmse_s_abs_LL <- c(apply(var_result$prmse_s_abs, 2, quantile, probs = probs[1], na.rm = TRUE), quantile(phi_draws, probs[1], na.rm = TRUE))
       base_cols$prmse_s_abs_UL <- c(apply(var_result$prmse_s_abs, 2, quantile, probs = probs[2], na.rm = TRUE), quantile(phi_draws, probs[2], na.rm = TRUE))
 
-      base_cols$prmse_c_rel_LL <- c(apply(var_result$prmse_c_rel, 2, quantile, probs = probs[1], na.rm = TRUE), 1.0)
-      base_cols$prmse_c_rel_UL <- c(apply(var_result$prmse_c_rel, 2, quantile, probs = probs[2], na.rm = TRUE), 1.0)
+      base_cols$prmse_c_rel_LL <- c(apply(var_result$prmse_c_rel, 2, quantile, probs = probs[1], na.rm = TRUE), unname(1.0))
+      base_cols$prmse_c_rel_UL <- c(apply(var_result$prmse_c_rel, 2, quantile, probs = probs[2], na.rm = TRUE), unname(1.0))
 
       base_cols$prmse_p_rel_LL <- c(apply(var_result$prmse_p_rel, 2, quantile, probs = probs[1], na.rm = TRUE), quantile(var_result$prmse_mv_rel, probs[1], na.rm = TRUE))
       base_cols$prmse_p_rel_UL <- c(apply(var_result$prmse_p_rel, 2, quantile, probs = probs[2], na.rm = TRUE), quantile(var_result$prmse_mv_rel, probs[2], na.rm = TRUE))
     }
     if ("var" %in% ci) {
-      base_cols$var_rel_LL <- c(apply(var_result$var_rel, 2, quantile, probs = probs[1], na.rm = TRUE), 1.0)
-      base_cols$var_rel_UL <- c(apply(var_result$var_rel, 2, quantile, probs = probs[2], na.rm = TRUE), 1.0)
-      base_cols$var_abs_LL <- c(apply(var_result$var_abs, 2, quantile, probs = probs[1], na.rm = TRUE), 1.0)
-      base_cols$var_abs_UL <- c(apply(var_result$var_abs, 2, quantile, probs = probs[2], na.rm = TRUE), 1.0)
+      base_cols$var_rel_LL <- c(apply(var_result$var_rel, 2, quantile, probs = probs[1], na.rm = TRUE), unname(1.0))
+      base_cols$var_rel_UL <- c(apply(var_result$var_rel, 2, quantile, probs = probs[2], na.rm = TRUE), unname(1.0))
+      base_cols$var_abs_LL <- c(apply(var_result$var_abs, 2, quantile, probs = probs[1], na.rm = TRUE), unname(1.0))
+      base_cols$var_abs_UL <- c(apply(var_result$var_abs, 2, quantile, probs = probs[2], na.rm = TRUE), unname(1.0))
     }
   }
 
@@ -228,7 +228,7 @@ extract_variance_draws_from_gstudy <- function(gstudy_obj, n_draws = 1000) {
   } else if (inherits(gstudy_obj$model, "momfit")) {
     stop("mom backend should use generate_mom_variance_and_covariance_draws() directly", call. = FALSE)
   } else {
-    stop("Unsupported backend. viable() requires brms or mom backend.", call. = FALSE)
+    stop("Unsupported backend. Weight optimization requires brms or mom backend.", call. = FALSE)
   }
 }
 
@@ -248,7 +248,7 @@ generate_mom_variance_and_covariance_draws <- function(gstudy_obj, n_draws = 100
   correlations <- model$correlations
 
   if (is.null(dimensions) || length(dimensions) == 0) {
-    stop("mom gstudy must have dimensions for viable()", call. = FALSE)
+    stop("mom gstudy must have dimensions for weight optimization", call. = FALSE)
   }
 
   components <- unique(vc$component)
@@ -276,6 +276,21 @@ generate_mom_variance_and_covariance_draws <- function(gstudy_obj, n_draws = 100
     }
   }
 
+  cov_to_draws <- function(d1, d2, comp, cor_draws) {
+    sd_draws_d1 <- vc_draws[[d1]][[comp]]
+    sd_draws_d2 <- vc_draws[[d2]][[comp]]
+
+    if (is.null(sd_draws_d1) || is.null(sd_draws_d2)) {
+      return(rep(NA_real_, n_draws))
+    }
+
+    sd_draws_d1 <- sqrt(pmax(sd_draws_d1, 0))
+    sd_draws_d2 <- sqrt(pmax(sd_draws_d2, 0))
+    cov_draws <- sd_draws_d1 * sd_draws_d2 * cor_draws
+    cov_draws[is.na(sd_draws_d1) | is.na(sd_draws_d2) | is.na(cor_draws)] <- NA_real_
+    cov_draws
+  }
+
   cov_draws <- list(residual = list(), random_effect = list())
 
   if (!is.null(correlations)) {
@@ -289,7 +304,7 @@ generate_mom_variance_and_covariance_draws <- function(gstudy_obj, n_draws = 100
         cor_est <- row$estimate
         cor_se <- if (!is.null(row$se)) row$se else 0
         cor_draws <- rnorm(n_draws, mean = cor_est, sd = cor_se)
-        cov_draws$residual[[pair_name]] <- cor_draws
+        cov_draws$residual[[pair_name]] <- cov_to_draws(d1, d2, "Residual", cor_draws)
       }
     }
 
@@ -307,7 +322,7 @@ generate_mom_variance_and_covariance_draws <- function(gstudy_obj, n_draws = 100
           cor_est <- row$estimate
           cor_se <- if (!is.null(row$se)) row$se else 0
           cor_draws <- rnorm(n_draws, mean = cor_est, sd = cor_se)
-          cov_draws$random_effect[[facet]][[pair_name]] <- cor_draws
+          cov_draws$random_effect[[facet]][[pair_name]] <- cov_to_draws(d1, d2, facet, cor_draws)
         }
       }
     }

@@ -3,6 +3,10 @@
 #' Extract PRMSE(C→S_i) and VAR results as a data frame from a dstudy object.
 #' For univariate models, returns the G and Phi coefficients as PRMSE metrics.
 #'
+#' @section Experimental:
+#' This function is experimental. Testing has been limited, and results
+#' should be verified before being cited in published work.
+#'
 #' @param dstudy_obj A dstudy object from \code{\link{dstudy()}}
 #' @param include_composite Logical. If TRUE, adds a Composite row with summary
 #' metrics. Default FALSE. The Composite row shows composite reliability (G/Phi)
@@ -15,8 +19,6 @@
 #' Options: "prmse", "var", or both. Default NULL (no CIs).
 #' **Note:** Credible intervals are only available for brms backend with posterior
 #' estimation. For mom backend, this parameter is ignored with a warning.
-#' @param ci_method Unused. Kept for backward compatibility.
-#' @param n_bootstrap Unused. Kept for backward compatibility.
 #' @param probs Numeric vector of length 2 specifying the quantile probabilities
 #' for credible intervals (brms backend only). Default is \code{c(0.025, 0.975)} for 95% CI.
 #' @param weights Numeric vector of weights for computing composite coefficients.
@@ -76,7 +78,7 @@
 #' }
 #'
 #' When \code{optimize} is specified, returns a list with optimization results
-#' (see \code{\link{viable}()} for details).
+#' containing the optimal weights, eigenvalue/value, and recomputed metrics.
 #'
 #' @details
 #' ## Univariate Models
@@ -108,19 +110,35 @@
 #'
 #' ### PRMSE_C (Composite Prediction)
 #'
-#' How well the weighted composite score predicts each subscale's true scores
-#' (Equation 38 from Brennan, 2001):
+#' How well the weighted composite score predicts each subscale's true scores.
+#' This is the Haberman (2008) formula:
 #'
-#' \deqn{\text{PRMSE}_{(C)} = \frac{\left(\hat{\sigma}^2_{(\text{Subscale}_i)} \cdot \text{Rel}_{(\text{Subscale}_i)} + \sum_{j \neq i} \hat{\sigma}_{(\text{Subscale}_i,\, \text{Subscale}_j)}\right)^2}{\hat{\sigma}^2_{(\text{Subscale}_i)} \cdot \text{Rel}_{(C)} \cdot \hat{\sigma}^2_{(C)}}}
+#' \deqn{\mathrm{PRMSE}(C \to S_i) = \frac{[\mathrm{Cov}(\tau_i, C)]^2}
+#'       {\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot \mathrm{Var}(C)}}
 #'
-#' where:
+#' where
 #' \itemize{
-#' \item \eqn{\hat{\sigma}^2_{(\text{Subscale}_i)}}: Observed score variance of subscale i
-#' \item \eqn{\text{Rel}_{(\text{Subscale}_i)}}: Reliability of subscale i (G coefficient)
-#' \item \eqn{\hat{\sigma}_{(\text{Subscale}_i, \text{Subscale}_j)}}: Observed covariance between subscales i and j
-#' \item \eqn{\text{Rel}_{(C)}}: Reliability of the composite score
-#' \item \eqn{\hat{\sigma}^2_{(C)}}: Observed score variance of the composite
+#'   \item \eqn{\mathrm{Cov}(\tau_i, C) = \sum_j w_j \, \mathrm{Cov}(\tau_i, \tau_j)}
+#'     is the weighted covariance between subscale \eqn{i}'s true score and the
+#'     composite true score, computed from the universe-score (disattenuated)
+#'     covariance matrix, not from observed-score sample covariances.
+#'   \item \eqn{\mathrm{Var}(\tau_i) = \Sigma_{\tau,ii}} is the universe-score
+#'     variance of subscale \eqn{i}.
+#'   \item \eqn{\mathrm{Rel}(C) = \mathrm{Var}(\tau_C) / \mathrm{Var}(C)} is
+#'     the composite reliability (G coefficient for relative, \eqn{\Phi} for
+#'     absolute).
+#'   \item \eqn{\mathrm{Var}(C) = \mathbf{w}^\top \Sigma_{\mathrm{obs}} \mathbf{w}}
+#'     is the D-study observed variance of the composite (scaled for the
+#'     decision study sample sizes).
 #' }
+#'
+#' **Note on Vispoel et al. (2023) Equation 38:** Vispoel et al. (2023, p. 9)
+#' label this quantity as "Equation 38", but the printed equation contains a
+#' typesetting error (the denominator uses \eqn{\hat\sigma^2(S_i) \cdot
+#' \mathrm{Rel}(C)} where it should be \eqn{\mathrm{Var}(\tau_i) \cdot
+#' \mathrm{Rel}(C)}). This implementation uses the corrected Haberman (2008)
+#' form, which matches the numerical results reported in Vispoel et al.'s
+#' Table 8.
 #'
 #' **Viability Analysis:** Subscale viability is supported when
 #' \eqn{\text{PRMSE}_S > \text{PRMSE}_C}, meaning the subscale predicts its own
@@ -133,10 +151,24 @@
 #' subscale's true scores. This uses the multivariate structure to potentially
 #' improve prediction accuracy by borrowing information from correlated dimensions:
 #'
-#' \deqn{\text{PRMSE}_P[d] = \frac{[\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau]_{dd}}{\sigma^2_{\tau,d}}}
+#' \deqn{\text{PRMSE}_P[d] = \frac{[\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau]_{dd}}{\Sigma_{\tau,dd}}}
 #'
-#' where \eqn{\Sigma_\tau} is the true-score covariance matrix and
-#' \eqn{\Sigma_{\text{obs}}} is the observed covariance matrix.
+#' where \eqn{\Sigma_\tau} is the universe-score covariance matrix and
+#' \eqn{\Sigma_{\text{obs}}} is the D-study observed covariance matrix.
+#'
+#' **Diagonal slice vs. trace:** \code{prmse_p_rel} returns the \emph{diagonal
+#' slice} of the matrix \eqn{\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau}
+#' (one value per dimension). The companion attribute
+#' \code{attr(result, "prmse_mv_rel")} returns the \emph{trace} of the same
+#' matrix, normalized by the trace of \eqn{\Sigma_\tau}, which is a single
+#' global multivariate profile reliability:
+#'
+#' \deqn{\text{PRMSE}_{MV} = \frac{\mathrm{tr}(\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau)}{\mathrm{tr}(\Sigma_\tau)}}
+#'
+#' This trace equals the matrix analog of a squared canonical correlation and
+#' always satisfies \eqn{\text{PRMSE}_{MV} \geq \text{PRMSE}_P[d]} for any
+#' dimension \eqn{d} (by Cauchy-Schwarz on the Cholesky factor of
+#' \eqn{\Sigma_{\text{obs}}^{-1/2}\Sigma_\tau}).
 #'
 #' **Relationship to PRMSE_S:** When dimensions are uncorrelated (all off-diagonal
 #' covariances = 0), the matrices become diagonal and PRMSE_P simplifies to PRMSE_S.
@@ -255,8 +287,6 @@ prmse <- function(dstudy_obj,
   include_composite = FALSE,
   include_profile = TRUE,
   ci = NULL,
-  ci_method = c("delta", "bootstrap"),
-  n_bootstrap = 1000,
   probs = c(0.025, 0.975),
   weights = NULL,
   optimize = NULL,
@@ -268,11 +298,15 @@ prmse <- function(dstudy_obj,
     stop("'dstudy_obj' must be a dstudy object", call. = FALSE)
   }
 
+  warning(
+    "This is an experimental function. Testing has been limited.\n",
+    "Results should be verified, ideally before you cite them.",
+    call. = FALSE
+  )
+
   if (!is.null(ci)) {
     ci <- match.arg(ci, c("prmse", "var"), several.ok = TRUE)
   }
-
-  ci_method <- match.arg(ci_method)
 
   if (length(probs) != 2 || probs[1] >= probs[2]) {
     stop("'probs' must be a numeric vector of length 2 with probs[1] < probs[2]", call. = FALSE)
@@ -282,8 +316,14 @@ prmse <- function(dstudy_obj,
     optimize <- match.arg(optimize, c("composite", "subscale", "tuning"))
     optimize_target <- match.arg(optimize_target, c("rel", "abs"))
 
-    if (grid_resolution <= 0 || grid_resolution > 0.5) {
-      stop("'grid_resolution' must be between 0.01 and 0.5", call. = FALSE)
+    if (grid_resolution < 0.01) {
+      warning("'grid_resolution' (", grid_resolution, ") is below the minimum 0.01; using 0.01.",
+              call. = FALSE)
+      grid_resolution <- 0.01
+    } else if (grid_resolution > 0.5) {
+      warning("'grid_resolution' (", grid_resolution, ") is above the maximum 0.5; using 0.5.",
+              call. = FALSE)
+      grid_resolution <- 0.5
     }
 
     if (!isTRUE(dstudy_obj$is_multivariate)) {
@@ -462,32 +502,67 @@ prmse <- function(dstudy_obj,
       comp_phi <- if (nrow(comp_row) > 0) comp_row$phi[1] else NA_real_
 
       comp_cols <- list(dim = "Composite")
-      comp_cols$prmse_s_rel <- comp_g
-      comp_cols$prmse_s_abs <- comp_phi
-      comp_cols$prmse_c_rel <- 1.0
-      comp_cols$prmse_c_abs <- 1.0
+      comp_cols$prmse_s_rel <- unname(comp_g)
+      comp_cols$prmse_s_abs <- unname(comp_phi)
+      comp_cols$prmse_c_rel <- unname(1.0)
+      comp_cols$prmse_c_abs <- unname(1.0)
       if (include_profile) {
         comp_cols$prmse_p_rel <- unname(prmse_mv_rel_val["mean"])
         comp_cols$prmse_p_abs <- unname(prmse_mv_abs_val["mean"])
       }
-      comp_cols$var_rel <- 1.0
-      comp_cols$var_abs <- 1.0
+      comp_cols$var_rel <- unname(1.0)
+      comp_cols$var_abs <- unname(1.0)
 
       ci_cols <- grep("_LL$|_UL$", names(res), value = TRUE)
-      for (col in ci_cols) {
-        if (grepl("^var_", col)) {
-          comp_cols[[col]] <- 1.0
-        } else if (grepl("_c_", col)) {
-          comp_cols[[col]] <- 1.0
-        } else if (grepl("_LL$", col)) {
-          base_name <- sub("_LL$", "", col)
-          comp_cols[[col]] <- comp_cols[[base_name]]
-        } else {
-          base_name <- sub("_UL$", "", col)
-          comp_cols[[col]] <- comp_cols[[base_name]]
+      needs_draws_ci <- any(grepl("^prmse_s_", ci_cols)) ||
+        (include_profile && any(grepl("^prmse_p_", ci_cols)))
+
+      if (needs_draws_ci) {
+        w <- dstudy_obj$weights
+        if (is.null(w) || length(w) != n_dims) {
+          w <- rep(1, n_dims)
+        }
+        names(w) <- dims
+        draws_ci <- recalculate_var_with_weights(
+          dstudy_obj, w, dims, ci, probs, n = NULL
+        )
+        comp_draws <- draws_ci[draws_ci$dim == "Composite", , drop = FALSE]
+        if (nrow(comp_draws) == 1) {
+          for (col in ci_cols) {
+            if (grepl("^var_", col) || grepl("_c_", col)) {
+              comp_cols[[col]] <- unname(1.0)
+            } else if (col %in% names(comp_draws)) {
+              val <- comp_draws[[col]][1]
+              if (length(val) == 1 && !is.na(val)) {
+                comp_cols[[col]] <- unname(val)
+              } else {
+                comp_cols[[col]] <- unname(comp_cols[[sub("_(LL|UL)$", "", col)]])
+              }
+            } else {
+              comp_cols[[col]] <- unname(comp_cols[[sub("_(LL|UL)$", "", col)]])
+            }
+          }
+        }
+      } else {
+        for (col in ci_cols) {
+          if (grepl("^var_", col) || grepl("_c_", col)) {
+            comp_cols[[col]] <- unname(1.0)
+          } else if (grepl("_LL$", col)) {
+            base_name <- sub("_LL$", "", col)
+            comp_cols[[col]] <- unname(comp_cols[[base_name]])
+          } else {
+            base_name <- sub("_UL$", "", col)
+            comp_cols[[col]] <- unname(comp_cols[[base_name]])
+          }
         }
       }
 
+      for (cn in names(res)) {
+        names(res[[cn]]) <- NULL
+      }
+      for (cn in names(comp_cols)) {
+        names(comp_cols[[cn]]) <- NULL
+      }
       res <- rbind(res, comp_cols)
     }
 
@@ -585,8 +660,13 @@ prmse <- function(dstudy_obj,
 #' The formula is:
 #' \deqn{VAR(S_i) = \frac{PRMSE(S_i)}{PRMSE(C \rightarrow S_i)}}
 #'
-#' Where PRMSE(C -> S_i) is:
-#' \deqn{PRMSE(C \rightarrow S_i) = \frac{(\sigma^2_{S_i} \cdot Rel(S_i) + \sum_{j \neq i} \sigma_{S_i, S_j})^2}{\sigma^2_{S_i} \cdot Rel(C) \cdot \sigma^2_C}}
+#' Where PRMSE(C -> S_i) is the Haberman (2008) correct form:
+#' \deqn{PRMSE(C \rightarrow S_i) = \frac{[\mathrm{Cov}(\tau_i, C)]^2}{\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot \mathrm{Var}(C)}}
+#' with \eqn{\mathrm{Cov}(\tau_i, C) = \sum_j w_j \, \mathrm{Cov}(\tau_i, \tau_j)}
+#' computed from the universe-score covariance matrix.
+#' This is the corrected form of what Vispoel et al. (2023) labeled as
+#' "Equation 38" (the printed equation contains a typesetting error in the
+#' denominator; see \code{\link{prmse}} for details).
 #'
 #' @param uni_cov_draws 3D array (n_draws x n_dims x n_dims) of universe score covariances.
 #' @param total_rel_cov_draws 3D array (n_draws x n_dims x n_dims) of total observed covariances for relative error.
@@ -735,460 +815,3 @@ compute_var_haberman_draws <- function(
   )
 }
 
-#' Compute PRMSE Confidence Intervals via Delta Method
-#'
-#' Computes confidence intervals for PRMSE metrics using the delta method,
-#' propagating uncertainty from variance component estimates.
-#'
-#' @param dstudy_obj A dstudy object
-#' @param gstudy_obj The associated gstudy object
-#' @param metrics Character vector: "prmse", "var", or both
-#' @param probs Numeric vector of length 2 for CI bounds
-#' @param n Named list of D-study sample sizes
-#' @param weights Named numeric vector of dimension weights
-#' @param object Object of measurement specification
-#' @param universe Universe components specification
-#' @param error Error components specification
-#' @param aggregation Aggregation specification
-#' @param residual_is Residual specification
-#'
-#' @return A list with CI bounds for each requested metric
-#'
-#' @details
-#' The delta method approximates the variance of a function using:
-#' Var(f(X)) = sum((df/dx_i)^2 * Var(x_i))
-#'
-#' For PRMSE metrics, this involves computing partial derivatives with
-#' respect to each variance component and propagating their SEs.
-#'
-#' @keywords internal
-compute_prmse_delta_ci <- function(dstudy_obj, gstudy_obj, metrics, probs,
-                                   n, weights, object, universe, error,
-                                   aggregation, residual_is) {
-  # Extract variance components with CIs
-  vc <- gstudy_obj$variance_components
-
-  # Check if SEs are available
-  if (!"se" %in% names(vc) && !"lower" %in% names(vc)) {
-    warning("Variance component SEs not available. Cannot compute delta method CIs.", call. = FALSE)
-    # Return dimension-specific NA values
-    dims <- unique(dstudy_obj$coefficients$dim)
-    dims <- dims[dims != "Composite"]
-    ci_result <- list()
-    for (d in dims) {
-      ci_result[[paste0("prmse_s_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_abs_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_abs_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_abs_UL_", d)]] <- NA_real_
-      ci_result[[paste0("var_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("var_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("var_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("var_abs_UL_", d)]] <- NA_real_
-    }
-    return(ci_result)
-  }
-
-  # Get point estimates from dstudy coefficients
-  coefs <- dstudy_obj$coefficients
-  dims <- unique(coefs$dim)
-  dims <- dims[dims != "Composite"]
-
-  z_crit <- qnorm(1 - (1 - (probs[2] - probs[1])) / 2)
-
-  # Initialize result list
-  ci_result <- list()
-
-  # Get variance component SEs per dimension
-  vc_se <- vc
-  if ("se" %in% names(vc_se)) {
-    # Use SE column
-  } else if ("lower" %in% names(vc_se) && "upper" %in% names(vc_se)) {
-    # Approximate SE from CI width
-    vc_se$se <- (vc_se$upper - vc_se$lower) / (2 * z_crit)
-  }
-
-  # For each dimension, compute CI for G and Phi coefficients
-  for (dim in dims) {
-    # Get variance components for this dimension
-    vc_dim <- vc_se[vc_se$dim == dim, ]
-
-    if (nrow(vc_dim) == 0) next
-
-    # Compute universe and error variance
-    universe_spec <- if (!is.null(universe)) parse_specification(universe) else parse_specification(object)
-
-    uni_var <- sum(vc_dim$var[vc_dim$component %in% universe_spec], na.rm = TRUE)
-    err_rel_var <- sum(vc_dim$var[vc_dim$component == "Residual" |
-      grepl("^Residual", vc_dim$component) |
-      sapply(vc_dim$component, function(c) {
-        if (c %in% universe_spec) return(FALSE)
-        facets <- parse_component_facets(c)
-        any(universe_spec %in% facets)
-      })], na.rm = TRUE)
-
-    # SEs for universe and error variance (using sum of variances)
-    uni_se <- sqrt(sum(vc_dim$se[vc_dim$component %in% universe_spec]^2, na.rm = TRUE))
-    err_rel_se <- sqrt(sum(vc_dim$se[vc_dim$component == "Residual" |
-      grepl("^Residual", vc_dim$component) |
-      sapply(vc_dim$component, function(c) {
-        if (c %in% universe_spec) return(FALSE)
-        facets <- parse_component_facets(c)
-        any(universe_spec %in% facets)
-      })]^2, na.rm = TRUE))
-
-    # G coefficient and its SE
-    g <- if ((uni_var + err_rel_var) > 0) uni_var / (uni_var + err_rel_var) else NA_real_
-
-    # Delta method for ratio: Var(a/b) = (a/b)^2 * (Var(a)/a^2 + Var(b)/b^2 - 2Cov(a,b)/(a*b))
-    # For simplicity, assume independent estimates (Cov = 0)
-    if (!is.na(g) && g > 0 && !is.na(uni_se) && !is.na(err_rel_se)) {
-      var_num <- uni_se^2
-      var_den <- uni_se^2 + err_rel_se^2
-      se_g <- abs(g) * sqrt(var_num / uni_var^2 + var_den / (uni_var + err_rel_var)^2)
-
-      ci_result[[paste0("prmse_s_rel_LL_", dim)]] <- max(0, g - z_crit * se_g)
-      ci_result[[paste0("prmse_s_rel_UL_", dim)]] <- min(1, g + z_crit * se_g)
-    } else {
-      ci_result[[paste0("prmse_s_rel_LL_", dim)]] <- NA_real_
-      ci_result[[paste0("prmse_s_rel_UL_", dim)]] <- NA_real_
-    }
-
-    # Phi coefficient (absolute error)
-    all_err_var <- sum(vc_dim$var[!vc_dim$component %in% universe_spec], na.rm = TRUE)
-    all_err_se <- sqrt(sum(vc_dim$se[!vc_dim$component %in% universe_spec]^2, na.rm = TRUE))
-
-    phi <- if ((uni_var + all_err_var) > 0) uni_var / (uni_var + all_err_var) else NA_real_
-
-    if (!is.na(phi) && phi > 0 && !is.na(uni_se) && !is.na(all_err_se)) {
-      var_num <- uni_se^2
-      var_den <- uni_se^2 + all_err_se^2
-      se_phi <- abs(phi) * sqrt(var_num / uni_var^2 + var_den / (uni_var + all_err_var)^2)
-
-      ci_result[[paste0("prmse_s_abs_LL_", dim)]] <- max(0, phi - z_crit * se_phi)
-      ci_result[[paste0("prmse_s_abs_UL_", dim)]] <- min(1, phi + z_crit * se_phi)
-    } else {
-      ci_result[[paste0("prmse_s_abs_LL_", dim)]] <- NA_real_
-      ci_result[[paste0("prmse_s_abs_UL_", dim)]] <- NA_real_
-    }
-  }
-
-  # For PRMSE_C and VAR, the formulas are more complex
-  # We'll use a simplified approximation based on G coefficient SE
-  # Full implementation would require numerical derivatives of Equation 38
-
-  # Get existing VAR values
-  if (!is.null(dstudy_obj$var)) {
-    var_data <- dstudy_obj$var
-    for (dim in dims) {
-      if (!is.null(var_data[[dim]])) {
-        # Approximate CI using delta method through VAR
-        # VAR = G / PRMSE_C, so SE(VAR) is complex
-        # For now, use a conservative approximation
-
-        # Get prmse_c values
-        prmse_c_rel <- var_data[[dim]]$prmse_c_rel
-        prmse_c_abs <- var_data[[dim]]$prmse_c_abs
-
-        # Approximate SE using coefficient of variation
-        g_val <- coefs$g[coefs$dim == dim][1]
-        g_se <- if (!is.na(ci_result[[paste0("prmse_s_rel_LL_", dim)]])) {
-          (ci_result[[paste0("prmse_s_rel_UL_", dim)]] - ci_result[[paste0("prmse_s_rel_LL_", dim)]]) / (2 * z_crit)
-        } else NA_real_
-
-        if (!is.na(prmse_c_rel) && prmse_c_rel > 0 && !is.na(g_se)) {
-          # Approximate SE for prmse_c (conservative)
-          se_prmse_c <- g_se * prmse_c_rel / g_val
-          ci_result[[paste0("prmse_c_rel_LL_", dim)]] <- max(0, prmse_c_rel - z_crit * se_prmse_c)
-          ci_result[[paste0("prmse_c_rel_UL_", dim)]] <- min(1, prmse_c_rel + z_crit * se_prmse_c)
-        } else {
-          ci_result[[paste0("prmse_c_rel_LL_", dim)]] <- NA_real_
-          ci_result[[paste0("prmse_c_rel_UL_", dim)]] <- NA_real_
-        }
-
-        if (!is.na(prmse_c_abs) && prmse_c_abs > 0 && !is.na(g_se)) {
-          se_prmse_c <- g_se * prmse_c_abs / g_val
-          ci_result[[paste0("prmse_c_abs_LL_", dim)]] <- max(0, prmse_c_abs - z_crit * se_prmse_c)
-          ci_result[[paste0("prmse_c_abs_UL_", dim)]] <- min(1, prmse_c_abs + z_crit * se_prmse_c)
-        } else {
-          ci_result[[paste0("prmse_c_abs_LL_", dim)]] <- NA_real_
-          ci_result[[paste0("prmse_c_abs_UL_", dim)]] <- NA_real_
-        }
-
-        # VAR CI (propagate through ratio)
-        var_rel <- var_data[[dim]]$var_rel
-        var_abs <- var_data[[dim]]$var_abs
-
-        if (!is.na(var_rel) && !is.na(g_se) && !is.na(prmse_c_rel) && prmse_c_rel > 0) {
-          # Delta method for ratio: SE(VAR) = VAR * sqrt((SE_g/g)^2 + (SE_c/c)^2)
-          se_var <- var_rel * sqrt((g_se / g_val)^2 + (g_se / prmse_c_rel)^2)
-          ci_result[[paste0("var_rel_LL_", dim)]] <- max(0, var_rel - z_crit * se_var)
-          ci_result[[paste0("var_rel_UL_", dim)]] <- var_rel + z_crit * se_var
-        } else {
-          ci_result[[paste0("var_rel_LL_", dim)]] <- NA_real_
-          ci_result[[paste0("var_rel_UL_", dim)]] <- NA_real_
-        }
-
-        if (!is.na(var_abs) && !is.na(g_se)) {
-          se_var <- var_abs * sqrt((g_se / g_val)^2)
-          ci_result[[paste0("var_abs_LL_", dim)]] <- max(0, var_abs - z_crit * se_var)
-          ci_result[[paste0("var_abs_UL_", dim)]] <- var_abs + z_crit * se_var
-        } else {
-          ci_result[[paste0("var_abs_LL_", dim)]] <- NA_real_
-          ci_result[[paste0("var_abs_UL_", dim)]] <- NA_real_
-        }
-
-        # PRMSE_P (use similar approximation)
-        prmse_p_rel <- var_data[[dim]]$prmse_p_rel
-        prmse_p_abs <- var_data[[dim]]$prmse_p_abs
-
-        if (!is.na(prmse_p_rel) && !is.na(g_se)) {
-          se_p <- g_se * prmse_p_rel / g_val
-          ci_result[[paste0("prmse_p_rel_LL_", dim)]] <- max(0, prmse_p_rel - z_crit * se_p)
-          ci_result[[paste0("prmse_p_rel_UL_", dim)]] <- min(1, prmse_p_rel + z_crit * se_p)
-        } else {
-          ci_result[[paste0("prmse_p_rel_LL_", dim)]] <- NA_real_
-          ci_result[[paste0("prmse_p_rel_UL_", dim)]] <- NA_real_
-        }
-
-        if (!is.na(prmse_p_abs) && !is.na(g_se)) {
-          se_p <- g_se * prmse_p_abs / g_val
-          ci_result[[paste0("prmse_p_abs_LL_", dim)]] <- max(0, prmse_p_abs - z_crit * se_p)
-          ci_result[[paste0("prmse_p_abs_UL_", dim)]] <- min(1, prmse_p_abs + z_crit * se_p)
-        } else {
-          ci_result[[paste0("prmse_p_abs_LL_", dim)]] <- NA_real_
-          ci_result[[paste0("prmse_p_abs_UL_", dim)]] <- NA_real_
-        }
-      }
-    }
-  }
-
-  ci_result
-}
-
-#' Compute PRMSE Confidence Intervals via Bootstrap
-#'
-#' Computes confidence intervals for PRMSE metrics using parametric bootstrap,
-#' resampling variance components from their estimated distributions.
-#'
-#' @param dstudy_obj A dstudy object
-#' @param gstudy_obj The associated gstudy object
-#' @param metrics Character vector: "prmse", "var", or both
-#' @param probs Numeric vector of length 2 for CI bounds
-#' @param n_bootstrap Number of bootstrap samples
-#' @param n Named list of D-study sample sizes
-#' @param weights Named numeric vector of dimension weights
-#' @param object Object of measurement specification
-#' @param universe Universe components specification
-#' @param error Error components specification
-#' @param aggregation Aggregation specification
-#' @param residual_is Residual specification
-#'
-#' @return A list with CI bounds for each requested metric
-#'
-#' @details
-#' For each bootstrap iteration:
-#' 1. Resample variance components from N(VC, SE^2)
-#' 2. Recompute PRMSE metrics
-#' 3. Use percentiles for CI bounds
-#'
-#' @keywords internal
-compute_prmse_bootstrap_ci <- function(dstudy_obj, gstudy_obj, metrics, probs,
-                                       n_bootstrap, n, weights, object, universe,
-                                       error, aggregation, residual_is) {
-  # Extract variance components with SEs
-  vc <- gstudy_obj$variance_components
-
-  # Check if SEs are available
-  if (!"se" %in% names(vc) && !"lower" %in% names(vc)) {
-    warning("Variance component SEs not available. Cannot compute bootstrap CIs.", call. = FALSE)
-    # Return dimension-specific NA values
-    dims <- unique(dstudy_obj$coefficients$dim)
-    dims <- dims[dims != "Composite"]
-    ci_result <- list()
-    for (d in dims) {
-      ci_result[[paste0("prmse_s_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_abs_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_abs_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_p_abs_UL_", d)]] <- NA_real_
-      ci_result[[paste0("var_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("var_rel_UL_", d)]] <- NA_real_
-      ci_result[[paste0("var_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("var_abs_UL_", d)]] <- NA_real_
-    }
-    return(ci_result)
-  }
-
-  # Get SE estimates
-  z_crit <- qnorm(1 - (1 - (probs[2] - probs[1])) / 2)
-  if (!"se" %in% names(vc) && "lower" %in% names(vc)) {
-    vc$se <- (vc$upper - vc$lower) / (2 * z_crit)
-  }
-
-  # Get dimensions
-  coefs <- dstudy_obj$coefficients
-  dims <- unique(coefs$dim)
-  dims <- dims[dims != "Composite"]
-
-  # Initialize bootstrap storage
-  n_dims <- length(dims)
-  boot_prmse_s_rel <- matrix(NA_real_, n_bootstrap, n_dims)
-  boot_prmse_s_abs <- matrix(NA_real_, n_bootstrap, n_dims)
-  boot_prmse_c_rel <- matrix(NA_real_, n_bootstrap, n_dims)
-  boot_prmse_c_abs <- matrix(NA_real_, n_bootstrap, n_dims)
-  boot_var_rel <- matrix(NA_real_, n_bootstrap, n_dims)
-  boot_var_abs <- matrix(NA_real_, n_bootstrap, n_dims)
-  colnames(boot_prmse_s_rel) <- dims
-  colnames(boot_prmse_s_abs) <- dims
-  colnames(boot_prmse_c_rel) <- dims
-  colnames(boot_prmse_c_abs) <- dims
-  colnames(boot_var_rel) <- dims
-  colnames(boot_var_abs) <- dims
-
-  # Get specification
-  universe_spec <- if (!is.null(universe)) parse_specification(universe) else parse_specification(object)
-
-  # Bootstrap loop
-  for (b in seq_len(n_bootstrap)) {
-    # Resample variance components
-    vc_boot <- vc
-    for (i in seq_len(nrow(vc_boot))) {
-      if (!is.na(vc_boot$se[i]) && vc_boot$se[i] > 0) {
-        vc_boot$var[i] <- max(0, rnorm(1, mean = vc_boot$var[i], sd = vc_boot$se[i]))
-      }
-    }
-
-    # Recompute coefficients for each dimension
-    for (j in seq_along(dims)) {
-      d <- dims[j]
-      vc_d <- vc_boot[vc_boot$dim == d, ]
-
-      if (nrow(vc_d) == 0) next
-
-      # Universe variance
-      uni_var <- sum(vc_d$var[vc_d$component %in% universe_spec], na.rm = TRUE)
-
-      # Relative error variance
-      rel_comps <- vc_d$component[sapply(vc_d$component, function(c) {
-        if (c %in% universe_spec) return(FALSE)
-        if (c == "Residual") return(TRUE)
-        facets <- parse_component_facets(c)
-        any(universe_spec %in% facets)
-      })]
-      err_rel_var <- sum(vc_d$var[vc_d$component %in% rel_comps], na.rm = TRUE)
-
-      # Absolute error variance
-      err_abs_var <- sum(vc_d$var[!vc_d$component %in% universe_spec], na.rm = TRUE)
-
-      # G and Phi
-      g_b <- if ((uni_var + err_rel_var) > 0) uni_var / (uni_var + err_rel_var) else NA_real_
-      phi_b <- if ((uni_var + err_abs_var) > 0) uni_var / (uni_var + err_abs_var) else NA_real_
-
-      boot_prmse_s_rel[b, j] <- g_b
-      boot_prmse_s_abs[b, j] <- phi_b
-
-      # Get existing PRMSE_C and VAR (approximate - would need full recomputation)
-      if (!is.null(dstudy_obj$var) && !is.null(dstudy_obj$var[[d]])) {
-        # Scale by bootstrap G relative to original G
-        g_orig <- coefs$g[coefs$dim == d][1]
-        if (!is.na(g_b) && !is.na(g_orig) && g_orig > 0) {
-          ratio <- g_b / g_orig
-          boot_prmse_c_rel[b, j] <- dstudy_obj$var[[d]]$prmse_c_rel * ratio
-          boot_prmse_c_abs[b, j] <- dstudy_obj$var[[d]]$prmse_c_abs * ratio
-          # VAR = G / PRMSE_C
-          if (!is.na(dstudy_obj$var[[d]]$prmse_c_rel) && dstudy_obj$var[[d]]$prmse_c_rel > 0) {
-            boot_var_rel[b, j] <- g_b / (dstudy_obj$var[[d]]$prmse_c_rel * ratio)
-          }
-          if (!is.na(dstudy_obj$var[[d]]$prmse_c_abs) && dstudy_obj$var[[d]]$prmse_c_abs > 0) {
-            boot_var_abs[b, j] <- g_b / (dstudy_obj$var[[d]]$prmse_c_abs * ratio)
-          }
-        }
-      }
-    }
-  }
-
-  # Compute CI from percentiles
-  ci_result <- list()
-
-  for (j in seq_along(dims)) {
-    d <- dims[j]
-
-    # prmse_s_rel CI
-    if (sum(!is.na(boot_prmse_s_rel[, j])) > 10) {
-      ci_result[[paste0("prmse_s_rel_LL_", d)]] <- quantile(boot_prmse_s_rel[, j], probs = probs[1], na.rm = TRUE)
-      ci_result[[paste0("prmse_s_rel_UL_", d)]] <- quantile(boot_prmse_s_rel[, j], probs = probs[2], na.rm = TRUE)
-    } else {
-      ci_result[[paste0("prmse_s_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_rel_UL_", d)]] <- NA_real_
-    }
-
-    # prmse_s_abs CI
-    if (sum(!is.na(boot_prmse_s_abs[, j])) > 10) {
-      ci_result[[paste0("prmse_s_abs_LL_", d)]] <- quantile(boot_prmse_s_abs[, j], probs = probs[1], na.rm = TRUE)
-      ci_result[[paste0("prmse_s_abs_UL_", d)]] <- quantile(boot_prmse_s_abs[, j], probs = probs[2], na.rm = TRUE)
-    } else {
-      ci_result[[paste0("prmse_s_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_s_abs_UL_", d)]] <- NA_real_
-    }
-
-    # prmse_c_rel CI
-    if (sum(!is.na(boot_prmse_c_rel[, j])) > 10) {
-      ci_result[[paste0("prmse_c_rel_LL_", d)]] <- quantile(boot_prmse_c_rel[, j], probs = probs[1], na.rm = TRUE)
-      ci_result[[paste0("prmse_c_rel_UL_", d)]] <- quantile(boot_prmse_c_rel[, j], probs = probs[2], na.rm = TRUE)
-    } else {
-      ci_result[[paste0("prmse_c_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_rel_UL_", d)]] <- NA_real_
-    }
-
-    # prmse_c_abs CI
-    if (sum(!is.na(boot_prmse_c_abs[, j])) > 10) {
-      ci_result[[paste0("prmse_c_abs_LL_", d)]] <- quantile(boot_prmse_c_abs[, j], probs = probs[1], na.rm = TRUE)
-      ci_result[[paste0("prmse_c_abs_UL_", d)]] <- quantile(boot_prmse_c_abs[, j], probs = probs[2], na.rm = TRUE)
-    } else {
-      ci_result[[paste0("prmse_c_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("prmse_c_abs_UL_", d)]] <- NA_real_
-    }
-
-    # var_rel CI
-    if (sum(!is.na(boot_var_rel[, j])) > 10) {
-      ci_result[[paste0("var_rel_LL_", d)]] <- quantile(boot_var_rel[, j], probs = probs[1], na.rm = TRUE)
-      ci_result[[paste0("var_rel_UL_", d)]] <- quantile(boot_var_rel[, j], probs = probs[2], na.rm = TRUE)
-    } else {
-      ci_result[[paste0("var_rel_LL_", d)]] <- NA_real_
-      ci_result[[paste0("var_rel_UL_", d)]] <- NA_real_
-    }
-
-    # var_abs CI
-    if (sum(!is.na(boot_var_abs[, j])) > 10) {
-      ci_result[[paste0("var_abs_LL_", d)]] <- quantile(boot_var_abs[, j], probs = probs[1], na.rm = TRUE)
-      ci_result[[paste0("var_abs_UL_", d)]] <- quantile(boot_var_abs[, j], probs = probs[2], na.rm = TRUE)
-    } else {
-      ci_result[[paste0("var_abs_LL_", d)]] <- NA_real_
-      ci_result[[paste0("var_abs_UL_", d)]] <- NA_real_
-    }
-
-    # prmse_p CIs - not computed in bootstrap (requires full matrix recomputation)
-    # Set to NA for now
-    ci_result[[paste0("prmse_p_rel_LL_", d)]] <- NA_real_
-    ci_result[[paste0("prmse_p_rel_UL_", d)]] <- NA_real_
-    ci_result[[paste0("prmse_p_abs_LL_", d)]] <- NA_real_
-    ci_result[[paste0("prmse_p_abs_UL_", d)]] <- NA_real_
-  }
-
-  ci_result
-}

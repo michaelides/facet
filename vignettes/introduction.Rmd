@@ -1956,17 +1956,97 @@ Where:
 
 The key innovation of the Haberman formula is that $PRMSE(C \rightarrow S_i)$ incorporates the **covariances between subscales**:
 
-$$PRMSE(C \rightarrow S_i) = \frac{(\sigma^2_{S_i} \cdot Rel(S_i) + \sum_{j \neq i} \sigma_{S_i, S_j})^2}{\sigma^2_{S_i} \cdot Rel(C) \cdot \sigma^2_C}$$
+$$PRMSE(C \rightarrow S_i) = \frac{[\mathrm{Cov}(\tau_i, C)]^2}{\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot \mathrm{Var}(C)}$$
+
+where $\mathrm{Cov}(\tau_i, C) = \sum_j w_j \, \mathrm{Cov}(\tau_i, \tau_j)$ is the weighted covariance between subscale $i$'s universe score and the composite universe score, computed from the universe-score (disattenuated) covariance matrix $\Sigma_\tau$.
 
 Where:
 
-- $\sigma^2_{S_i}$ is the observed variance of subscale $i$
-- $Rel(S_i)$ is the reliability of subscale $i$ (G coefficient for relative, Phi for absolute)
-- $\sigma_{S_i, S_j}$ is the observed covariance between subscales $i$ and $j$
-- $Rel(C)$ is the reliability of the composite
-- $\sigma^2_C$ is the observed variance of the composite
+- $\mathrm{Var}(\tau_i) = \Sigma_{\tau,ii}$ is the universe-score variance of subscale $i$
+- $\mathrm{Rel}(C) = \mathrm{Var}(\tau_C) / \mathrm{Var}(C)$ is the composite reliability (G for relative, $\Phi$ for absolute)
+- $\mathrm{Var}(C) = \mathbf{w}^\top \Sigma_{\mathrm{obs}} \mathbf{w}$ is the D-study observed variance of the composite
+- $\mathbf{w}$ is the vector of subscale weights (e.g., $w_j = 1/n_s$ for equal weighting)
 
-**Key insight**: When subscales are positively correlated, the covariance terms ($\sigma_{S_i, S_j}$) increase the numerator, making it more likely that the composite provides useful information for estimating the subscale's universe score. This is why VAR can be less than 1 even when subscale reliability is high—strong correlations with other subscales mean the composite "borrows strength" from these relationships.
+> **Note on Vispoel et al. (2023) Equation 38.** The formula above is the Haberman (2008) correct form. The equation labeled "Equation 38" in Vispoel et al. (2023, p. 9) contains a typesetting error in the denominator (using $\hat\sigma^2(S_i) \cdot \mathrm{Rel}(C)$ instead of $\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C)$); the implementation in `facet::prmse()` uses the corrected form, which matches the numerical values reported in their Table 8.
+
+**Key insight**: When subscales are positively correlated, the covariance terms ($\mathrm{Cov}(\tau_i, \tau_j)$) increase $|\mathrm{Cov}(\tau_i, C)|$, making it more likely that the composite provides useful information for estimating the subscale's universe score. This is why VAR can be less than 1 even when subscale reliability is high—strong correlations with other subscales mean the composite "borrows strength" from these relationships.
+
+### Three Types of PRMSE in facet::prmse()
+
+The `prmse()` function computes three distinct types of PRMSE, each answering a different question about prediction accuracy:
+
+| Metric | Question Answered |
+|--------|-------------------|
+| `prmse_s_rel` | "How reliable is this subscale alone?" (equals G coefficient) |
+| `prmse_c_rel` | "How well does the composite predict this subscale?" (Haberman's PRMSE_C) |
+| `prmse_p_rel` | "How well does the full profile predict this subscale?" (diagonal slice of $\Sigma_\tau \Sigma_{\mathrm{obs}}^{-1} \Sigma_\tau$) |
+
+In addition, the global profile reliability is available as `attr(result, "prmse_mv_rel")`, which is the **trace** of the same matrix (not the diagonal slice), normalized by $\mathrm{tr}(\Sigma_\tau)$. This equals the matrix analog of a squared canonical correlation and always satisfies $\mathrm{PRMSE}_{MV} \geq \mathrm{PRMSE}_P[d]$ for any dimension $d$.
+
+### Validating the PRMSE formula on synthetic data
+
+The Haberman (2008) closed form is fully reproducible from the package's output. The following example constructs a balanced 3-dimension design with known variance components and shows that `prmse()` recovers the analytical values to within ANOVA estimation noise.
+
+```{r, eval=FALSE}
+library(facet)
+set.seed(123)
+n_persons <- 1500
+n_items <- 10
+
+# True data-generating parameters:
+#   Var(tau_A) = Var(tau_B) = Var(tau_C) = 1.0
+#   Cov(tau_A, tau_B) = Cov(tau_A, tau_C) = Cov(tau_B, tau_C) = 0.5
+#   Item variance = 0.1 per subscale
+#   Person:Item variance = 0.9 per subscale
+Sigma_person <- matrix(c(1, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 1), 3, 3,
+  dimnames = list(c("A", "B", "C"), c("A", "B", "C")))
+
+# Generate Person effects and build the data
+L <- chol(Sigma_person)
+tau <- matrix(rnorm(n_persons * 3), n_persons, 3) %*% L
+data <- do.call(rbind, lapply(seq_len(n_persons), function(p) {
+  data.frame(
+    person = factor(p),
+    item   = factor(seq_len(n_items)),
+    A = tau[p, 1] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+    B = tau[p, 2] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+    C = tau[p, 3] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9))
+  )
+}))
+
+# Fit and run prmse
+g <- gstudy(mvbind(A, B, C) ~ (1 | person) + (1 | item), data = data, backend = "mom")
+d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
+result <- suppressWarnings(prmse(d))
+
+# Closed-form reference (Haberman 2008)
+n_i <- 10
+Sigma_tau <- Sigma_person
+Sigma_obs_rel <- Sigma_tau
+diag(Sigma_obs_rel) <- diag(Sigma_obs_rel) + 0.9 / n_i
+w <- rep(1/3, 3)
+var_tau_C <- as.numeric(t(w) %*% Sigma_tau %*% w)
+var_obs_C_rel <- as.numeric(t(w) %*% Sigma_obs_rel %*% w)
+Rel_C <- var_tau_C / var_obs_C_rel
+cov_tau_C <- as.numeric(Sigma_tau %*% w)
+
+# PRMSE_S reference = G coefficient
+ref_s <- diag(Sigma_tau) / (diag(Sigma_tau) + 0.9 / n_i)
+
+# PRMSE_C reference = Haberman closed form
+ref_c <- (cov_tau_C^2) / (diag(Sigma_tau) * Rel_C * var_obs_C_rel)
+
+# Compare
+data.frame(
+  dim = c("A", "B", "C"),
+  ref_prmse_s = ref_s,
+  pkg_prmse_s = result$prmse_s_rel,
+  ref_prmse_c = ref_c,
+  pkg_prmse_c = result$prmse_c_rel
+)
+```
+
+The `pkg_prmse_*` values should match `ref_prmse_*` to within 0.05 (the tolerance for ANOVA estimation noise with the chosen sample sizes). This validation is also encoded in the package's automated test suite (`tests/testthat/test-viable.R`, tests H1–H10).
 
 ### Two Variants: var_rel and var_abs
 

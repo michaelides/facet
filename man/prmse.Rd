@@ -9,8 +9,6 @@ prmse(
   include_composite = FALSE,
   include_profile = TRUE,
   ci = NULL,
-  ci_method = c("delta", "bootstrap"),
-  n_bootstrap = 1000,
   probs = c(0.025, 0.975),
   weights = NULL,
   optimize = NULL,
@@ -35,10 +33,6 @@ If FALSE, these columns are omitted for a more compact output.}
 Options: "prmse", "var", or both. Default NULL (no CIs).
 \strong{Note:} Credible intervals are only available for brms backend with posterior
 estimation. For mom backend, this parameter is ignored with a warning.}
-
-\item{ci_method}{Unused. Kept for backward compatibility.}
-
-\item{n_bootstrap}{Unused. Kept for backward compatibility.}
 
 \item{probs}{Numeric vector of length 2 specifying the quantile probabilities
 for credible intervals (brms backend only). Default is \code{c(0.025, 0.975)} for 95\% CI.}
@@ -105,7 +99,7 @@ When \code{include_composite = TRUE}, a Composite row is added with:
 }
 
 When \code{optimize} is specified, returns a list with optimization results
-(see \code{\link{viable}()} for details).
+containing the optimal weights, eigenvalue/value, and recomputed metrics.
 }
 \description{
 Extract PRMSE(C→S_i) and VAR results as a data frame from a dstudy object.
@@ -142,19 +136,35 @@ This is the baseline reliability for each dimension when considered in isolation
 
 \subsection{PRMSE_C (Composite Prediction)}{
 
-How well the weighted composite score predicts each subscale's true scores
-(Equation 38 from Brennan, 2001):
+How well the weighted composite score predicts each subscale's true scores.
+This is the Haberman (2008) formula:
 
-\deqn{\text{PRMSE}_{(C)} = \frac{\left(\hat{\sigma}^2_{(\text{Subscale}_i)} \cdot \text{Rel}_{(\text{Subscale}_i)} + \sum_{j \neq i} \hat{\sigma}_{(\text{Subscale}_i,\, \text{Subscale}_j)}\right)^2}{\hat{\sigma}^2_{(\text{Subscale}_i)} \cdot \text{Rel}_{(C)} \cdot \hat{\sigma}^2_{(C)}}}
+\deqn{\mathrm{PRMSE}(C \to S_i) = \frac{[\mathrm{Cov}(\tau_i, C)]^2}
+      {\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot \mathrm{Var}(C)}}
 
-where:
+where
 \itemize{
-\item \eqn{\hat{\sigma}^2_{(\text{Subscale}_i)}}: Observed score variance of subscale i
-\item \eqn{\text{Rel}_{(\text{Subscale}_i)}}: Reliability of subscale i (G coefficient)
-\item \eqn{\hat{\sigma}_{(\text{Subscale}_i, \text{Subscale}_j)}}: Observed covariance between subscales i and j
-\item \eqn{\text{Rel}_{(C)}}: Reliability of the composite score
-\item \eqn{\hat{\sigma}^2_{(C)}}: Observed score variance of the composite
+\item \eqn{\mathrm{Cov}(\tau_i, C) = \sum_j w_j \, \mathrm{Cov}(\tau_i, \tau_j)}
+is the weighted covariance between subscale \eqn{i}'s true score and the
+composite true score, computed from the universe-score (disattenuated)
+covariance matrix, not from observed-score sample covariances.
+\item \eqn{\mathrm{Var}(\tau_i) = \Sigma_{\tau,ii}} is the universe-score
+variance of subscale \eqn{i}.
+\item \eqn{\mathrm{Rel}(C) = \mathrm{Var}(\tau_C) / \mathrm{Var}(C)} is
+the composite reliability (G coefficient for relative, \eqn{\Phi} for
+absolute).
+\item \eqn{\mathrm{Var}(C) = \mathbf{w}^\top \Sigma_{\mathrm{obs}} \mathbf{w}}
+is the D-study observed variance of the composite (scaled for the
+decision study sample sizes).
 }
+
+\strong{Note on Vispoel et al. (2023) Equation 38:} Vispoel et al. (2023, p. 9)
+label this quantity as "Equation 38", but the printed equation contains a
+typesetting error (the denominator uses \eqn{\hat\sigma^2(S_i) \cdot
+\mathrm{Rel}(C)} where it should be \eqn{\mathrm{Var}(\tau_i) \cdot
+\mathrm{Rel}(C)}). This implementation uses the corrected Haberman (2008)
+form, which matches the numerical results reported in Vispoel et al.'s
+Table 8.
 
 \strong{Viability Analysis:} Subscale viability is supported when
 \eqn{\text{PRMSE}_S > \text{PRMSE}_C}, meaning the subscale predicts its own
@@ -168,10 +178,24 @@ How well the entire profile (all dimensions simultaneously) predicts each
 subscale's true scores. This uses the multivariate structure to potentially
 improve prediction accuracy by borrowing information from correlated dimensions:
 
-\deqn{\text{PRMSE}_P[d] = \frac{[\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau]_{dd}}{\sigma^2_{\tau,d}}}
+\deqn{\text{PRMSE}_P[d] = \frac{[\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau]_{dd}}{\Sigma_{\tau,dd}}}
 
-where \eqn{\Sigma_\tau} is the true-score covariance matrix and
-\eqn{\Sigma_{\text{obs}}} is the observed covariance matrix.
+where \eqn{\Sigma_\tau} is the universe-score covariance matrix and
+\eqn{\Sigma_{\text{obs}}} is the D-study observed covariance matrix.
+
+\strong{Diagonal slice vs. trace:} \code{prmse_p_rel} returns the \emph{diagonal
+slice} of the matrix \eqn{\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau}
+(one value per dimension). The companion attribute
+\code{attr(result, "prmse_mv_rel")} returns the \emph{trace} of the same
+matrix, normalized by the trace of \eqn{\Sigma_\tau}, which is a single
+global multivariate profile reliability:
+
+\deqn{\text{PRMSE}_{MV} = \frac{\mathrm{tr}(\Sigma_\tau \Sigma_{\text{obs}}^{-1} \Sigma_\tau)}{\mathrm{tr}(\Sigma_\tau)}}
+
+This trace equals the matrix analog of a squared canonical correlation and
+always satisfies \eqn{\text{PRMSE}_{MV} \geq \text{PRMSE}_P[d]} for any
+dimension \eqn{d} (by Cauchy-Schwarz on the Cholesky factor of
+\eqn{\Sigma_{\text{obs}}^{-1/2}\Sigma_\tau}).
 
 \strong{Relationship to PRMSE_S:} When dimensions are uncorrelated (all off-diagonal
 covariances = 0), the matrices become diagonal and PRMSE_P simplifies to PRMSE_S.
@@ -246,6 +270,12 @@ prmse(d_mv, ci = "prmse") # CIs from posterior draws
 }
 }
 }
+\section{Experimental}{
+
+This function is experimental. Testing has been limited, and results
+should be verified before being cited in published work.
+}
+
 \examples{
 \dontrun{
 # Univariate model
