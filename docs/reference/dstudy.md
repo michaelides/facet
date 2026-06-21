@@ -346,12 +346,26 @@ d_agg <- dstudy(g, n = list(Task = 3, Rater = 4),
 g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
   data = brennan, backend = "brms")
 #> Compiling Stan program...
+#> Trying to compile a simple C file
+#> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c
+#> using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
+#> using SDK: ‘MacOSX26.5.sdk’
+#> clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I"/Users/afp18axu/Library/R/arm64/4.6/library/Rcpp/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/unsupported"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/BH/include" -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/src/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppParallel/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -c foo.c -o foo.o
+#> In file included from <built-in>:1:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Dense:1:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Core:19:
+#> /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found
+#>   679 | #include <cmath>
+#>       |          ^~~~~~~
+#> 1 error generated.
+#> make: *** [foo.o] Error 1
 #> Start sampling
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
 #> Chain 1: 
-#> Chain 1: Gradient evaluation took 2.5e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.25 seconds.
+#> Chain 1: Gradient evaluation took 6.1e-05 seconds
+#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.61 seconds.
 #> Chain 1: Adjust your expectations accordingly!
 #> Chain 1: 
 #> Chain 1: 
@@ -368,15 +382,15 @@ g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
 #> Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.285 seconds (Warm-up)
-#> Chain 1:                0.232 seconds (Sampling)
-#> Chain 1:                0.517 seconds (Total)
+#> Chain 1:  Elapsed Time: 0.294 seconds (Warm-up)
+#> Chain 1:                0.275 seconds (Sampling)
+#> Chain 1:                0.569 seconds (Total)
 #> Chain 1: 
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
 #> Chain 2: 
-#> Chain 2: Gradient evaluation took 1e-05 seconds
-#> Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.1 seconds.
+#> Chain 2: Gradient evaluation took 1.4e-05 seconds
+#> Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.14 seconds.
 #> Chain 2: Adjust your expectations accordingly!
 #> Chain 2: 
 #> Chain 2: 
@@ -393,9 +407,9 @@ g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
 #> Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 2: 
-#> Chain 2:  Elapsed Time: 0.222 seconds (Warm-up)
-#> Chain 2:                0.201 seconds (Sampling)
-#> Chain 2:                0.423 seconds (Total)
+#> Chain 2:  Elapsed Time: 0.304 seconds (Warm-up)
+#> Chain 2:                0.245 seconds (Sampling)
+#> Chain 2:                0.549 seconds (Total)
 #> Chain 2: 
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
@@ -418,15 +432,15 @@ g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
 #> Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 3: 
-#> Chain 3:  Elapsed Time: 0.275 seconds (Warm-up)
-#> Chain 3:                0.228 seconds (Sampling)
-#> Chain 3:                0.503 seconds (Total)
+#> Chain 3:  Elapsed Time: 0.288 seconds (Warm-up)
+#> Chain 3:                0.246 seconds (Sampling)
+#> Chain 3:                0.534 seconds (Total)
 #> Chain 3: 
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
 #> Chain 4: 
-#> Chain 4: Gradient evaluation took 9e-06 seconds
-#> Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.09 seconds.
+#> Chain 4: Gradient evaluation took 1e-05 seconds
+#> Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.1 seconds.
 #> Chain 4: Adjust your expectations accordingly!
 #> Chain 4: 
 #> Chain 4: 
@@ -443,18 +457,28 @@ g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
 #> Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
 #> Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
 #> Chain 4: 
-#> Chain 4:  Elapsed Time: 0.255 seconds (Warm-up)
-#> Chain 4:                0.223 seconds (Sampling)
-#> Chain 4:                0.478 seconds (Total)
+#> Chain 4:  Elapsed Time: 0.321 seconds (Warm-up)
+#> Chain 4:                0.275 seconds (Sampling)
+#> Chain 4:                0.596 seconds (Total)
 #> Chain 4: 
-#> Warning: There were 20 divergent transitions after warmup. See
+#> Warning: There were 91 divergent transitions after warmup. See
 #> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #> to find out why this is a problem and how to eliminate them.
 #> Warning: Examine the pairs() plot to diagnose sampling problems
+#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#bulk-ess
+#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#tail-ess
 d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
+#> Warning: Low bulk effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
+#> Warning: Low tail effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
 
 # D-study with credible intervals (requires brms backend)
 d_ci <- dstudy(g_brms, n = list(Task = 3, Rater = 4), ci = c("g", "phi"))
+#> Warning: Low bulk effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
+#> Warning: Low tail effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
 print(d_ci)
 #> Decision Study (D-Study)
 #> ========================
@@ -473,19 +497,21 @@ print(d_ci)
 #> # A tibble: 4 × 6
 #>   component dim   var_unscaled pct_unscaled var_scaled pct_scaled
 #>   <chr>     <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person    Score        0.949         14.1      0.949      37.1 
-#> 2 Task      Score        1.96          29.0      0.652      25.5 
-#> 3 Rater     Score        0.933         13.8      0.233       9.12
-#> 4 Residual  Score        2.90          43.0      0.725      28.3 
+#> 1 Person    Score        0.915         12.5      0.915       33.6
+#> 2 Task      Score        2.41          32.8      0.802       29.5
+#> 3 Rater     Score        1.13          15.5      0.284       10.4
+#> 4 Residual  Score        2.88          39.3      0.721       26.5
 #> 
 #> Coefficients:
 #> # A tibble: 1 × 9
 #>     uni sigma2_delta sigma2_delta_abs     g   phi  g_LL  g_UL phi_LL phi_UL
 #>   <dbl>        <dbl>            <dbl> <dbl> <dbl> <dbl> <dbl>  <dbl>  <dbl>
-#> 1 0.949        0.242             1.13 0.733 0.466 0.360 0.927 0.0888  0.817
+#> 1 0.915        0.240             1.33 0.727 0.450 0.367 0.928 0.0580  0.822
 
 # Custom probability levels (90% credible interval)
 d_ci_90 <- dstudy(g_brms, n = list(Task = 3, Rater = 4),
   ci = "g", probs = c(0.05, 0.95))
+#> Warning: Low bulk effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
+#> Warning: Low tail effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
 # }
 ```

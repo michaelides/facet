@@ -2052,6 +2052,11 @@ Where:
 
 **Key insight**: When subscales are positively correlated, the covariance terms ($\mathrm{Cov}(\tau_i, \tau_j)$) increase $|\mathrm{Cov}(\tau_i, C)|$, making it more likely that the composite provides useful information for estimating the subscale's universe score. This is why VAR can be less than 1 even when subscale reliability is high—strong correlations with other subscales mean the composite "borrows strength" from these relationships.
 
+> **Experimental.** The `facet::prmse()` function is experimental. Testing
+> has been limited, and its API and output columns may change before the
+> function graduates to stable. Verify results against an independent
+> implementation before citing them in published work.
+
 ### Three Types of PRMSE in facet::prmse()
 
 The `prmse()` function computes three distinct types of PRMSE, each answering a different question about prediction accuracy:

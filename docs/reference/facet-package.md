@@ -1,4 +1,4 @@
-# facet: framework for Generalizability Theory
+# facet: facet: framework for Generalizability Theory
 
 Conduct generalizability theory analyses using variance component models
 estimated with various methods (including ANOVA method of moments, REML

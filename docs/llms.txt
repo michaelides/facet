@@ -1,6 +1,4 @@
-# facet
-
-Modern Generalizability Theory with Variance Component Models
+# facet: framework for Generalizability Theory
 
 ## ✍️ Author
 
@@ -32,6 +30,7 @@ linear mixed-effects models, offering:
 ## Installation
 
 ``` r
+
 # Install from GitHub
 # install.packages("devtools")
 devtools::install_github("michaelides/facet")
@@ -46,6 +45,7 @@ measurement design. The **facet** package uses standard **lme4** formula
 syntax:
 
 ``` r
+
 library(facet)
 
 # Load included Brennan dataset (10 persons, 3 tasks, 12 raters)
@@ -66,6 +66,7 @@ A D-study computes reliability coefficients for specific measurement
 designs:
 
 ``` r
+
 # Conduct a D-study with 5 tasks and 2 raters
 d <- dstudy(g, n = list(Task = 5, Rater = 2))
 
@@ -78,6 +79,7 @@ summary(d)
 Rapidly evaluate reliability across multiple sample size combinations:
 
 ``` r
+
 # Explore different numbers of Tasks and Raters
 d_sweep <- dstudy(g, n = list(Task = c(2, 5, 10), Rater = c(1, 2, 5)))
 
@@ -90,6 +92,7 @@ plot(d_sweep, type = "sweep")
 Visualize random effects and uncertainty using caterpillar plots:
 
 ``` r
+
 # Plot random effects for Persons
 plot_ranef(g, which = "Person")
 ```
@@ -161,6 +164,7 @@ plot_ranef(g, which = "Person")
 ### G-Study Object
 
 ``` r
+
 # Variance components
 tidy(g)
 
@@ -174,6 +178,7 @@ plot(g)
 ### D-Study Object
 
 ``` r
+
 # Coefficients
 tidy(d)
 

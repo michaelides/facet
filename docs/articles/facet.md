@@ -11,6 +11,7 @@ analysis: conducting a G-study, and then running a D-study.
 First, load `facet` and one of the built-in datasets, `brennan`.
 
 ``` r
+
 library(facet)
 data(brennan)
 head(brennan)
@@ -40,6 +41,7 @@ function to estimate variance components. By default, `facet` uses
 `lme4` (Restricted Maximum Likelihood) under the hood.
 
 ``` r
+
 g_obj <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
   (1 | Person:Task),
   data = brennan)
@@ -100,6 +102,7 @@ Plotting the random effects helps identify which facets contribute the
 most variance.
 
 ``` r
+
 plot(g_obj)
 ```
 
@@ -122,6 +125,7 @@ design. You can project how changing the sample sizes of your facets
 impacts reliability.
 
 ``` r
+
 # Project a design with 3 Tasks and 4 Raters
 d_obj <- dstudy(g_obj, n = list(Task = 3, Rater = 4))
 

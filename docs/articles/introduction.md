@@ -3308,6 +3308,7 @@ d_mv <- dstudy(
 )
 
 # Access PRMSE and VAR results using prmse()
+# Note: facet::prmse() is experimental; verify before citing.
 prmse(d_mv)
 ```
 

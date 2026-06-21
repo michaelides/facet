@@ -89,7 +89,7 @@ g <- gstudy(Score ~ (1 | Person) + (1 | Rater), data = brennan)
 latent_scores <- latent(g)
 head(latent_scores)
 #>   Person        latent
-#> 1      1  3.563932e-15
+#> 1      1  3.559172e-15
 #> 2      2  7.292988e-01
 #> 3      3 -6.077490e-01
 #> 4      4 -6.077490e-01

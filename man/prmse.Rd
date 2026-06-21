@@ -102,6 +102,10 @@ When \code{optimize} is specified, returns a list with optimization results
 containing the optimal weights, eigenvalue/value, and recomputed metrics.
 }
 \description{
+\strong{Experimental.} \code{prmse()} is experimental: testing has been limited and
+results should be verified before being cited in published work. The
+function and its outputs may change in future releases.
+
 Extract PRMSE(C→S_i) and VAR results as a data frame from a dstudy object.
 For univariate models, returns the G and Phi coefficients as PRMSE metrics.
 }

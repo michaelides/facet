@@ -69,9 +69,16 @@ A list containing:
 The formula is: \$\$VAR(S_i) = \frac{PRMSE(S_i)}{PRMSE(C \rightarrow
 S_i)}\$\$
 
-Where PRMSE(C -\> S_i) is: \$\$PRMSE(C \rightarrow S_i) =
-\frac{(\sigma^2\_{S_i} \cdot Rel(S_i) + \sum\_{j \neq i} \sigma\_{S_i,
-S_j})^2}{\sigma^2\_{S_i} \cdot Rel(C) \cdot \sigma^2_C}\$\$
+Where PRMSE(C -\> S_i) is the Haberman (2008) correct form: \$\$PRMSE(C
+\rightarrow S_i) = \frac{\[\mathrm{Cov}(\tau_i,
+C)\]^2}{\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot
+\mathrm{Var}(C)}\$\$ with \\\mathrm{Cov}(\tau_i, C) = \sum_j w_j \\
+\mathrm{Cov}(\tau_i, \tau_j)\\ computed from the universe-score
+covariance matrix. This is the corrected form of what Vispoel et al.
+(2023) labeled as "Equation 38" (the printed equation contains a
+typesetting error in the denominator; see
+[`prmse`](https://github.com/yourorg/facet/reference/prmse.md) for
+details).
 
 ## References
 

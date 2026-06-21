@@ -1,5 +1,9 @@
 # Tidy PRMSE and VAR Results
 
+**Experimental.** `prmse()` is experimental: testing has been limited and
+results should be verified before being cited in published work. The
+function and its outputs may change in future releases.
+
 Extract PRMSE(C→S_i) and VAR results as a data frame from a dstudy
 object. For univariate models, returns the G and Phi coefficients as
 PRMSE metrics.
