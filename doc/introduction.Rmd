@@ -320,7 +320,9 @@ $$\hat{\sigma}^2_i = \frac{MS_i - MS_{pi}}{n_p}$$
 
 ### EMS for Three-Facet Designs
 
-For a person $\times$ item $\times$ rater design ($p \times i \times r$), the EMS becomes more complex:
+> **Note.** The EMS table below is for a **fully crossed** Person $\times$ Item $\times$ Rater design in which every rater rates every person on every item. The `brennan` dataset analyzed later in this vignette is *not* fully crossed (Rater is nested within Task), so its EMS table is different; see the next subsection.
+
+For a fully crossed person $\times$ item $\times$ rater design ($p \times i \times r$), the EMS becomes more complex:
 
 | Source | EMS |
 |--------|-----|
@@ -333,6 +335,28 @@ For a person $\times$ item $\times$ rater design ($p \times i \times r$), the EM
 | $p \times i \times r$ | $\sigma^2_e + \sigma^2_{pir}$ |
 
 The solving procedure follows the same pattern, starting from the three-way interaction.
+
+### EMS for the Nested brennan Design
+
+The `brennan` data is a Person $\times$ Task $\times$ (Rater:Task) design --- Person is crossed with Task, but Rater is nested within Task, with $n_r$ raters per task. The model is
+
+$$X_{ptr} = \mu + \tau_p + \alpha_t + \rho_{r(t)} + (\tau\alpha)_{pt} + e_{ptr}$$
+
+where $e_{ptr}$ absorbs the Person $\times$ Rater:Task interaction (each cell has a single observation, so that effect is confounded with the residual). The EMS table for a balanced nested design with $n_p$ persons, $n_t$ tasks, and $n_r$ raters per task is:
+
+| Source | df | EMS |
+|--------|-----|-----|
+| Person ($p$) | $n_p - 1$ | $\sigma^2_e + n_r \sigma^2_{pt} + n_t n_r \sigma^2_p$ |
+| Task ($t$) | $n_t - 1$ | $\sigma^2_e + n_r \sigma^2_{pt} + n_p \sigma^2_{r:t} + n_p n_r \sigma^2_t$ |
+| Rater within Task ($r:t$) | $n_t (n_r - 1)$ | $\sigma^2_e + \sigma^2_{pt} + n_p \sigma^2_{r:t}$ |
+| Person $\times$ Task ($pt$) | $(n_p - 1)(n_t - 1)$ | $\sigma^2_e + n_r \sigma^2_{pt}$ |
+| Residual ($e \equiv p \times r:t$) | $n_t (n_p - 1)(n_r - 1)$ | $\sigma^2_e$ |
+
+Solving the EMS equations (Henderson's Method I) for the nested design, in the same bottom-up order:
+
+$$\hat{\sigma}^2_e = MS_e, \qquad \hat{\sigma}^2_{pt} = \frac{MS_{pt} - MS_e}{n_r}, \qquad \hat{\sigma}^2_{r:t} = \frac{MS_{r:t} - MS_e - \hat{\sigma}^2_{pt}}{n_p}$$
+
+$$\hat{\sigma}^2_p = \frac{MS_p - n_r \hat{\sigma}^2_{pt} - MS_e}{n_t n_r}, \qquad \hat{\sigma}^2_t = \frac{MS_t - n_p \hat{\sigma}^2_{r:t} - n_r \hat{\sigma}^2_{pt} - MS_e}{n_p n_r}$$
 
 ### EMS for Nested Designs
 
@@ -590,12 +614,23 @@ Jackson and colleagues applied properly specified Bayesian G-theory models to as
 
 ### Full Crossed Designs with Bayesian Estimation
 
-In crossed designs where all facet combinations are observed, a properly specified G-theory model includes all relevant interaction terms. For example, a Person $\times$ Task $\times$ Rater design:
+In crossed designs where all facet combinations are observed, a properly specified G-theory model includes all relevant interaction terms. For example, a fully crossed Person $\times$ Task $\times$ Rater design --- one in which every rater rates every person on every task --- would be specified as:
 
 ```{r, eval=FALSE}
 g_crossed <- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-    (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+    (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater) +
+    (1 | Person:Task:Rater),
+  data = crossed_data,
+  backend = "brms"
+)
+```
+
+The `brennan` dataset is **not** such a design (Rater is nested within Task; see the callout in the "Built-in Datasets" section). For `brennan`, the correct Bayesian specification is the nested form used elsewhere in this vignette:
+
+```{r, eval=FALSE}
+g_nested <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task),
   data = brennan,
   backend = "brms"
 )
@@ -702,9 +737,10 @@ my_prior <- c(
 g_custom <- gstudy(Score ~ (1|Person) + (1|Task), 
                    data = brennan, backend = "brms", prior = my_prior)
 
-# Multivariate Bayesian G-study
+# Multivariate Bayesian G-study (requires a fully crossed design;
+# see the `crossed_wide` data defined in the Multivariate G-Study section)
 g_mv <- gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater), 
-               data = brennan_wide, backend = "brms")
+               data = crossed_wide, backend = "brms")
 ```
 
 The implementation:
@@ -918,9 +954,15 @@ data(rajaratnam)
 head(rajaratnam)
 ```
 
-The **brennan** dataset contains scores for 10 persons across 3 tasks and 12 raters in a fully crossed design ($p \times t \times r$). This is ideal for demonstrating crossed designs.
+The **brennan** dataset contains scores for 10 persons across 3 tasks, with a panel of 4 raters nested within each task (12 raters in total). The design is $p \times t \times (r:t)$: Person is crossed with Task, and Rater is nested within Task (raters 1--4 only see Task 1, raters 5--8 only see Task 2, and raters 9--12 only see Task 3). This is ideal for demonstrating nested designs.
 
-The **rajaratnam** dataset contains scores for 8 persons across 3 subtests, with 4 items nested within each subtest. This is ideal for demonstrating nested designs.
+> **Design note (`brennan`).** Because Rater is nested within Task, the random-effects formula must use `(1 | Rater:Task)`, not `(1 | Rater)`. The model
+> ```
+> Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task)
+> ```
+> decomposes the observed score into four estimable random-effect variances --- $\sigma^2_{\text{Person}}$ (universe-score variance), $\sigma^2_{\text{Task}}$ (task-difficulty variance), $\sigma^2_{\text{Rater:Task}}$ (within-task rater-leniency variance), and $\sigma^2_{\text{Person:Task}}$ (person-by-task interaction) --- plus a residual that absorbs the person-by-rater:task interaction (each Person $\times$ Rater:Task cell has a single observation, so that effect is confounded with the residual). A crossed formula such as `Score ~ (1 | Person) + (1 | Task) + (1 | Rater)` would treat Rater as if it were crossed with Task, which is not supported by the data.
+
+The **rajaratnam** dataset contains scores for 8 persons across 3 subtests, with items nested within subtest. Items are labeled *within* each subtest (e.g., "Item 1" in Subtest 1 is a different item from "Item 1" in Subtest 2), so the random-effects formula uses `Item:Subtest` to capture the unique item-within-subtest factor. This is ideal for demonstrating nested designs.
 
 ## Basic G-Study
 
@@ -1098,24 +1140,25 @@ data(brennan)
 # Examine structure
 head(brennan)
 #   Person Task Rater Score
-# 1      1    1     1     4
-# 2      1    1     2     3
-# 3      1    2     1     5
-# 4      1    2     2     4
-# 5      1    3     1     6
-# 6      1    3     2     5
+# 1      1    1     1     5
+# 2      2    1     1     9
+# 3      3    1     1     3
+# 4      4    1     1     7
+# 5      5    1     1     9
+# 6      6    1     1     3
 
 str(brennan)
 ```
 
 ### Default Bayesian G-Study
 
-The simplest Bayesian G-study uses default priors:
+The simplest Bayesian G-study uses default priors. Because Rater is nested within Task, the formula uses `(1 | Rater:Task)` and `(1 | Person:Task)` (see the callout in the "Built-in Datasets" section):
 
 ```{r, eval=FALSE}
 # Bayesian G-study with default priors
 g_bayes <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms"
 )
@@ -1160,7 +1203,8 @@ Control MCMC sampling with additional arguments:
 
 ```{r, eval=FALSE}
 g_full <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
   chains = 4,        # Number of chains
@@ -1186,7 +1230,8 @@ View and modify default priors:
 ```{r, eval=FALSE}
 # View default priors for a model
 library(brms)
-default_prior(Score ~ (1 | Person) + (1 | Task),
+default_prior(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+                (1 | Person:Task),
               data = brennan)
 
 # Define custom priors
@@ -1197,15 +1242,19 @@ my_prior <- c(
   # Task variance: exponential with rate 1
   set_prior("exponential(1)", class = "sd", group = "Task"),
 
-  # Rater variance: exponential with rate 0.5 (more spread)
-  set_prior("exponential(0.5)", class = "sd", group = "Rater"),
+  # Rater-within-Task variance: exponential with rate 0.5 (more spread)
+  set_prior("exponential(0.5)", class = "sd", group = "Rater:Task"),
+
+  # Person:Task interaction: exponential with rate 1
+  set_prior("exponential(1)", class = "sd", group = "Person:Task"),
 
   # Residual: half-Cauchy with scale 1
   set_prior("cauchy(0, 1)", class = "sigma")
 )
 
 g_custom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
   prior = my_prior
@@ -1598,23 +1647,52 @@ d_ci_90 <- dstudy(
 
 ## Multivariate G-Study
 
+> **Data note.** `mvbind()` requires wide-format data with one row per (Person, Rater) cell and one column per task/dimension. The `brennan` dataset is Rater-nested-in-Task, so its wide pivot has missing values for every row. To illustrate `mvbind()` properly, the examples below use a small synthetic **fully crossed** Person $\times$ Task $\times$ Rater design in which every rater rates every person on every task.
+
 For multiple outcome variables, use the **brms** backend with `mvbind()`:
 
 ```{r, eval=FALSE}
-# Prepare multivariate data (wide format)
-brennan_wide <- brennan %>%
+# Synthetic fully crossed design: 6 persons x 3 tasks x 4 raters
+set.seed(42)
+n_p <- 6; n_t <- 3; n_r <- 4
+crossed_data <- expand.grid(
+  Person = paste0("P", seq_len(n_p)),
+  Task   = seq_len(n_t),
+  Rater  = paste0("R", seq_len(n_r)),
+  stringsAsFactors = FALSE
+)
+mu <- 5
+task_eff  <- c(0.5, 0, -0.5)
+rater_eff <- c(0.2, 0.1, -0.1, -0.2)
+p_eff <- setNames(rnorm(n_p, 0, 1), paste0("P", seq_len(n_p)))
+crossed_data$Score <- with(crossed_data,
+  mu + p_eff[Person] +
+    task_eff[Task] +
+    rater_eff[as.integer(sub("R", "", Rater))] +
+    rnorm(nrow(crossed_data), 0, 0.8)   # residual + interactions
+)
+
+# Pivot to wide format: one row per Person x Rater, one column per Task
+crossed_wide <- crossed_data %>%
   tidyr::pivot_wider(
-    names_from = Task, 
+    names_from  = Task,
     values_from = Score,
     names_prefix = "Task"
   )
 
-head(brennan_wide)
+head(crossed_wide)
+#   Person Rater Task1 Task2 Task3
+# 1     P1    R1   8.3   5.5   4.1
+# 2     P2    R1   5.1   4.4   5.2
+# 3     P3    R1   7.7   5.5   4.8
+# 4     P4    R1   6.3   6.3   3.9
+# 5     P5    R1   7.2   5.4   5.0
+# 6     P6    R1   7.4   3.0   5.6
 
 # Multivariate G-study
 g_mv <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
+  data = crossed_wide,
   backend = "brms"
 )
 
@@ -1690,17 +1768,17 @@ For example, if two subscales measure related constructs and persons who score h
 
 $$\sigma^2_{composite} = w_1^2 \sigma^2_1 + w_2^2 \sigma^2_2 + 2 w_1 w_2 \sigma_{12} = (0.25)(1) + (0.25)(1) + 2(0.5)(0.5)(0.5) = 0.75$$
 
-Without the covariance term, you would have 0.50 — the correlation adds 50% more variance to the composite. This is the mathematical basis for the "composite reliability often exceeds the average of dimension reliabilities" claim: the cross-product term $2 w_1 w_2 \sigma_{12}$ contributes *positively* when the subscales are positively correlated. Conversely, if the subscales were *negatively* correlated (a rare but theoretically possible situation), the composite variance would be *smaller* than the average of the dimension variances — and the composite reliability would be lower. This is why it is essential to inspect `g_mv_wide$correlations$residual_cor` before forming a composite: the sign and magnitude of the correlations determine whether combining subscales helps or hurts.
+Without the covariance term, you would have 0.50 — the correlation adds 50% more variance to the composite. This is the mathematical basis for the "composite reliability often exceeds the average of dimension reliabilities" claim: the cross-product term $2 w_1 w_2 \sigma_{12}$ contributes *positively* when the subscales are positively correlated. Conversely, if the subscales were *negatively* correlated (a rare but theoretically possible situation), the composite variance would be *smaller* than the average of the dimension variances — and the composite reliability would be lower. This is why it is essential to inspect the residual correlation matrix of any multivariate G-study object before forming a composite: the sign and magnitude of the correlations determine whether combining subscales helps or hurts.
 
 #### Using Composite Coefficients
 
 By default, `dstudy()` uses equal weights (1 for each dimension):
 
 ```{r, eval=FALSE}
-# Multivariate G-study
+# Multivariate G-study on the fully crossed synthetic data
 g_mv <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
+  data = crossed_wide,
   backend = "brms"
 )
 
@@ -1789,28 +1867,31 @@ Multivariate G-theory estimates variance-covariance matrices for random effects 
 
 ### Data Formats
 
-**Wide Format (`mvbind`)** — When each dimension is a separate column:
+**Wide Format (`mvbind`)** — When each dimension is a separate column. This format requires a fully crossed design so that every (Person, Rater) cell has a value for every task:
 
 ```{r, eval=FALSE}
-# Reshape to wide format
+# Fully crossed synthetic data (defined in the Multivariate G-Study section)
 library(tidyr)
-brennan_wide <- brennan %>%
+crossed_wide <- crossed_data %>%
   pivot_wider(
     names_from = Task,
     values_from = Score,
     names_prefix = "Task"
   )
 
-head(brennan_wide)
+head(crossed_wide)
 #   Person Rater Task1 Task2 Task3
-# 1      1     1     4     5     6
-# 2      1     2     3     4     5
-# ...
+# 1     P1    R1   8.3   5.5   4.1
+# 2     P2    R1   5.1   4.4   5.2
+# 3     P3    R1   7.7   5.5   4.8
+# 4     P4    R1   6.3   6.3   3.9
+# 5     P5    R1   7.2   5.4   5.0
+# 6     P6    R1   7.4   3.0   5.6
 
 # Multivariate G-study
 g_mv_wide <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
+  data = crossed_wide,
   backend = "brms"
 )
 ```
@@ -1895,26 +1976,26 @@ print(d_weighted)
 
 ### Wide vs Long Format: A Worked Comparison
 
-The two formats are not interchangeable — wide format requires balanced data and uses simpler syntax, while long format is the only option for unbalanced data and gives you more modeling flexibility. The chunk below shows both formats on the same `brennan` data (which happens to be balanced, so both are valid):
+The two formats are not interchangeable — wide format requires a fully crossed design (one value per cell) and uses simpler syntax, while long format is the only option for unbalanced data and gives you more modeling flexibility. The chunk below uses the synthetic fully crossed `crossed_data` / `crossed_wide` defined in the Multivariate G-Study section:
 
 ```{r, eval=FALSE}
 # Wide format: one column per dimension
-brennan_wide <- brennan %>%
+crossed_wide <- crossed_data %>%
   tidyr::pivot_wider(
     names_from = Task,
     values_from = Score,
     names_prefix = "Task"
   )
 
-# Long format on a multivariate variable: each row is a (person, item) score
-# For brennan, we treat Score as the response and Task as the dimension
-# indicator. (The brms bf() syntax is more complex; see Multivariate G-Study
-# section for the full multivariate model.)
+# Long format on a multivariate variable: each row is a (person, task) score
+# and the multivariate response is built from the columns of crossed_data.
+# (The brms bf() syntax is more complex; see Multivariate G-Study section
+# for the full multivariate model.)
 
 # Wide-format G-study (default for multivariate)
 g_wide_run <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
+  data = crossed_wide,
   backend = "brms",
   chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
 )
@@ -1956,17 +2037,97 @@ Where:
 
 The key innovation of the Haberman formula is that $PRMSE(C \rightarrow S_i)$ incorporates the **covariances between subscales**:
 
-$$PRMSE(C \rightarrow S_i) = \frac{(\sigma^2_{S_i} \cdot Rel(S_i) + \sum_{j \neq i} \sigma_{S_i, S_j})^2}{\sigma^2_{S_i} \cdot Rel(C) \cdot \sigma^2_C}$$
+$$PRMSE(C \rightarrow S_i) = \frac{[\mathrm{Cov}(\tau_i, C)]^2}{\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot \mathrm{Var}(C)}$$
+
+where $\mathrm{Cov}(\tau_i, C) = \sum_j w_j \, \mathrm{Cov}(\tau_i, \tau_j)$ is the weighted covariance between subscale $i$'s universe score and the composite universe score, computed from the universe-score (disattenuated) covariance matrix $\Sigma_\tau$.
 
 Where:
 
-- $\sigma^2_{S_i}$ is the observed variance of subscale $i$
-- $Rel(S_i)$ is the reliability of subscale $i$ (G coefficient for relative, Phi for absolute)
-- $\sigma_{S_i, S_j}$ is the observed covariance between subscales $i$ and $j$
-- $Rel(C)$ is the reliability of the composite
-- $\sigma^2_C$ is the observed variance of the composite
+- $\mathrm{Var}(\tau_i) = \Sigma_{\tau,ii}$ is the universe-score variance of subscale $i$
+- $\mathrm{Rel}(C) = \mathrm{Var}(\tau_C) / \mathrm{Var}(C)$ is the composite reliability (G for relative, $\Phi$ for absolute)
+- $\mathrm{Var}(C) = \mathbf{w}^\top \Sigma_{\mathrm{obs}} \mathbf{w}$ is the D-study observed variance of the composite
+- $\mathbf{w}$ is the vector of subscale weights (e.g., $w_j = 1/n_s$ for equal weighting)
 
-**Key insight**: When subscales are positively correlated, the covariance terms ($\sigma_{S_i, S_j}$) increase the numerator, making it more likely that the composite provides useful information for estimating the subscale's universe score. This is why VAR can be less than 1 even when subscale reliability is high—strong correlations with other subscales mean the composite "borrows strength" from these relationships.
+> **Note on Vispoel et al. (2023) Equation 38.** The formula above is the Haberman (2008) correct form. The equation labeled "Equation 38" in Vispoel et al. (2023, p. 9) contains a typesetting error in the denominator (using $\hat\sigma^2(S_i) \cdot \mathrm{Rel}(C)$ instead of $\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C)$); the implementation in `facet::prmse()` uses the corrected form, which matches the numerical values reported in their Table 8.
+
+**Key insight**: When subscales are positively correlated, the covariance terms ($\mathrm{Cov}(\tau_i, \tau_j)$) increase $|\mathrm{Cov}(\tau_i, C)|$, making it more likely that the composite provides useful information for estimating the subscale's universe score. This is why VAR can be less than 1 even when subscale reliability is high—strong correlations with other subscales mean the composite "borrows strength" from these relationships.
+
+### Three Types of PRMSE in facet::prmse()
+
+The `prmse()` function computes three distinct types of PRMSE, each answering a different question about prediction accuracy:
+
+| Metric | Question Answered |
+|--------|-------------------|
+| `prmse_s_rel` | "How reliable is this subscale alone?" (equals G coefficient) |
+| `prmse_c_rel` | "How well does the composite predict this subscale?" (Haberman's PRMSE_C) |
+| `prmse_p_rel` | "How well does the full profile predict this subscale?" (diagonal slice of $\Sigma_\tau \Sigma_{\mathrm{obs}}^{-1} \Sigma_\tau$) |
+
+In addition, the global profile reliability is available as `attr(result, "prmse_mv_rel")`, which is the **trace** of the same matrix (not the diagonal slice), normalized by $\mathrm{tr}(\Sigma_\tau)$. This equals the matrix analog of a squared canonical correlation and always satisfies $\mathrm{PRMSE}_{MV} \geq \mathrm{PRMSE}_P[d]$ for any dimension $d$.
+
+### Validating the PRMSE formula on synthetic data
+
+The Haberman (2008) closed form is fully reproducible from the package's output. The following example constructs a balanced 3-dimension design with known variance components and shows that `prmse()` recovers the analytical values to within ANOVA estimation noise.
+
+```{r, eval=FALSE}
+library(facet)
+set.seed(123)
+n_persons <- 1500
+n_items <- 10
+
+# True data-generating parameters:
+#   Var(tau_A) = Var(tau_B) = Var(tau_C) = 1.0
+#   Cov(tau_A, tau_B) = Cov(tau_A, tau_C) = Cov(tau_B, tau_C) = 0.5
+#   Item variance = 0.1 per subscale
+#   Person:Item variance = 0.9 per subscale
+Sigma_person <- matrix(c(1, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 1), 3, 3,
+  dimnames = list(c("A", "B", "C"), c("A", "B", "C")))
+
+# Generate Person effects and build the data
+L <- chol(Sigma_person)
+tau <- matrix(rnorm(n_persons * 3), n_persons, 3) %*% L
+data <- do.call(rbind, lapply(seq_len(n_persons), function(p) {
+  data.frame(
+    person = factor(p),
+    item   = factor(seq_len(n_items)),
+    A = tau[p, 1] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+    B = tau[p, 2] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+    C = tau[p, 3] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9))
+  )
+}))
+
+# Fit and run prmse
+g <- gstudy(mvbind(A, B, C) ~ (1 | person) + (1 | item), data = data, backend = "mom")
+d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
+result <- suppressWarnings(prmse(d))
+
+# Closed-form reference (Haberman 2008)
+n_i <- 10
+Sigma_tau <- Sigma_person
+Sigma_obs_rel <- Sigma_tau
+diag(Sigma_obs_rel) <- diag(Sigma_obs_rel) + 0.9 / n_i
+w <- rep(1/3, 3)
+var_tau_C <- as.numeric(t(w) %*% Sigma_tau %*% w)
+var_obs_C_rel <- as.numeric(t(w) %*% Sigma_obs_rel %*% w)
+Rel_C <- var_tau_C / var_obs_C_rel
+cov_tau_C <- as.numeric(Sigma_tau %*% w)
+
+# PRMSE_S reference = G coefficient
+ref_s <- diag(Sigma_tau) / (diag(Sigma_tau) + 0.9 / n_i)
+
+# PRMSE_C reference = Haberman closed form
+ref_c <- (cov_tau_C^2) / (diag(Sigma_tau) * Rel_C * var_obs_C_rel)
+
+# Compare
+data.frame(
+  dim = c("A", "B", "C"),
+  ref_prmse_s = ref_s,
+  pkg_prmse_s = result$prmse_s_rel,
+  ref_prmse_c = ref_c,
+  pkg_prmse_c = result$prmse_c_rel
+)
+```
+
+The `pkg_prmse_*` values should match `ref_prmse_*` to within 0.05 (the tolerance for ANOVA estimation noise with the chosen sample sizes). This validation is also encoded in the package's automated test suite (`tests/testthat/test-viable.R`, tests H1–H10).
 
 ### Two Variants: var_rel and var_abs
 
@@ -2553,7 +2714,8 @@ library(loo)
 # Fit alternative models
 g_simple <- gstudy(Score ~ (1 | Person) + (1 | Task),
                    data = brennan, backend = "brms")
-g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+                   (1 | Person:Task),
                  data = brennan, backend = "brms")
 
 # LOO comparison
@@ -2766,9 +2928,9 @@ Use the `rajaratnam` dataset to conduct a G-study and D-study. How many items pe
 
 ### Basic Bayesian G-Study
 
-Using the `brennan` dataset:
+Using the `brennan` dataset (Rater nested within Task):
 
-a) Fit a Bayesian G-study with Person, Task, and Rater facets using default priors.
+a) Fit a Bayesian G-study with Person, Task, and Rater:Task facets using default priors.
 
 b) Report posterior means, 95% credible intervals, and convergence diagnostics.
 
@@ -2780,7 +2942,8 @@ data(brennan)
 
 # a) Bayesian G-study
 g_bayes <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms"
 )
@@ -2790,7 +2953,8 @@ print(g_bayes)
 
 # c) Compare to REML
 g_reml <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "lme4"
 )
@@ -2817,13 +2981,15 @@ library(brms)
 custom_prior <- c(
   set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
   set_prior("cauchy(0, 2)", class = "sd", group = "Task"),
-  set_prior("cauchy(0, 2)", class = "sd", group = "Rater"),
+  set_prior("cauchy(0, 2)", class = "sd", group = "Rater:Task"),
+  set_prior("cauchy(0, 2)", class = "sd", group = "Person:Task"),
   set_prior("cauchy(0, 2)", class = "sigma")
 )
 
 # b) Fit with custom priors
 g_custom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
   prior = custom_prior
@@ -2860,7 +3026,8 @@ d) Visualize the relationship between design and reliability.
 ```{r, eval=FALSE}
 # a) G-study
 g_ex3 <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
   chains = 4,
@@ -2870,7 +3037,7 @@ g_ex3 <- gstudy(
 # b) D-study sweep
 d_ex3 <- dstudy(
   g_ex3,
-  n = list(Task = 2:5, Rater = 1:3),
+  n = list(Task = 2:5, `Rater:Task` = 1:3),
   ci = c("g", "phi")
 )
 

@@ -14,7 +14,15 @@ knitr::opts_chunk$set(
 ## ----eval=FALSE---------------------------------------------------------------
 # g_crossed <- gstudy(
 #   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-#     (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+#     (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater) +
+#     (1 | Person:Task:Rater),
+#   data = crossed_data,
+#   backend = "brms"
+# )
+
+## ----eval=FALSE---------------------------------------------------------------
+# g_nested <- gstudy(
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms"
 # )
@@ -136,19 +144,20 @@ summary(g_nested)
 # # Examine structure
 # head(brennan)
 # #   Person Task Rater Score
-# # 1      1    1     1     4
-# # 2      1    1     2     3
-# # 3      1    2     1     5
-# # 4      1    2     2     4
-# # 5      1    3     1     6
-# # 6      1    3     2     5
+# # 1      1    1     1     5
+# # 2      2    1     1     9
+# # 3      3    1     1     3
+# # 4      4    1     1     7
+# # 5      5    1     1     9
+# # 6      6    1     1     3
 # 
 # str(brennan)
 
 ## ----eval=FALSE---------------------------------------------------------------
 # # Bayesian G-study with default priors
 # g_bayes <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms"
 # )
@@ -158,7 +167,8 @@ summary(g_nested)
 
 ## ----eval=FALSE---------------------------------------------------------------
 # g_full <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
 #   chains = 4,        # Number of chains
@@ -172,7 +182,8 @@ summary(g_nested)
 ## ----eval=FALSE---------------------------------------------------------------
 # # View default priors for a model
 # library(brms)
-# default_prior(Score ~ (1 | Person) + (1 | Task),
+# default_prior(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#                 (1 | Person:Task),
 #               data = brennan)
 # 
 # # Define custom priors
@@ -183,15 +194,19 @@ summary(g_nested)
 #   # Task variance: exponential with rate 1
 #   set_prior("exponential(1)", class = "sd", group = "Task"),
 # 
-#   # Rater variance: exponential with rate 0.5 (more spread)
-#   set_prior("exponential(0.5)", class = "sd", group = "Rater"),
+#   # Rater-within-Task variance: exponential with rate 0.5 (more spread)
+#   set_prior("exponential(0.5)", class = "sd", group = "Rater:Task"),
+# 
+#   # Person:Task interaction: exponential with rate 1
+#   set_prior("exponential(1)", class = "sd", group = "Person:Task"),
 # 
 #   # Residual: half-Cauchy with scale 1
 #   set_prior("cauchy(0, 1)", class = "sigma")
 # )
 # 
 # g_custom <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
 #   prior = my_prior
@@ -448,20 +463,47 @@ summary(d_agg)
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
-# # Prepare multivariate data (wide format)
-# brennan_wide <- brennan %>%
+# # Synthetic fully crossed design: 6 persons x 3 tasks x 4 raters
+# set.seed(42)
+# n_p <- 6; n_t <- 3; n_r <- 4
+# crossed_data <- expand.grid(
+#   Person = paste0("P", seq_len(n_p)),
+#   Task   = seq_len(n_t),
+#   Rater  = paste0("R", seq_len(n_r)),
+#   stringsAsFactors = FALSE
+# )
+# mu <- 5
+# task_eff  <- c(0.5, 0, -0.5)
+# rater_eff <- c(0.2, 0.1, -0.1, -0.2)
+# p_eff <- setNames(rnorm(n_p, 0, 1), paste0("P", seq_len(n_p)))
+# crossed_data$Score <- with(crossed_data,
+#   mu + p_eff[Person] +
+#     task_eff[Task] +
+#     rater_eff[as.integer(sub("R", "", Rater))] +
+#     rnorm(nrow(crossed_data), 0, 0.8)   # residual + interactions
+# )
+# 
+# # Pivot to wide format: one row per Person x Rater, one column per Task
+# crossed_wide <- crossed_data %>%
 #   tidyr::pivot_wider(
-#     names_from = Task,
+#     names_from  = Task,
 #     values_from = Score,
 #     names_prefix = "Task"
 #   )
 # 
-# head(brennan_wide)
+# head(crossed_wide)
+# #   Person Rater Task1 Task2 Task3
+# # 1     P1    R1   8.3   5.5   4.1
+# # 2     P2    R1   5.1   4.4   5.2
+# # 3     P3    R1   7.7   5.5   4.8
+# # 4     P4    R1   6.3   6.3   3.9
+# # 5     P5    R1   7.2   5.4   5.0
+# # 6     P6    R1   7.4   3.0   5.6
 # 
 # # Multivariate G-study
 # g_mv <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-#   data = brennan_wide,
+#   data = crossed_wide,
 #   backend = "brms"
 # )
 # 
@@ -485,10 +527,10 @@ summary(d_agg)
 # tidy(d_mv)
 
 ## ----eval=FALSE---------------------------------------------------------------
-# # Multivariate G-study
+# # Multivariate G-study on the fully crossed synthetic data
 # g_mv <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-#   data = brennan_wide,
+#   data = crossed_wide,
 #   backend = "brms"
 # )
 # 
@@ -519,25 +561,28 @@ summary(d_agg)
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
-# # Reshape to wide format
+# # Fully crossed synthetic data (defined in the Multivariate G-Study section)
 # library(tidyr)
-# brennan_wide <- brennan %>%
+# crossed_wide <- crossed_data %>%
 #   pivot_wider(
 #     names_from = Task,
 #     values_from = Score,
 #     names_prefix = "Task"
 #   )
 # 
-# head(brennan_wide)
+# head(crossed_wide)
 # #   Person Rater Task1 Task2 Task3
-# # 1      1     1     4     5     6
-# # 2      1     2     3     4     5
-# # ...
+# # 1     P1    R1   8.3   5.5   4.1
+# # 2     P2    R1   5.1   4.4   5.2
+# # 3     P3    R1   7.7   5.5   4.8
+# # 4     P4    R1   6.3   6.3   3.9
+# # 5     P5    R1   7.2   5.4   5.0
+# # 6     P6    R1   7.4   3.0   5.6
 # 
 # # Multivariate G-study
 # g_mv_wide <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-#   data = brennan_wide,
+#   data = crossed_wide,
 #   backend = "brms"
 # )
 
@@ -589,28 +634,86 @@ summary(d_agg)
 
 ## ----eval=FALSE---------------------------------------------------------------
 # # Wide format: one column per dimension
-# brennan_wide <- brennan %>%
+# crossed_wide <- crossed_data %>%
 #   tidyr::pivot_wider(
 #     names_from = Task,
 #     values_from = Score,
 #     names_prefix = "Task"
 #   )
 # 
-# # Long format on a multivariate variable: each row is a (person, item) score
-# # For brennan, we treat Score as the response and Task as the dimension
-# # indicator. (The brms bf() syntax is more complex; see Multivariate G-Study
-# # section for the full multivariate model.)
+# # Long format on a multivariate variable: each row is a (person, task) score
+# # and the multivariate response is built from the columns of crossed_data.
+# # (The brms bf() syntax is more complex; see Multivariate G-Study section
+# # for the full multivariate model.)
 # 
 # # Wide-format G-study (default for multivariate)
 # g_wide_run <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-#   data = brennan_wide,
+#   data = crossed_wide,
 #   backend = "brms",
 #   chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
 # )
 # 
 # # Print the wide-format variance components
 # tidy(g_wide_run)
+
+## ----eval=FALSE---------------------------------------------------------------
+# library(facet)
+# set.seed(123)
+# n_persons <- 1500
+# n_items <- 10
+# 
+# # True data-generating parameters:
+# #   Var(tau_A) = Var(tau_B) = Var(tau_C) = 1.0
+# #   Cov(tau_A, tau_B) = Cov(tau_A, tau_C) = Cov(tau_B, tau_C) = 0.5
+# #   Item variance = 0.1 per subscale
+# #   Person:Item variance = 0.9 per subscale
+# Sigma_person <- matrix(c(1, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 1), 3, 3,
+#   dimnames = list(c("A", "B", "C"), c("A", "B", "C")))
+# 
+# # Generate Person effects and build the data
+# L <- chol(Sigma_person)
+# tau <- matrix(rnorm(n_persons * 3), n_persons, 3) %*% L
+# data <- do.call(rbind, lapply(seq_len(n_persons), function(p) {
+#   data.frame(
+#     person = factor(p),
+#     item   = factor(seq_len(n_items)),
+#     A = tau[p, 1] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+#     B = tau[p, 2] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+#     C = tau[p, 3] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9))
+#   )
+# }))
+# 
+# # Fit and run prmse
+# g <- gstudy(mvbind(A, B, C) ~ (1 | person) + (1 | item), data = data, backend = "mom")
+# d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
+# result <- suppressWarnings(prmse(d))
+# 
+# # Closed-form reference (Haberman 2008)
+# n_i <- 10
+# Sigma_tau <- Sigma_person
+# Sigma_obs_rel <- Sigma_tau
+# diag(Sigma_obs_rel) <- diag(Sigma_obs_rel) + 0.9 / n_i
+# w <- rep(1/3, 3)
+# var_tau_C <- as.numeric(t(w) %*% Sigma_tau %*% w)
+# var_obs_C_rel <- as.numeric(t(w) %*% Sigma_obs_rel %*% w)
+# Rel_C <- var_tau_C / var_obs_C_rel
+# cov_tau_C <- as.numeric(Sigma_tau %*% w)
+# 
+# # PRMSE_S reference = G coefficient
+# ref_s <- diag(Sigma_tau) / (diag(Sigma_tau) + 0.9 / n_i)
+# 
+# # PRMSE_C reference = Haberman closed form
+# ref_c <- (cov_tau_C^2) / (diag(Sigma_tau) * Rel_C * var_obs_C_rel)
+# 
+# # Compare
+# data.frame(
+#   dim = c("A", "B", "C"),
+#   ref_prmse_s = ref_s,
+#   pkg_prmse_s = result$prmse_s_rel,
+#   ref_prmse_c = ref_c,
+#   pkg_prmse_c = result$prmse_c_rel
+# )
 
 ## ----eval=FALSE---------------------------------------------------------------
 # library(facet)
@@ -936,7 +1039,8 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # # Fit alternative models
 # g_simple <- gstudy(Score ~ (1 | Person) + (1 | Task),
 #                    data = brennan, backend = "brms")
-# g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+# g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#                    (1 | Person:Task),
 #                  data = brennan, backend = "brms")
 # 
 # # LOO comparison
@@ -1004,7 +1108,8 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # 
 # # a) Bayesian G-study
 # g_bayes <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms"
 # )
@@ -1014,7 +1119,8 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # 
 # # c) Compare to REML
 # g_reml <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#     (1 | Person:Task),
 #   data = brennan,
 #   backend = "lme4"
 # )
@@ -1032,13 +1138,15 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # custom_prior <- c(
 #   set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
 #   set_prior("cauchy(0, 2)", class = "sd", group = "Task"),
-#   set_prior("cauchy(0, 2)", class = "sd", group = "Rater"),
+#   set_prior("cauchy(0, 2)", class = "sd", group = "Rater:Task"),
+#   set_prior("cauchy(0, 2)", class = "sd", group = "Person:Task"),
 #   set_prior("cauchy(0, 2)", class = "sigma")
 # )
 # 
 # # b) Fit with custom priors
 # g_custom <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
 #   prior = custom_prior
@@ -1064,7 +1172,8 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 ## ----eval=FALSE---------------------------------------------------------------
 # # a) G-study
 # g_ex3 <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
 #   chains = 4,
@@ -1074,7 +1183,7 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # # b) D-study sweep
 # d_ex3 <- dstudy(
 #   g_ex3,
-#   n = list(Task = 2:5, Rater = 1:3),
+#   n = list(Task = 2:5, `Rater:Task` = 1:3),
 #   ci = c("g", "phi")
 # )
 # 
