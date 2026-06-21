@@ -4,7 +4,7 @@
 \name{facet-package}
 \alias{facet}
 \alias{facet-package}
-\title{facet: facet: Univariate and Multivariate Generalizability Theory with frequentist and Bayesian methods}
+\title{facet: framework for Generalizability Theory}
 \description{
 Conduct generalizability theory analyses using variance component models estimated with various methods (including ANOVA method of moments, REML with lme4, and NUTS with brms). Provides functions for G-studies (estimating variance components) and D-studies (computing generalizability and dependability coefficients).
 }

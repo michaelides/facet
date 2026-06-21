@@ -1,6 +1,4 @@
-# facet
-
-Modern Generalizability Theory with Variance Component Models
+# facet: framework for Generalizability Theory
 
 ## ✍️ Author
 

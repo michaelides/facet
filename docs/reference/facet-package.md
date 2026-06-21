@@ -1,4 +1,4 @@
-# facet: facet: Univariate and Multivariate Generalizability Theory with frequentist and Bayesian methods
+# facet: framework for Generalizability Theory
 
 Conduct generalizability theory analyses using variance component models
 estimated with various methods (including ANOVA method of moments, REML
