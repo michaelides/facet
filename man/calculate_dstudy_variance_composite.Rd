@@ -10,7 +10,8 @@ calculate_dstudy_variance_composite(
   weights,
   n,
   object,
-  n_provided
+  n_provided,
+  residual_is = NULL
 )
 }
 \arguments{

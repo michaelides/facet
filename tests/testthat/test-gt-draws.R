@@ -159,7 +159,7 @@ test_that("gt_draws.gstudy returns named list for multivariate model", {
     values_from = c(Score)
   )
 
-  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|Item)) + set_rescor(FALSE),
+  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
               data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
 
   result <- gt_draws(g)
@@ -172,7 +172,7 @@ test_that("gt_draws.gstudy returns named list for multivariate model", {
   expect_s3_class(result$test1, "tbl_df")
   expect_true("draw" %in% names(result$test1))
   expect_true("Person" %in% names(result$test1))
-  expect_true("Item" %in% names(result$test1))
+  expect_true("ItemId" %in% names(result$test1))
   expect_true("Residual" %in% names(result$test1))
   expect_true("uni" %in% names(result$test1))
   expect_true("g" %in% names(result$test1))
@@ -194,7 +194,7 @@ test_that("gt_draws.gstudy dims filter returns named list", {
     values_from = c(Score)
   )
 
-  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|Item)) + set_rescor(FALSE),
+  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
               data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
 
   result <- gt_draws(g, dims = "test1")
@@ -219,7 +219,7 @@ test_that("gt_draws.dstudy returns named list for multivariate model", {
     values_from = c(Score)
   )
 
-  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|Item)) + set_rescor(FALSE),
+  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
               data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
@@ -256,7 +256,7 @@ test_that("gt_draws.dstudy what = 'all' includes VAR columns merged", {
     values_from = c(Score)
   )
 
-  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|Item)) + set_rescor(FALSE),
+  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
               data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
@@ -292,7 +292,7 @@ test_that("gt_draws.dstudy composite has correct structure", {
     values_from = c(Score)
   )
 
-  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|Item)) + set_rescor(FALSE),
+  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
               data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
@@ -323,7 +323,7 @@ test_that("gt_draws.dstudy what = 'variance' returns gstudy draws", {
     values_from = c(Score)
   )
 
-  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|Item)) + set_rescor(FALSE),
+  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
               data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
@@ -336,7 +336,7 @@ test_that("gt_draws.dstudy what = 'variance' returns gstudy draws", {
   expect_true("test3" %in% names(result))
 
   expect_true("Person" %in% names(result$test1))
-  expect_true("Item" %in% names(result$test1))
+  expect_true("ItemId" %in% names(result$test1))
   expect_true("Residual" %in% names(result$test1))
 })
 
@@ -355,7 +355,7 @@ test_that("gt_draws.dstudy what = 'all' has no duplicate names", {
     values_from = c(Score)
   )
 
-  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|Item)) + set_rescor(FALSE),
+  g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
               data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)

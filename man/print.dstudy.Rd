@@ -4,12 +4,12 @@
 \alias{print.dstudy}
 \title{Print Method for dstudy Objects}
 \usage{
-\method{print}{dstudy}(x, digits = 3, scale = c("variance", "sd"), sem = FALSE, ...)
+\method{print}{dstudy}(x, digits = 4, scale = c("variance", "sd"), sem = FALSE, ...)
 }
 \arguments{
 \item{x}{A dstudy object.}
 
-\item{digits}{Number of digits to display.}
+\item{digits}{Number of digits to display (default 4).}
 
 \item{scale}{Scale for displaying results: "variance" (default) or "sd".}
 

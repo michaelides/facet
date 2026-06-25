@@ -5,7 +5,7 @@ Fit Multivariate Model Using Method of Moments
 ## Usage
 
 ``` r
-fit_mom_multivariate(formula, data, unbalanced = FALSE, ...)
+fit_mom_multivariate(formula, data, unbalanced = FALSE, nested = NULL, ...)
 ```
 
 ## Arguments

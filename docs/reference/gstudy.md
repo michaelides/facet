@@ -53,7 +53,14 @@ gstudy(
   Optional named list specifying nesting relationships. Names are nested
   facets and values are nesting facets. For example,
   `list(task = "rater")` means task is nested within rater. If NULL
-  (default), nesting is auto-detected from the data structure.
+  (default), nesting is auto-detected from the data structure. For the
+  mom backend, this is used by
+  [`adapt_mom_aov_formula()`](https://github.com/yourorg/facet/reference/adapt_mom_aov_formula.md)
+  to rewrite the aov Error() decomposition so designs with nested facets
+  (e.g. the brennan dataset, where Rater is nested within Task) fit
+  without spurious "Error() model is singular" warnings from
+  [`stats::aov()`](https://rdrr.io/r/stats/aov.html). The lme4 and brms
+  backends do not require this adaptation.
 
 - unbalanced:
 
@@ -175,26 +182,21 @@ conducting D-studies
 ## Examples
 
 ``` r
-# Basic univariate G-study with lme4 (default)
+# Basic univariate G-study with lme4 (default).
+# The brennan data is Person x Task x (Rater:Task) with one observation
+# per Person x Rater:Task cell, so the canonical "all possible variance
+# components" formula has the three main effects plus the only estimable
+# interaction (Person:Task); the Person x Rater:Task interaction is
+# confounded with the residual.
 g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+  (1 | Person:Task),
 data = brennan
 )
-#> Error: Interaction term(s) have as many or more levels than observations, making them confounded with the residual:
-#>  - Person:Rater: 120 levels (120 observations)
-#> 
-#> This occurs when an interaction has a unique combination for each observation, meaning the interaction variance cannot be distinguished from residual variance.
-#> 
-#> Solutions:
-#>  1. Remove the problematic interaction term from your model
-#>  2. Use method = "mom" for ANOVA-based estimation which handles this differently
-#>  3. Use backend = "brms" for Bayesian estimation
-#> 
-#> Note: In a fully crossed design where all facets are crossed with each other, the highest-order interaction is typically confounded with the residual and should not be included.
 
 # G-study with profile confidence intervals
 if (FALSE) { # \dontrun{
-g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task),
+g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
 )
@@ -202,17 +204,18 @@ g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task),
 
 # Method of moments G-study (ANOVA-based)
 g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+  (1 | Person:Task),
 data = brennan,
 backend = "mom"
 )
-#> Warning: Error() model is singular
 
 # \donttest{
 # Bayesian G-study with brms
-g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task),
+g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 #> Compiling Stan program...
 #> Trying to compile a simple C file
@@ -230,120 +233,19 @@ g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task),
 #> 1 error generated.
 #> make: *** [foo.o] Error 1
 #> Start sampling
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
-#> Chain 1: 
-#> Chain 1: Gradient evaluation took 6.8e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.68 seconds.
-#> Chain 1: Adjust your expectations accordingly!
-#> Chain 1: 
-#> Chain 1: 
-#> Chain 1: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 1: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 1: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 1: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 1: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 1: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 1: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 1: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 1: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 1: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.176 seconds (Warm-up)
-#> Chain 1:                0.182 seconds (Sampling)
-#> Chain 1:                0.358 seconds (Total)
-#> Chain 1: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
-#> Chain 2: 
-#> Chain 2: Gradient evaluation took 9e-06 seconds
-#> Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.09 seconds.
-#> Chain 2: Adjust your expectations accordingly!
-#> Chain 2: 
-#> Chain 2: 
-#> Chain 2: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 2: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 2: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 2: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 2: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 2: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 2: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 2: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 2: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 2: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 2: 
-#> Chain 2:  Elapsed Time: 0.185 seconds (Warm-up)
-#> Chain 2:                0.164 seconds (Sampling)
-#> Chain 2:                0.349 seconds (Total)
-#> Chain 2: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
-#> Chain 3: 
-#> Chain 3: Gradient evaluation took 7e-06 seconds
-#> Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.07 seconds.
-#> Chain 3: Adjust your expectations accordingly!
-#> Chain 3: 
-#> Chain 3: 
-#> Chain 3: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 3: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 3: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 3: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 3: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 3: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 3: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 3: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 3: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 3: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 3: 
-#> Chain 3:  Elapsed Time: 0.2 seconds (Warm-up)
-#> Chain 3:                0.168 seconds (Sampling)
-#> Chain 3:                0.368 seconds (Total)
-#> Chain 3: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
-#> Chain 4: 
-#> Chain 4: Gradient evaluation took 7e-06 seconds
-#> Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.07 seconds.
-#> Chain 4: Adjust your expectations accordingly!
-#> Chain 4: 
-#> Chain 4: 
-#> Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 4: 
-#> Chain 4:  Elapsed Time: 0.183 seconds (Warm-up)
-#> Chain 4:                0.191 seconds (Sampling)
-#> Chain 4:                0.374 seconds (Total)
-#> Chain 4: 
-#> Warning: There were 37 divergent transitions after warmup. See
+#> Warning: There were 13 divergent transitions after warmup. See
 #> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #> to find out why this is a problem and how to eliminate them.
 #> Warning: Examine the pairs() plot to diagnose sampling problems
-#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
-#> Running the chains for more iterations may help. See
-#> https://mc-stan.org/misc/warnings.html#tail-ess
 
 # Bayesian G-study with custom priors
 my_prior <- set_prior("normal(0, 1)", class = "sd", group = "Person")
-g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task),
+g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task),
   data = brennan,
   prior = my_prior,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 #> Compiling Stan program...
 #> Trying to compile a simple C file
@@ -361,107 +263,7 @@ g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task),
 #> 1 error generated.
 #> make: *** [foo.o] Error 1
 #> Start sampling
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
-#> Chain 1: 
-#> Chain 1: Gradient evaluation took 5.8e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.58 seconds.
-#> Chain 1: Adjust your expectations accordingly!
-#> Chain 1: 
-#> Chain 1: 
-#> Chain 1: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 1: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 1: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 1: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 1: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 1: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 1: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 1: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 1: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 1: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.182 seconds (Warm-up)
-#> Chain 1:                0.155 seconds (Sampling)
-#> Chain 1:                0.337 seconds (Total)
-#> Chain 1: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
-#> Chain 2: 
-#> Chain 2: Gradient evaluation took 8e-06 seconds
-#> Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.08 seconds.
-#> Chain 2: Adjust your expectations accordingly!
-#> Chain 2: 
-#> Chain 2: 
-#> Chain 2: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 2: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 2: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 2: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 2: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 2: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 2: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 2: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 2: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 2: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 2: 
-#> Chain 2:  Elapsed Time: 0.183 seconds (Warm-up)
-#> Chain 2:                0.155 seconds (Sampling)
-#> Chain 2:                0.338 seconds (Total)
-#> Chain 2: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
-#> Chain 3: 
-#> Chain 3: Gradient evaluation took 8e-06 seconds
-#> Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.08 seconds.
-#> Chain 3: Adjust your expectations accordingly!
-#> Chain 3: 
-#> Chain 3: 
-#> Chain 3: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 3: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 3: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 3: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 3: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 3: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 3: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 3: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 3: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 3: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 3: 
-#> Chain 3:  Elapsed Time: 0.203 seconds (Warm-up)
-#> Chain 3:                0.153 seconds (Sampling)
-#> Chain 3:                0.356 seconds (Total)
-#> Chain 3: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
-#> Chain 4: 
-#> Chain 4: Gradient evaluation took 1e-05 seconds
-#> Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.1 seconds.
-#> Chain 4: Adjust your expectations accordingly!
-#> Chain 4: 
-#> Chain 4: 
-#> Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 4: 
-#> Chain 4:  Elapsed Time: 0.171 seconds (Warm-up)
-#> Chain 4:                0.158 seconds (Sampling)
-#> Chain 4:                0.329 seconds (Total)
-#> Chain 4: 
-#> Warning: There were 27 divergent transitions after warmup. See
+#> Warning: There were 33 divergent transitions after warmup. See
 #> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #> to find out why this is a problem and how to eliminate them.
 #> Warning: Examine the pairs() plot to diagnose sampling problems
@@ -474,7 +276,8 @@ g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task),
 b_wide <- tidyr::pivot_wider(brennan, names_from = Task, values_from = Score,
   names_prefix = "Task")
 g_multi <- gstudy(mvbind(Task1, Task2) ~ (1 | Person) + (1 | Rater),
-  data = b_wide
+  data = b_wide,
+  iter = 2000, cores = 4, refresh = 1000
 )
 #> Missing values detected in response variables.
 #> 

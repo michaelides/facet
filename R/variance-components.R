@@ -166,11 +166,11 @@ extract_vc_lme4 <- function(model, ci_method = "none", conf_level = 0.95,
     )
   }
 
-  # Round numeric columns to 3 decimal places for consistent display
+  # Round numeric columns to 4 decimal places for consistent display
   numeric_cols <- c("var", "pct", "lower", "upper")
   for (col in numeric_cols) {
     if (col %in% names(vc_tibble)) {
-      vc_tibble[[col]] <- round(vc_tibble[[col]], 3)
+      vc_tibble[[col]] <- round(vc_tibble[[col]], 4)
     }
   }
 
@@ -359,11 +359,11 @@ extract_vc_brms <- function(model, conf_level = 0.95, formula = NULL) {
   total_var <- sum(vc_tibble$var, na.rm = TRUE)
   vc_tibble$pct <- (vc_tibble$var / total_var) * 100
 
-  # Round numeric columns to 3 decimal places for consistent display
+  # Round numeric columns to 4 decimal places for consistent display
   numeric_cols <- c("var", "pct", "error", "lower", "upper", "sd", "Rhat")
   for (col in numeric_cols) {
     if (col %in% names(vc_tibble)) {
-      vc_tibble[[col]] <- round(vc_tibble[[col]], 3)
+      vc_tibble[[col]] <- round(vc_tibble[[col]], 4)
     }
   }
 
@@ -528,11 +528,11 @@ extract_vc.brmsfit <- function(model, ...) {
 #' showing both unscaled and scaled estimates.
 #'
 #' @param vc A tibble of variance components from a dstudy object.
-#' @param digits Number of decimal places for rounding.
+#' @param digits Number of decimal places for rounding (default 4).
 #' @return A formatted tibble.
 #'
 #' @keywords internal
-summarize_vc_dstudy <- function(vc, digits = 3) {
+summarize_vc_dstudy <- function(vc, digits = 4) {
   required_cols <- c("component", "var_unscaled", "pct_unscaled",
     "var_scaled", "pct_scaled")
   missing_cols <- setdiff(required_cols, names(vc))
@@ -562,12 +562,12 @@ summarize_vc_dstudy <- function(vc, digits = 3) {
 #' Creates a summary table of variance components suitable for reporting.
 #'
 #' @param vc A tibble of variance components.
-#' @param digits Number of decimal places for rounding.
+#' @param digits Number of decimal places for rounding (default 4).
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
 #' @return A formatted tibble.
 #'
 #' @keywords internal
-summarize_vc <- function(vc, digits = 3, scale = c("variance", "sd")) {
+summarize_vc <- function(vc, digits = 4, scale = c("variance", "sd")) {
   # Check if this is a dstudy variance components tibble
   if (all(c("var_unscaled", "var_scaled", "pct_unscaled", "pct_scaled") %in% names(vc))) {
     return(summarize_vc_dstudy(vc, digits = digits))
@@ -654,11 +654,11 @@ summarize_vc <- function(vc, digits = 3, scale = c("variance", "sd")) {
 #' Formats a correlation tibble for printing, similar to summarize_vc.
 #'
 #' @param cor_tibble A tibble with columns: dim1, dim2, estimate, se, lower, upper, Rhat, Bulk_ESS, Tail_ESS
-#' @param digits Number of digits for rounding (default 3).
+#' @param digits Number of digits for rounding (default 4).
 #' @return A tibble formatted for display.
 #'
 #' @keywords internal
-summarize_cor <- function(cor_tibble, digits = 3) {
+summarize_cor <- function(cor_tibble, digits = 4) {
   if (is.null(cor_tibble) || nrow(cor_tibble) == 0) {
     return(cor_tibble)
   }
@@ -686,12 +686,12 @@ summarize_cor <- function(cor_tibble, digits = 3) {
 #' Formats a covariance tibble for printing with rounded values.
 #'
 #' @param cov_tibble A tibble with covariance estimates.
-#' @param digits Number of digits to round to.
+#' @param digits Number of digits to round to (default 4).
 #'
 #' @return A formatted data frame for printing.
 #'
 #' @keywords internal
-summarize_cov <- function(cov_tibble, digits = 3) {
+summarize_cov <- function(cov_tibble, digits = 4) {
   if (is.null(cov_tibble) || nrow(cov_tibble) == 0) {
     return(cov_tibble)
   }

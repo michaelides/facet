@@ -8,7 +8,7 @@ complete cases.
 ## Usage
 
 ``` r
-fit_mom_multivariate_unbalanced(formula, data, ...)
+fit_mom_multivariate_unbalanced(formula, data, nested = NULL, ...)
 ```
 
 ## Arguments

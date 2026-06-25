@@ -4,7 +4,7 @@
 \alias{fit_mom_multivariate}
 \title{Fit Multivariate Model Using Method of Moments}
 \usage{
-fit_mom_multivariate(formula, data, unbalanced = FALSE, ...)
+fit_mom_multivariate(formula, data, unbalanced = FALSE, nested = NULL, ...)
 }
 \arguments{
 \item{formula}{A formula for the model}

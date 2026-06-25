@@ -6,7 +6,7 @@
 \usage{
 \method{print}{mgstudy}(
   x,
-  digits = 3,
+  digits = 4,
   scale = c("variance", "sd"),
   cor_format = c("long", "matrix"),
   vc_format = c("dimension", "facet"),
@@ -17,7 +17,7 @@
 \arguments{
 \item{x}{An mgstudy object.}
 
-\item{digits}{Number of digits to display.}
+\item{digits}{Number of digits to display (default 4).}
 
 \item{scale}{Scale for displaying results: "variance" (default) or "sd".}
 

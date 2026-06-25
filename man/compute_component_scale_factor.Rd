@@ -4,7 +4,13 @@
 \alias{compute_component_scale_factor}
 \title{Compute Scale Factor for a Component}
 \usage{
-compute_component_scale_factor(comp, n, object_spec, n_provided)
+compute_component_scale_factor(
+  comp,
+  n,
+  object_spec,
+  n_provided,
+  residual_is = NULL
+)
 }
 \arguments{
 \item{comp}{The variance component name.}
@@ -14,12 +20,18 @@ compute_component_scale_factor(comp, n, object_spec, n_provided)
 \item{object_spec}{Character vector of object components.}
 
 \item{n_provided}{Logical indicating if n was explicitly provided.}
+
+\item{residual_is}{Character string specifying residual composition
+(e.g., "Person:Rater"). Used only when \code{comp == "Residual"}.}
 }
 \value{
 The scale factor for this component.
 }
 \description{
 Computes the scale factor for a variance component.
-Used in composite variance calculations.
+Used in composite variance calculations. The object of measurement is
+always excluded from the divisor (per generalizability theory). For
+the residual, \code{residual_is} is used to decompose the residual into
+its constituent facets before computing the divisor.
 }
 \keyword{internal}

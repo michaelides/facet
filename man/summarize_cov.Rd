@@ -4,12 +4,12 @@
 \alias{summarize_cov}
 \title{Summarize Covariance Tibble for Display}
 \usage{
-summarize_cov(cov_tibble, digits = 3)
+summarize_cov(cov_tibble, digits = 4)
 }
 \arguments{
 \item{cov_tibble}{A tibble with covariance estimates.}
 
-\item{digits}{Number of digits to round to.}
+\item{digits}{Number of digits to round to (default 4).}
 }
 \value{
 A formatted data frame for printing.

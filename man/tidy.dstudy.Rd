@@ -4,10 +4,12 @@
 \alias{tidy.dstudy}
 \title{Tidy Method for dstudy Objects}
 \usage{
-\method{tidy}{dstudy}(x, ...)
+\method{tidy}{dstudy}(x, digits = 4, ...)
 }
 \arguments{
 \item{x}{A dstudy object.}
+
+\item{digits}{Number of decimal places for rounding numeric columns (default 4).}
 
 \item{...}{Additional arguments (ignored).}
 }
@@ -15,5 +17,6 @@
 A tibble.
 }
 \description{
-Returns a tidy tibble of coefficients and variance components.
+Returns a tidy tibble of D-study coefficients with numeric columns
+rounded to \code{digits} decimal places (default 4).
 }

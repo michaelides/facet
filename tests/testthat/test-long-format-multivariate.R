@@ -9,7 +9,7 @@ test_that("gstudy works with rajaratnam long-format model", {
 
   # Fit the model (with minimal iterations for speed)
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -49,7 +49,7 @@ test_that("dstudy works with long-format multivariate", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -72,7 +72,7 @@ test_that("print and summary work for long-format multivariate", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -98,7 +98,7 @@ test_that("dstudy posterior estimation works with long-format multivariate", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -122,7 +122,7 @@ test_that("dstudy sweep mode works with long-format multivariate", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -146,7 +146,7 @@ test_that("dstudy composite coefficients work with long-format multivariate", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -170,7 +170,7 @@ test_that("extract_variance_draws works with long-format models", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -204,7 +204,7 @@ test_that("dstudy dimension_var is passed through from gstudy", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -225,7 +225,7 @@ test_that("long-format multivariate coefficients are valid", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -253,7 +253,7 @@ test_that("dstudy works with long-format multivariate", {
   data(rajaratnam)
   
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -276,7 +276,7 @@ test_that("print and summary work for long-format multivariate", {
   data(rajaratnam)
   
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",

@@ -52,7 +52,15 @@ extract_variance_matrices <- function(dstudy_obj, use_posterior_mean = TRUE) {
     n <- dstudy_obj$n
   }
 
-  scale_factors <- compute_scale_factors_for_viable(components, n, universe_spec, object_spec)
+  residual_for_scale <- if (!is.null(dstudy_obj$residual_is)) {
+    dstudy_obj$residual_is
+  } else {
+    dstudy_obj$residual_composition
+  }
+  scale_factors <- compute_scale_factors_for_viable(
+    components, n, universe_spec, object_spec,
+    residual_is = residual_for_scale
+  )
 
   if (use_posterior_mean) {
     vc_means <- lapply(vc_draws, function(dim_draws) {

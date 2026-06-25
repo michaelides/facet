@@ -3,17 +3,15 @@
 with Task and Rater-nested-within-Task design. The design equation is
 \(p \times t \times (r:t)\): Person is crossed with Task, and each Task
 has its own panel of 4 Raters. Raters 1–4 only see Task 1, raters 5–8
-only see Task 2, and raters 9–12 only see Task 3. Because Rater is
-nested within Task (not crossed), the random-effects formula must use
-(1 | Rater:Task) rather than (1 | Rater). The 120 rows
-correspond to 10 persons x 3 tasks x 4 raters-per-task."><meta property="og:description" content="A classic dataset from Brennan (2001) used to illustrate a Person crossed
+only see Task 2, and raters 9–12 only see Task 3. The 120 rows
+correspond to 10 persons x 3 tasks x 4 raters-per-task (one observation
+per Person x Rater:Task cell)."><meta property="og:description" content="A classic dataset from Brennan (2001) used to illustrate a Person crossed
 with Task and Rater-nested-within-Task design. The design equation is
 \(p \times t \times (r:t)\): Person is crossed with Task, and each Task
 has its own panel of 4 Raters. Raters 1–4 only see Task 1, raters 5–8
-only see Task 2, and raters 9–12 only see Task 3. Because Rater is
-nested within Task (not crossed), the random-effects formula must use
-(1 | Rater:Task) rather than (1 | Rater). The 120 rows
-correspond to 10 persons x 3 tasks x 4 raters-per-task."></head><body>
+only see Task 2, and raters 9–12 only see Task 3. The 120 rows
+correspond to 10 persons x 3 tasks x 4 raters-per-task (one observation
+per Person x Rater:Task cell)."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -21,7 +19,7 @@ correspond to 10 persons x 3 tasks x 4 raters-per-task."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,10 +53,9 @@ correspond to 10 persons x 3 tasks x 4 raters-per-task."></head><body>
 with Task and Rater-nested-within-Task design. The design equation is
 \(p \times t \times (r:t)\): Person is crossed with Task, and each Task
 has its own panel of 4 Raters. Raters 1–4 only see Task 1, raters 5–8
-only see Task 2, and raters 9–12 only see Task 3. Because Rater is
-nested within Task (not crossed), the random-effects formula must use
-<code>(1 | Rater:Task)</code> rather than <code>(1 | Rater)</code>. The 120 rows
-correspond to 10 persons x 3 tasks x 4 raters-per-task.</p>
+only see Task 2, and raters 9–12 only see Task 3. The 120 rows
+correspond to 10 persons x 3 tasks x 4 raters-per-task (one observation
+per Person x Rater:Task cell).</p>
     </div>
 
     <div class="section level2">
@@ -88,6 +85,19 @@ correspond to 10 persons x 3 tasks x 4 raters-per-task.</p>
     <div class="section level2">
     <h2 id="source">Source<a class="anchor" aria-label="anchor" href="#source"></a></h2>
     <p>Brennan, R. L. (2001). <em>Generalizability theory</em>. Springer-Verlag.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Because the <code>Rater</code> factor has 12 levels and these labels are unique
+within each Task, <code>(1 | Rater)</code> and <code>(1 | Rater:Task)</code> are
+mathematically equivalent random-effect specifications in this dataset;
+the canonical G-study formula uses the un-nested form <code>(1 | Rater)</code>
+because it makes the "all main effects + every estimable interaction"
+structure of the model more transparent. The canonical formula is
+<code>Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)</code>;
+the Person x Rater:Task interaction is confounded with the residual (one
+observation per cell) and so is absorbed into the error term rather than
+being estimated as a separate component.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

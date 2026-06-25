@@ -28,31 +28,37 @@ head(brennan)
 10 persons × 3 tasks × 4 raters per task = 120 rows. Each row records
 one rater’s score for one person on one task. This is a *nested* design:
 the same four raters do not rate every task; rather, each task has its
-own panel of raters (so `Rater:Task` is the right way to write the
-random effect, not just `Rater`). The `Score` column is the observed
-rating; the other three columns identify which cell of the design the
-row belongs to.
+own panel of raters. Because the `Rater` factor in the data has 12
+uniquely labelled levels (4 per task), `(1 | Rater)` and
+`(1 | Rater:Task)` are mathematically equivalent random-effect
+specifications; the canonical form uses `(1 | Rater)`. The `Score`
+column is the observed rating; the other three columns identify which
+cell of the design the row belongs to.
 
 ### 2. Conduct a G-Study
 
 Use the
 [`gstudy()`](https://github.com/yourorg/facet/reference/gstudy.md)
 function to estimate variance components. By default, `facet` uses
-`lme4` (Restricted Maximum Likelihood) under the hood.
+`lme4` (Restricted Maximum Likelihood) under the hood. The canonical
+“all possible variance components” formula for the brennan data includes
+the three main effects (Person, Task, Rater) plus the only estimable
+interaction (Person:Task); the Person × Rater:Task interaction is
+confounded with the residual because there is one observation per cell.
 
 ``` r
 
-g_obj <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+g_obj <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
   data = brennan)
 
 # View the variance components
 print(g_obj)
-#> Generalizability Study (G-Study)
+#> Generalizability Study (G Study)
 #> ================================
 #> 
 #> Backend: lme4 
-#> Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task) 
+#> Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #> Number of observations: 120 
 #> Multivariate: No 
 #> 
@@ -65,7 +71,7 @@ print(g_obj)
 #>   <chr>              <chr>       <dbl>
 #> 1 Person             main           10
 #> 2 Task               main            3
-#> 3 Rater:Task         interaction    12
+#> 3 Rater              main           12
 #> 4 Person:Task        interaction    30
 #> 5 Person:Rater (res) residual      120
 #> 6 Rater per Task     nested          4
@@ -75,19 +81,20 @@ print(g_obj)
 #> 
 #> Variance Components:
 #> # A tibble: 5 × 3
-#>   component   estimate   pct
-#>   <chr>          <dbl> <dbl>
-#> 1 Person         0.473 10.8 
-#> 2 Task           0.325  7.42
-#> 3 Rater:Task     0.647 14.8 
-#> 4 Person:Task    0.56  12.8 
-#> 5 Residual       2.38  54.3
+#>   component   estimate     pct
+#>   <chr>          <dbl>   <dbl>
+#> 1 Person        0.473  10.7856
+#> 2 Task          0.3253  7.418 
+#> 3 Rater         0.6475 14.7637
+#> 4 Person:Task   0.5596 12.7586
+#> 5 Residual      2.3803 54.2741
 ```
 
 **Interpreting the variance components.** The output shows four variance
 components: `Person` (universe score variance — true differences between
 persons), `Task` (differences in average difficulty across tasks),
-`Rater:Task` (differences in leniency/severity between raters within a
+`Rater` (differences in leniency/severity between raters, which here are
+within-task rater effects because the 12 Rater labels are unique to each
 task), and `Person:Task` (the interaction — whether a person performs
 better on some tasks than others). The “pct” column shows what fraction
 of total variance each component accounts for. A healthy measurement has
@@ -133,11 +140,11 @@ print(d_obj)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G-Study with lme4 backend
+#> Based on G Study with lme4 backend
 #> Object of measurement: Person 
 #> Universe components: Person 
 #> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
-#> Error components for absolute error (sigma2_delta_abs): Task, Rater:Task, Person:Task, Person:Rater (Residual) 
+#> Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Task, Person:Rater (Residual) 
 #> 
 #> Sample Sizes:
 #>  Task: 3
@@ -147,15 +154,15 @@ print(d_obj)
 #> # A tibble: 5 × 6
 #>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
 #>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person      Score        0.473        10.8       0.473      33.4 
-#> 2 Task        Score        0.325         7.41      0.108       7.65
-#> 3 Rater:Task  Score        0.647        14.8       0.054       3.80
-#> 4 Person:Task Score        0.56         12.8       0.187      13.2 
-#> 5 Residual    Score        2.38         54.3       0.595      42.0 
+#> 1 Person      Score       0.473       10.7851     0.473     31.0181
+#> 2 Task        Score       0.3253       7.4173     0.1084     7.1108
+#> 3 Rater       Score       0.6475      14.7639     0.1619    10.6153
+#> 4 Person:Task Score       0.5596      12.7597     0.1865    12.2324
+#> 5 Residual    Score       2.3803      54.2741     0.5951    39.0234
 #> 
 #> Coefficients:
-#>    dim   uni sigma2_delta sigma2_delta_abs     g   phi
-#>  Score 0.473        0.782            0.944 0.377 0.334
+#>    dim   uni sigma2_delta sigma2_delta_abs     g    phi
+#>  Score 0.473       0.7816            1.052 0.377 0.3102
 ```
 
 **Interpreting the D-study output.** Two coefficients are reported:

@@ -4,12 +4,12 @@
 \alias{summarize_vc}
 \title{Summarize Variance Components}
 \usage{
-summarize_vc(vc, digits = 3, scale = c("variance", "sd"))
+summarize_vc(vc, digits = 4, scale = c("variance", "sd"))
 }
 \arguments{
 \item{vc}{A tibble of variance components.}
 
-\item{digits}{Number of decimal places for rounding.}
+\item{digits}{Number of decimal places for rounding (default 4).}
 
 \item{scale}{Scale for displaying results: "variance" (default) or "sd".}
 }

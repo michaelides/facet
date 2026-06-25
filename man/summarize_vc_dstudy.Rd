@@ -4,12 +4,12 @@
 \alias{summarize_vc_dstudy}
 \title{Summarize Variance Components for dstudy Objects}
 \usage{
-summarize_vc_dstudy(vc, digits = 3)
+summarize_vc_dstudy(vc, digits = 4)
 }
 \arguments{
 \item{vc}{A tibble of variance components from a dstudy object.}
 
-\item{digits}{Number of decimal places for rounding.}
+\item{digits}{Number of decimal places for rounding (default 4).}
 }
 \value{
 A formatted tibble.

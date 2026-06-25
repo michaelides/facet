@@ -6,7 +6,7 @@ variance component estimation. Works best with balanced designs.
 ## Usage
 
 ``` r
-fit_mom(formula, data, unbalanced = FALSE, ...)
+fit_mom(formula, data, unbalanced = FALSE, nested = NULL, ...)
 ```
 
 ## Arguments

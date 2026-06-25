@@ -38,6 +38,7 @@ Paul Bürkner (2017). brms: An R Package for Bayesian Multilevel Models.
 ``` r
 if (FALSE) { # \dontrun{
 prior <- prior_(~ normal(0, 1), class = "sd")
-g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms")
+g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000)
 } # }
 ```

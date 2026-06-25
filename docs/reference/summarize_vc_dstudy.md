@@ -6,7 +6,7 @@ showing both unscaled and scaled estimates.
 ## Usage
 
 ``` r
-summarize_vc_dstudy(vc, digits = 3)
+summarize_vc_dstudy(vc, digits = 4)
 ```
 
 ## Arguments
@@ -17,7 +17,7 @@ summarize_vc_dstudy(vc, digits = 3)
 
 - digits:
 
-  Number of decimal places for rounding.
+  Number of decimal places for rounding (default 4).
 
 ## Value
 

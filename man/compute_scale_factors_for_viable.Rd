@@ -4,7 +4,13 @@
 \alias{compute_scale_factors_for_viable}
 \title{Compute Scale Factors for Viable Recalculation}
 \usage{
-compute_scale_factors_for_viable(components, n, universe_spec, object_spec)
+compute_scale_factors_for_viable(
+  components,
+  n,
+  universe_spec,
+  object_spec,
+  residual_is = NULL
+)
 }
 \arguments{
 \item{components}{Character vector of variance component names}
@@ -14,11 +20,16 @@ compute_scale_factors_for_viable(components, n, universe_spec, object_spec)
 \item{universe_spec}{Universe components specification}
 
 \item{object_spec}{Object of measurement specification}
+
+\item{residual_is}{Character string specifying residual composition
+(e.g., "Person:Rater"). Used only when \code{comp == "Residual"}.}
 }
 \description{
 Computes scale factors for multiple variance components.
 Universe components always receive a scale factor of 1 (unscaled).
 Non-universe components are scaled by the product of non-object facet
-sample sizes in that component.
+sample sizes in that component. For the residual, \code{residual_is} is used
+to decompose the residual into its constituent facets, and the object
+of measurement is excluded from the divisor.
 }
 \keyword{internal}

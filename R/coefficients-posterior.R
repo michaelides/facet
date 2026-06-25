@@ -262,13 +262,16 @@ calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, unive
           weights = weights,
           n = n,
           object = object,
-          n_provided = n_provided
+          n_provided = n_provided,
+          residual_is = residual_is
         )
 
         components <- names(vc_draws[[1]])
         scale_factors <- list()
         for (comp in components) {
-          scale_factors[[comp]] <- compute_component_scale_factor(comp, n, object_spec, n_provided)
+          scale_factors[[comp]] <- compute_component_scale_factor(
+            comp, n, object_spec, n_provided, residual_is = residual_is
+          )
         }
 
         coef_result <- calculate_composite_coefficients_from_draws(
@@ -661,7 +664,11 @@ scale_variance_draws <- function(vc_draws, n, object_spec, agg_facets,
     return(scaled_draws)
   }
 
-  total_n <- if (length(n) > 0) prod(unlist(n)) else 1
+  residual_facets <- if (!is.null(residual_is) && residual_is != "") {
+    parse_component_facets(residual_is)
+  } else {
+    NULL
+  }
 
   for (comp in names(scaled_draws)) {
     if (comp %in% object_spec) {
@@ -669,14 +676,21 @@ scale_variance_draws <- function(vc_draws, n, object_spec, agg_facets,
     }
 
     if (comp == "Residual" || grepl("^Residual", comp)) {
-      if (!is.null(agg_facets)) {
+      divisor <- compute_residual_divisor(residual_is, n, object_spec)
+      if (!is.null(agg_facets) && length(agg_facets) > 0) {
+        non_object_residual_facets <- setdiff(
+          if (is.null(residual_facets)) names(n) else residual_facets,
+          object_spec
+        )
+        agg_in_residual <- agg_facets[agg_facets %in% non_object_residual_facets]
         agg_n <- 1
-        for (f in agg_facets) {
+        for (f in agg_in_residual) {
           if (f %in% names(n)) agg_n <- agg_n * n[[f]]
         }
-        scaled_draws[[comp]] <- scaled_draws[[comp]] / agg_n
-      } else {
-        scaled_draws[[comp]] <- scaled_draws[[comp]] / total_n
+        divisor <- divisor * agg_n
+      }
+      if (divisor > 1) {
+        scaled_draws[[comp]] <- scaled_draws[[comp]] / divisor
       }
       next
     }
@@ -695,12 +709,9 @@ scale_variance_draws <- function(vc_draws, n, object_spec, agg_facets,
         scaled_draws[[comp]] <- scaled_draws[[comp]] / agg_n
       }
     } else {
-      scale_factor <- 1
-      for (facet in comp_facets) {
-        if (facet %in% names(n)) {
-          scale_factor <- scale_factor * n[[facet]]
-        }
-      }
+      scale_factor <- compute_scale_factor_from_facets(
+        comp_facets, n, object_spec = object_spec
+      )
       if (scale_factor > 1) {
         scaled_draws[[comp]] <- scaled_draws[[comp]] / scale_factor
       }
@@ -710,8 +721,8 @@ scale_variance_draws <- function(vc_draws, n, object_spec, agg_facets,
   if (!is.null(agg_facets) && length(agg_facets) > 0 && !is.null(residual_is)) {
     for (comp in names(scaled_draws)) {
       if (comp == "Residual" || grepl("^Residual", comp)) {
-        residual_facets <- parse_component_facets(residual_is)
-        intersect_facets <- agg_facets[agg_facets %in% residual_facets]
+        intersect_facets <- residual_facets[residual_facets %in% agg_facets]
+        intersect_facets <- intersect_facets[!(intersect_facets %in% object_spec)]
         if (length(intersect_facets) > 0) {
           agg_factor <- 1
           for (facet in intersect_facets) {

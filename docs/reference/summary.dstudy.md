@@ -6,7 +6,7 @@ Summary Method for dstudy Objects
 
 ``` r
 # S3 method for class 'dstudy'
-summary(object, scale = c("variance", "sd"), digits = 3, sem = FALSE, ...)
+summary(object, scale = c("variance", "sd"), digits = 4, sem = FALSE, ...)
 ```
 
 ## Arguments
@@ -21,7 +21,7 @@ summary(object, scale = c("variance", "sd"), digits = 3, sem = FALSE, ...)
 
 - digits:
 
-  Number of digits to display.
+  Number of digits to display (default 4).
 
 - sem:
 

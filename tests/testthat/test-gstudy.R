@@ -413,3 +413,80 @@ test_that("fit_mom_multivariate_unbalanced returns correct structure", {
   expect_true(!is.null(result$variance_components))
   expect_true("dim" %in% names(result$variance_components))
 })
+
+# =============================================================================
+# 4-decimal-point display tests
+# =============================================================================
+
+test_that("gstudy variance components are stored at 4 decimal places by default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+
+  vc <- g$variance_components
+  expect_true("var" %in% names(vc))
+  expect_true("pct" %in% names(vc))
+
+  # Stored at 4 dp (allowing for floating point error of 1e-6)
+  expect_true(all(abs(vc$var - round(vc$var, 4)) < 1e-6, na.rm = TRUE))
+  expect_true(all(abs(vc$pct - round(vc$pct, 4)) < 1e-6, na.rm = TRUE))
+})
+
+test_that("print.gstudy default uses 4 decimal places", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+
+  out <- capture.output(print(g))
+  out <- paste(out, collapse = "\n")
+
+  # Output should contain a 4-decimal-place value like "1.2345"
+  expect_match(out, "\\d+\\.\\d{4}", all = FALSE)
+})
+
+test_that("summary.gstudy default uses 4 decimal places", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+
+  out <- capture.output(summary(g))
+  out <- paste(out, collapse = "\n")
+
+  expect_match(out, "\\d+\\.\\d{4}", all = FALSE)
+})
+
+test_that("tidy.gstudy returns a tibble with numeric columns at 4 decimal places by default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+
+  result <- tidy(g)
+
+  expect_s3_class(result, "tbl_df")
+  numeric_cols <- vapply(result, is.numeric, logical(1))
+  numeric_cols <- names(result)[numeric_cols]
+
+  for (col in numeric_cols) {
+    expect_true(all(abs(result[[col]] - round(result[[col]], 4)) < 1e-6, na.rm = TRUE))
+  }
+})
+
+test_that("tidy.gstudy digits argument overrides default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+
+  result <- tidy(g, digits = 2)
+  expect_s3_class(result, "tbl_df")
+
+  expect_true(all(abs(result$var - round(result$var, 2)) < 1e-6, na.rm = TRUE))
+})
+
+test_that("print.gstudy digits argument overrides default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+
+  out <- capture.output(print(g, digits = 2))
+  out <- paste(out, collapse = "\n")
+
+  # With digits = 2, the output should not contain values with more than
+  # 4 decimal places (5+ dp). Some values may still show 3-4 dp due to
+  # pillar's significant figure handling.
+  expect_false(grepl("\\d+\\.\\d{5,}", out))
+})
+

@@ -9,6 +9,7 @@
 <url><loc>https://github.com/yourorg/facet/index.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/VarCorr.gstudy.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/VarCorr.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/adapt_mom_aov_formula.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/alpha_example.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/apply_per_dim.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/backends.html</loc></url>
@@ -60,6 +61,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/compute_prmse_delta_ci.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_relative_error.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_relative_error_draws.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/compute_residual_divisor.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_scale_factor_from_facets.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_scale_factors_for_viable.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_var_for_weights.html</loc></url>

@@ -7,7 +7,7 @@
 \method{summary}{mgstudy}(
   object,
   scale = c("variance", "sd"),
-  digits = 3,
+  digits = 4,
   cor_format = c("long", "matrix"),
   vc_format = c("dimension", "facet"),
   type = c("correlation", "covariance"),
@@ -19,7 +19,7 @@
 
 \item{scale}{Scale for displaying results: "variance" (default) or "sd".}
 
-\item{digits}{Number of digits to display (default 3).}
+\item{digits}{Number of digits to display (default 4).}
 
 \item{cor_format}{Format for displaying correlations/covariances: "long" (default) or "matrix".}
 

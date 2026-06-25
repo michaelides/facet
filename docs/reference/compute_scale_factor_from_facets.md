@@ -2,12 +2,14 @@
 
 Calculates the scaling factor for a variance component based on the
 D-study sample sizes. For main effects, divides by n_facet. For
-interactions, divides by the product of n for each facet.
+interactions, divides by the product of n for each non-object facet.
+Facets in `object_spec` are excluded from the divisor (the object of
+measurement is not averaged over).
 
 ## Usage
 
 ``` r
-compute_scale_factor_from_facets(facets, n)
+compute_scale_factor_from_facets(facets, n, object_spec = NULL)
 ```
 
 ## Arguments
@@ -19,6 +21,11 @@ compute_scale_factor_from_facets(facets, n)
 - n:
 
   Named list of sample sizes for each facet.
+
+- object_spec:
+
+  Character vector of object component names. Facets in `object_spec`
+  are excluded from the divisor. Default NULL (no exclusion).
 
 ## Value
 

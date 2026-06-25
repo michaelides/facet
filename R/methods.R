@@ -9,16 +9,16 @@ NULL
 #' Print Method for gstudy Objects
 #'
 #' @param x A gstudy object.
-#' @param digits Number of digits to display.
+#' @param digits Number of digits to display (default 4).
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
 #' @param ... Additional arguments (ignored).
 #' @return Invisibly returns x.
 #' @export
 #' @rdname print.gstudy
-print.gstudy <- function(x, digits = 3, scale = c("variance", "sd"), ...) {
+print.gstudy <- function(x, digits = 4, scale = c("variance", "sd"), ...) {
   scale <- match.arg(scale)
 
-  cat("Generalizability Study (G-Study)\n")
+  cat("Generalizability Study (G Study)\n")
   cat("================================\n\n")
 
   cat("Backend:", x$backend, "\n")
@@ -89,12 +89,12 @@ print.gstudy <- function(x, digits = 3, scale = c("variance", "sd"), ...) {
 
   cat("Variance Components:\n")
   vc_summary <- summarize_vc(x$variance_components, digits = digits, scale = scale)
-  print(vc_summary, row.names = FALSE, ...)
+  print_vc_summary(vc_summary, digits = digits, ...)
 
   invisible(x)
 }
 
-print_correlations <- function(correlations, digits = 3, format = c("long", "matrix"),
+print_correlations <- function(correlations, digits = 4, format = c("long", "matrix"),
                                type = c("correlation", "covariance"), model = NULL) {
   format <- match.arg(format)
   type <- match.arg(type)
@@ -127,21 +127,21 @@ print_correlations <- function(correlations, digits = 3, format = c("long", "mat
       }
     } else {
       if (!is.null(covariances$random_effect_cov) && length(covariances$random_effect_cov) > 0) {
-        for (facet_name in names(covariances$random_effect_cov)) {
-          if (!is.null(covariances$random_effect_cov[[facet_name]]) &&
-            nrow(covariances$random_effect_cov[[facet_name]]) > 0) {
-            cat(sprintf("Random Effect Covariances (%s):\n", facet_name))
-            cov_summary <- summarize_cov(covariances$random_effect_cov[[facet_name]], digits)
-            print(cov_summary, row.names = FALSE)
-            cat("\n")
-          }
-        }
-      }
+         for (facet_name in names(covariances$random_effect_cov)) {
+           if (!is.null(covariances$random_effect_cov[[facet_name]]) &&
+             nrow(covariances$random_effect_cov[[facet_name]]) > 0) {
+             cat(sprintf("Random Effect Covariances (%s):\n", facet_name))
+             cov_summary <- summarize_cov(covariances$random_effect_cov[[facet_name]], digits)
+             print_vc_summary(cov_summary, digits = digits, row.names = FALSE)
+             cat("\n")
+           }
+         }
+       }
 
-      if (!is.null(covariances$residual_cov) && nrow(covariances$residual_cov) > 0) {
-        cat("Residual Covariances:\n")
-        cov_summary <- summarize_cov(covariances$residual_cov, digits)
-        print(cov_summary, row.names = FALSE)
+       if (!is.null(covariances$residual_cov) && nrow(covariances$residual_cov) > 0) {
+         cat("Residual Covariances:\n")
+         cov_summary <- summarize_cov(covariances$residual_cov, digits)
+         print_vc_summary(cov_summary, digits = digits, row.names = FALSE)
         cat("\n")
       }
     }
@@ -167,21 +167,21 @@ print_correlations <- function(correlations, digits = 3, format = c("long", "mat
   } else {
     if (!is.null(correlations$random_effect_cor) && length(correlations$random_effect_cor) > 0) {
       for (facet_name in names(correlations$random_effect_cor)) {
-        if (!is.null(correlations$random_effect_cor[[facet_name]]) &&
-          nrow(correlations$random_effect_cor[[facet_name]]) > 0) {
-          cat(sprintf("Correlated Random Effects (%s):\n", facet_name))
-          cor_summary <- summarize_cor(correlations$random_effect_cor[[facet_name]], digits)
-          print(cor_summary, row.names = FALSE)
-          cat("\n")
-        }
-      }
-    }
+         if (!is.null(correlations$random_effect_cor[[facet_name]]) &&
+           nrow(correlations$random_effect_cor[[facet_name]]) > 0) {
+           cat(sprintf("Correlated Random Effects (%s):\n", facet_name))
+           cor_summary <- summarize_cor(correlations$random_effect_cor[[facet_name]], digits)
+           print_vc_summary(cor_summary, digits = digits, row.names = FALSE)
+           cat("\n")
+         }
+       }
+     }
 
-    if (!is.null(correlations$residual_cor) && nrow(correlations$residual_cor) > 0) {
-      cat("Correlated Residuals:\n")
-      cor_summary <- summarize_cor(correlations$residual_cor, digits)
-      print(cor_summary, row.names = FALSE)
-      cat("\n")
+     if (!is.null(correlations$residual_cor) && nrow(correlations$residual_cor) > 0) {
+       cat("Correlated Residuals:\n")
+       cor_summary <- summarize_cor(correlations$residual_cor, digits)
+       print_vc_summary(cor_summary, digits = digits, row.names = FALSE)
+       cat("\n")
     }
   }
 }
@@ -189,7 +189,7 @@ print_correlations <- function(correlations, digits = 3, format = c("long", "mat
 #' Print Method for mgstudy Objects
 #'
 #' @param x An mgstudy object.
-#' @param digits Number of digits to display.
+#' @param digits Number of digits to display (default 4).
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
 #' @param cor_format Format for displaying correlations/covariances: "long" (default) or "matrix".
 #' @param vc_format Format for displaying variance components: "dimension" (default) or "facet".
@@ -199,7 +199,7 @@ print_correlations <- function(correlations, digits = 3, format = c("long", "mat
 #' @return Invisibly returns x.
 #' @export
 #' @rdname print.mgstudy
-print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
+print.mgstudy <- function(x, digits = 4, scale = c("variance", "sd"),
                           cor_format = c("long", "matrix"),
                           vc_format = c("dimension", "facet"),
                           type = c("correlation", "covariance"), ...) {
@@ -209,7 +209,7 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
   type <- match.arg(type)
 
   if (isTRUE(x$long_format_multivariate)) {
-    cat("Multivariate Generalizability Study (MG-Study)\n")
+    cat("Multivariate Generalizability Study (MG Study)\n")
     cat("(Long-Format - Unbalanced)\n")
     cat("=============================================\n\n")
 
@@ -218,7 +218,7 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
     cat("Number of observations:", x$n_obs, "\n")
     cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n\n")
   } else if (isTRUE(x$is_unbalanced)) {
-    cat("Multivariate Generalizability Study (MG-Study)\n")
+    cat("Multivariate Generalizability Study (MG Study)\n")
     cat("(Unbalanced - Different sample sizes per dimension)\n")
     cat("=============================================\n\n")
 
@@ -234,7 +234,7 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
     }
     cat("\n")
   } else {
-    cat("Multivariate Generalizability Study (MG-Study)\n")
+    cat("Multivariate Generalizability Study (MG Study)\n")
     cat("=============================================\n\n")
 
     cat("Backend:", x$backend, "\n")
@@ -287,7 +287,7 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
       cat(sprintf("\nDimension: %s\n", dim))
       vc_dim <- x$variance_components[x$variance_components$dim == dim, ]
       vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
-      print(vc_summary, row.names = FALSE, ...)
+      print_vc_summary(vc_summary, digits = digits, row.names = FALSE, ...)
     }
 
     if (!is.null(x$correlations)) {
@@ -315,20 +315,20 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
       cat(sprintf("\nFacet: %s\n", comp))
       vc_comp <- x$variance_components[x$variance_components$component == comp, ]
       vc_summary <- summarize_vc(vc_comp, digits = digits, scale = scale)
-      print(vc_summary, row.names = FALSE, ...)
+      print_vc_summary(vc_summary, digits = digits, row.names = FALSE, ...)
 
       if (type == "covariance" && !is.null(covariances) &&
         !is.null(covariances$random_effect_cov) &&
         !is.null(covariances$random_effect_cov[[comp]])) {
         cat(sprintf("Covariances (%s):\n", comp))
         cov_summary <- summarize_cov(covariances$random_effect_cov[[comp]], digits)
-        print(cov_summary, row.names = FALSE)
+        print_vc_summary(cov_summary, digits = digits, row.names = FALSE)
         cat("\n")
       } else if (!is.null(x$correlations$random_effect_cor) &&
         !is.null(x$correlations$random_effect_cor[[comp]])) {
         cat(sprintf("Correlations (%s):\n", comp))
         cor_summary <- summarize_cor(x$correlations$random_effect_cor[[comp]], digits)
-        print(cor_summary, row.names = FALSE)
+        print_vc_summary(cor_summary, digits = digits, row.names = FALSE)
         cat("\n")
       }
     }
@@ -343,7 +343,7 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
         }
       } else {
         cov_summary <- summarize_cov(covariances$residual_cov, digits)
-        print(cov_summary, row.names = FALSE)
+        print_vc_summary(cov_summary, digits = digits, row.names = FALSE)
       }
     } else if (!is.null(x$correlations$residual_cor) &&
       nrow(x$correlations$residual_cor) > 0) {
@@ -355,7 +355,7 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
         }
       } else {
         cor_summary <- summarize_cor(x$correlations$residual_cor, digits)
-        print(cor_summary, row.names = FALSE)
+        print_vc_summary(cor_summary, digits = digits, row.names = FALSE)
       }
     }
   }
@@ -366,7 +366,7 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
 #' Print Method for dstudy Objects
 #'
 #' @param x A dstudy object.
-#' @param digits Number of digits to display.
+#' @param digits Number of digits to display (default 4).
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
 #' @param sem Logical; if TRUE, include standard errors of measurement
 #'   (sem_rel and sem_abs) in the output. Default is FALSE.
@@ -374,13 +374,13 @@ print.mgstudy <- function(x, digits = 3, scale = c("variance", "sd"),
 #' @return Invisibly returns x.
 #' @export
 #' @rdname print.dstudy
-print.dstudy <- function(x, digits = 3, scale = c("variance", "sd"), sem = FALSE, ...) {
+print.dstudy <- function(x, digits = 4, scale = c("variance", "sd"), sem = FALSE, ...) {
   scale <- match.arg(scale)
 
   cat("Decision Study (D-Study)\n")
   cat("========================\n\n")
 
-  cat("Based on G-Study with", x$gstudy$backend, "backend\n")
+  cat("Based on G Study with", x$gstudy$backend, "backend\n")
   cat("Object of measurement:", x$object, "\n")
 
   # Display universe components
@@ -457,7 +457,7 @@ print.dstudy <- function(x, digits = 3, scale = c("variance", "sd"), sem = FALSE
 
     cat("Variance Components:\n")
     vc_summary <- summarize_vc(x$variance_components, digits = digits, scale = scale)
-    print(vc_summary, row.names = FALSE, ...)
+    print_vc_summary(vc_summary, digits = digits, row.names = FALSE, ...)
     cat("\n")
 
     cat("Coefficients:\n")
@@ -533,15 +533,15 @@ is_rel_error_component <- function(component, universe_spec) {
 #'
 #' @param object A gstudy object.
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
-#' @param digits Number of digits to display (default 3).
+#' @param digits Number of digits to display (default 4).
 #' @param ... Additional arguments (ignored).
 #' @return Invisibly returns object.
 #' @export
 #' @rdname summary.gstudy
-summary.gstudy <- function(object, scale = c("variance", "sd"), digits = 3, ...) {
+summary.gstudy <- function(object, scale = c("variance", "sd"), digits = 4, ...) {
   scale <- match.arg(scale)
 
-  cat("=== G-Study Summary ===\n\n")
+  cat("=== G Study Summary ===\n\n")
 
   cat("Design Information:\n")
   cat(" Backend:", object$backend, "\n")
@@ -611,7 +611,7 @@ summary.gstudy <- function(object, scale = c("variance", "sd"), digits = 3, ...)
 
   cat("Variance Components:\n")
   vc_summary <- summarize_vc(object$variance_components, digits = digits, scale = scale)
-  print(vc_summary, row.names = FALSE, ...)
+  print_vc_summary(vc_summary, digits = digits, row.names = FALSE, ...)
 
   cat("\nTotal variance:", sum(object$variance_components$var, na.rm = TRUE), "\n")
 
@@ -622,7 +622,7 @@ summary.gstudy <- function(object, scale = c("variance", "sd"), digits = 3, ...)
 #'
 #' @param object An mgstudy object.
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
-#' @param digits Number of digits to display (default 3).
+#' @param digits Number of digits to display (default 4).
 #' @param cor_format Format for displaying correlations/covariances: "long" (default) or "matrix".
 #' @param vc_format Format for displaying variance components: "dimension" (default) or "facet".
 #' When "facet", variance components are grouped by facet with inline correlations.
@@ -631,7 +631,7 @@ summary.gstudy <- function(object, scale = c("variance", "sd"), digits = 3, ...)
 #' @return Invisibly returns object.
 #' @export
 #' @rdname summary.mgstudy
-summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
+summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 4,
                             cor_format = c("long", "matrix"),
                             vc_format = c("dimension", "facet"),
                             type = c("correlation", "covariance"), ...) {
@@ -641,7 +641,7 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
   type <- match.arg(type)
 
   if (isTRUE(object$long_format_multivariate)) {
-    cat("=== Multivariate G-Study Summary ===\n")
+    cat("=== Multivariate G Study Summary ===\n")
     cat("(Long-Format - Unbalanced)\n\n")
 
     cat("Design Information:\n")
@@ -650,7 +650,7 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
     cat(" Observations:", object$n_obs, "\n")
     cat(" Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
   } else {
-    cat("=== Multivariate G-Study Summary ===\n\n")
+    cat("=== Multivariate G Study Summary ===\n\n")
 
     cat("Design Information:\n")
     cat(" Backend:", object$backend, "\n")
@@ -704,7 +704,7 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
       cat(sprintf("\nDimension: %s\n", dim))
       vc_dim <- object$variance_components[object$variance_components$dim == dim, ]
       vc_summary <- summarize_vc(vc_dim, digits = digits, scale = scale)
-      print(vc_summary, row.names = FALSE, ...)
+      print_vc_summary(vc_summary, digits = digits, row.names = FALSE, ...)
     }
 
     if (!is.null(object$correlations)) {
@@ -732,20 +732,20 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
       cat(sprintf("\nFacet: %s\n", comp))
       vc_comp <- object$variance_components[object$variance_components$component == comp, ]
       vc_summary <- summarize_vc(vc_comp, digits = digits, scale = scale)
-      print(vc_summary, row.names = FALSE, ...)
+      print_vc_summary(vc_summary, digits = digits, row.names = FALSE, ...)
 
       if (type == "covariance" && !is.null(covariances) &&
         !is.null(covariances$random_effect_cov) &&
         !is.null(covariances$random_effect_cov[[comp]])) {
         cat(sprintf("Covariances (%s):\n", comp))
         cov_summary <- summarize_cov(covariances$random_effect_cov[[comp]], digits)
-        print(cov_summary, row.names = FALSE)
+        print_vc_summary(cov_summary, digits = digits, row.names = FALSE)
         cat("\n")
       } else if (!is.null(object$correlations$random_effect_cor) &&
         !is.null(object$correlations$random_effect_cor[[comp]])) {
         cat(sprintf("Correlations (%s):\n", comp))
         cor_summary <- summarize_cor(object$correlations$random_effect_cor[[comp]], digits)
-        print(cor_summary, row.names = FALSE)
+        print_vc_summary(cor_summary, digits = digits, row.names = FALSE)
         cat("\n")
       }
     }
@@ -760,7 +760,7 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
         }
       } else {
         cov_summary <- summarize_cov(covariances$residual_cov, digits)
-        print(cov_summary, row.names = FALSE)
+        print_vc_summary(cov_summary, digits = digits, row.names = FALSE)
       }
     } else if (!is.null(object$correlations$residual_cor) &&
       nrow(object$correlations$residual_cor) > 0) {
@@ -772,7 +772,7 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
         }
       } else {
         cor_summary <- summarize_cor(object$correlations$residual_cor, digits)
-        print(cor_summary, row.names = FALSE)
+        print_vc_summary(cor_summary, digits = digits, row.names = FALSE)
       }
     }
   }
@@ -784,20 +784,20 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 3,
 #'
 #' @param object A dstudy object.
 #' @param scale Scale for displaying results: "variance" (default) or "sd".
-#' @param digits Number of digits to display.
+#' @param digits Number of digits to display (default 4).
 #' @param sem Logical; if TRUE, include standard errors of measurement
 #'   (sem_rel and sem_abs) in the output. Default is FALSE.
 #' @param ... Additional arguments (ignored).
 #' @return Invisibly returns object.
 #' @export
 #' @rdname summary.dstudy
-summary.dstudy <- function(object, scale = c("variance", "sd"), digits = 3, sem = FALSE, ...) {
+summary.dstudy <- function(object, scale = c("variance", "sd"), digits = 4, sem = FALSE, ...) {
   scale <- match.arg(scale)
 
   cat("=== D-Study Summary ===\n\n")
 
   cat("Object of measurement:", object$object, "\n")
-  cat("Based on G-Study:", deparse(object$gstudy$formula), "\n\n")
+  cat("Based on G Study:", deparse(object$gstudy$formula), "\n\n")
 
   if (object$is_sweep) {
     has_dim <- "dim" %in% names(object$coefficients)
@@ -845,7 +845,7 @@ summary.dstudy <- function(object, scale = c("variance", "sd"), digits = 3, sem 
 
     cat("Variance Components:\n")
     vc_summary <- summarize_vc(object$variance_components, digits = digits, scale = scale)
-    print(vc_summary, row.names = FALSE, ...)
+    print_vc_summary(vc_summary, digits = digits, row.names = FALSE, ...)
     cat("\n")
 
     cat("Coefficients:\n")
@@ -1150,41 +1150,84 @@ plot.dstudy <- function(x, type = c("coefficients", "sweep"), coefficient = c("b
 
 #' Tidy Method for gstudy Objects
 #'
-#' Returns a tidy tibble of variance components.
+#' Returns a tidy tibble of variance components with numeric columns
+#' rounded to \code{digits} decimal places (default 4).
 #'
 #' @param x A gstudy object.
+#' @param digits Number of decimal places for rounding numeric columns (default 4).
 #' @param ... Additional arguments (ignored).
 #' @return A tibble.
 #' @export
 #' @rdname tidy.gstudy
-tidy.gstudy <- function(x, ...) {
-  x$variance_components
+tidy.gstudy <- function(x, digits = 4, ...) {
+  round_vc_columns(x$variance_components, digits)
 }
 
 #' Tidy Method for dstudy Objects
 #'
-#' Returns a tidy tibble of coefficients and variance components.
+#' Returns a tidy tibble of D-study coefficients with numeric columns
+#' rounded to \code{digits} decimal places (default 4).
 #'
 #' @param x A dstudy object.
+#' @param digits Number of decimal places for rounding numeric columns (default 4).
 #' @param ... Additional arguments (ignored).
 #' @return A tibble.
 #' @export
 #' @rdname tidy.dstudy
-tidy.dstudy <- function(x, ...) {
-  x$coefficients
+tidy.dstudy <- function(x, digits = 4, ...) {
+  tibble::as_tibble(round_vc_columns(x$coefficients, digits))
 }
 
 #' Tidy Method for mgstudy Objects
 #'
-#' Returns a tidy tibble of variance components for multivariate G-studies.
+#' Returns a tidy tibble of variance components for multivariate G-studies
+#' with numeric columns rounded to \code{digits} decimal places (default 4).
 #'
 #' @param x An mgstudy object.
+#' @param digits Number of decimal places for rounding numeric columns (default 4).
 #' @param ... Additional arguments (ignored).
 #' @return A tibble.
 #' @export
 #' @rdname tidy.gstudy
-tidy.mgstudy <- function(x, ...) {
-  x$variance_components
+tidy.mgstudy <- function(x, digits = 4, ...) {
+  round_vc_columns(x$variance_components, digits)
+}
+
+# Round the numeric columns of a variance components / coefficients tibble
+# to a fixed number of decimal places. Non-numeric columns and ID-like
+# integer columns (e.g., Bulk_ESS, Tail_ESS) are left untouched.
+round_vc_columns <- function(df, digits = 4) {
+  if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
+    return(df)
+  }
+  integer_like <- c("Bulk_ESS", "Tail_ESS")
+  for (col in names(df)) {
+    if (col %in% integer_like) next
+    if (is.numeric(df[[col]])) {
+      df[[col]] <- round(df[[col]], digits)
+    }
+  }
+  df
+}
+
+# Print a variance components / coefficients summary tibble so that numeric
+# columns are displayed with at least `digits` decimal places. Tibble's
+# default printing only shows 3 significant figures, which would hide the
+# extra precision we just rounded to. We temporarily set `pillar.sigfig`
+# to ensure all stored digits are visible. The previous value is restored
+# on exit.
+print_vc_summary <- function(x, digits = 4, ...) {
+  if (is.null(x) || !is.data.frame(x) || nrow(x) == 0) {
+    print(x, ...)
+    return(invisible(x))
+  }
+  prev <- getOption("pillar.sigfig")
+  on.exit(if (is.null(prev)) options(pillar.sigfig = NULL) else options(pillar.sigfig = prev))
+  # digits decimal places requires (digits + 2) sig figs to cover values
+  # up to 99. This ensures we don't show 5+ dp when digits = 2.
+  options(pillar.sigfig = digits + 2L)
+  print(x, ...)
+  invisible(x)
 }
 
 #' Glance Method for gstudy Objects
@@ -1208,27 +1251,58 @@ glance.gstudy <- function(x, ...) {
 
 #' Glance Method for dstudy Objects
 #'
-#' Returns a one-row summary of D-study results.
+#' Returns the unscaled variance component estimates from a D-study as a
+#' tibble. For univariate D-studies the result is a one-row tibble with
+#' one column per variance component, named \code{var_unscaled_<component>}.
+#' For multivariate D-studies the result is a multi-row tibble with one
+#' row per variance component and one column per dimension. Covariances
+#' are not included; "Composite" rows from posterior estimation are
+#' dropped. Numeric values are rounded to \code{digits} decimal places
+#' (default 4).
 #'
 #' @param x A dstudy object.
+#' @param digits Number of decimal places for rounding numeric values (default 4).
 #' @param ... Additional arguments (ignored).
-#' @return A one-row tibble.
+#' @return A tibble of unscaled variance component estimates.
 #' @export
 #' @rdname glance.dstudy
-glance.dstudy <- function(x, ...) {
-  if (x$is_sweep) {
-    tibble::tibble(
-      is_sweep = TRUE,
-      n_combinations = nrow(x$coefficients),
-      object = x$object
+glance.dstudy <- function(x, digits = 4, ...) {
+  vc <- x$variance_components
+  if (is.null(vc) || nrow(vc) == 0) {
+    return(tibble::tibble())
+  }
+
+  var_col <- if ("var_unscaled" %in% names(vc)) "var_unscaled" else "var"
+  if (!var_col %in% names(vc)) {
+    return(tibble::tibble())
+  }
+
+  has_dim <- "dim" %in% names(vc)
+  n_dim <- if (has_dim) length(unique(vc$dim)) else 0L
+
+  if (has_dim) {
+    vc <- vc[vc$dim != "Composite", , drop = FALSE]
+  }
+
+  if (has_dim && n_dim > 1L) {
+    components <- unique(vc$component)
+    dims <- unique(vc$dim)
+    out <- as.data.frame(
+      matrix(NA_real_, nrow = length(components), ncol = length(dims)),
+      row.names = NULL
     )
+    names(out) <- dims
+    out <- cbind(component = components, out)
+    for (i in seq_len(nrow(vc))) {
+      r <- match(vc$component[i], out$component)
+      c <- match(vc$dim[i], names(out))
+      out[[c]][r] <- round(vc[[var_col]][i], digits)
+    }
+    tibble::as_tibble(out)
   } else {
-    tibble::tibble(
-      is_sweep = FALSE,
-      g = x$coefficients$g[1],
-      phi = x$coefficients$phi[1],
-      object = x$object
-    )
+    out <- as.list(round(vc[[var_col]], digits))
+    names(out) <- paste0("var_unscaled_", vc$component)
+    tibble::as_tibble(out)
   }
 }
 

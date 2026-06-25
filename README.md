@@ -39,12 +39,16 @@ A G-study estimates variance components for each facet in your measurement desig
 ```r
 library(facet)
 
-# Load included Brennan dataset (10 persons, 3 tasks, 12 raters)
+# Load included Brennan dataset (10 persons, 3 tasks, 4 raters per task)
 data(brennan)
 
-# Conduct a G-study with Persons, Tasks, and Raters
-g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + 
-            (1 | Person:Task) + (1 | Person:Rater), 
+# Conduct a G-study. The brennan data is a Person x Task x (Rater:Task)
+# design with one observation per Person x Rater:Task cell, so the
+# canonical "all possible variance components" formula has the three
+# main effects plus the only estimable interaction (Person:Task). The
+# Person x Rater:Task interaction is confounded with the residual.
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+            (1 | Person:Task),
             data = brennan)
 
 # View variance components

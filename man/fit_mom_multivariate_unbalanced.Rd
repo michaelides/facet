@@ -4,7 +4,7 @@
 \alias{fit_mom_multivariate_unbalanced}
 \title{Fit Unbalanced Multivariate Model Using Method of Moments (Henderson's Method III)}
 \usage{
-fit_mom_multivariate_unbalanced(formula, data, ...)
+fit_mom_multivariate_unbalanced(formula, data, nested = NULL, ...)
 }
 \arguments{
 \item{formula}{A formula for the model}

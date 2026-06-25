@@ -182,7 +182,7 @@ test_that("summary.mgstudy works", {
     backend = "brms"
   )
 
-  expect_output(summary(result), "Multivariate G-Study Summary")
+  expect_output(summary(result), "Multivariate G Study Summary")
   expect_output(summary(result), "Dimensions:")
 })
 
@@ -996,3 +996,114 @@ test_that("expand_n_per_dim detects is_sweep per (dim, facet), not per facet", {
   out_sweep <- facet:::expand_n_per_dim(n_tb_sweep, sweep = TRUE)
   expect_true(out_sweep$is_sweep)
 })
+
+# =============================================================================
+# 4-decimal-point display tests
+# =============================================================================
+
+test_that("mgstudy variance components are stored at 4 decimal places by default", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms"
+  )
+
+  expect_s3_class(g, "mgstudy")
+  vc <- g$variance_components
+  expect_true("var" %in% names(vc))
+
+  # Stored at 4 dp (allowing for floating point error of 1e-6)
+  expect_true(all(abs(vc$var - round(vc$var, 4)) < 1e-6, na.rm = TRUE))
+})
+
+test_that("print.mgstudy default uses 4 decimal places", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms"
+  )
+
+  out <- capture.output(print(g))
+  out <- paste(out, collapse = "\n")
+
+  expect_match(out, "\\d+\\.\\d{4}", all = FALSE)
+})
+
+test_that("summary.mgstudy default uses 4 decimal places", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms"
+  )
+
+  out <- capture.output(summary(g))
+  out <- paste(out, collapse = "\n")
+
+  expect_match(out, "\\d+\\.\\d{4}", all = FALSE)
+})
+
+test_that("tidy.mgstudy returns a tibble with numeric columns at 4 decimal places by default", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms"
+  )
+
+  result <- tidy(g)
+
+  expect_s3_class(result, "tbl_df")
+  numeric_cols <- vapply(result, is.numeric, logical(1))
+  numeric_cols <- names(result)[numeric_cols]
+
+  for (col in numeric_cols) {
+    expect_true(all(abs(result[[col]] - round(result[[col]], 4)) < 1e-6, na.rm = TRUE))
+  }
+})
+
+test_that("tidy.mgstudy digits argument overrides default", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms"
+  )
+
+  result <- tidy(g, digits = 2)
+  expect_s3_class(result, "tbl_df")
+
+  if ("var" %in% names(result)) {
+    expect_true(all(abs(result$var - round(result$var, 2)) < 1e-6, na.rm = TRUE))
+  }
+})
+
+test_that("print.mgstudy digits argument overrides default", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = test_data_mv,
+    backend = "brms"
+  )
+
+  out <- capture.output(print(g, digits = 2))
+  out <- paste(out, collapse = "\n")
+
+  expect_false(grepl("\\d+\\.\\d{4}", out))
+})
+
+

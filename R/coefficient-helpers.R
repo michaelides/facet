@@ -149,3 +149,48 @@ is_error_component <- function(component, error_spec, object_spec, vc_all) {
 
   !is_object_component(component, object_spec) && component != "Residual"
 }
+
+#' Compute Residual Divisor Excluding the Object of Measurement
+#'
+#' Calculates the divisor for the residual variance component when scaling
+#' for a D-study, excluding the object of measurement from the divisor.
+#' This implements the generalizability-theory rule that the object of
+#' measurement is NOT averaged over when rescaling the residual.
+#'
+#' @param residual_is Character string specifying residual composition
+#'   (e.g., "Person:Rater"). If NULL or empty, all facets in `n` are used
+#'   (excluding object).
+#' @param n Named list of sample sizes for each facet.
+#' @param object_spec Character vector of object component names.
+#' @return Numeric divisor (product of `n` for non-object facets in the residual).
+#'
+#' @details
+#' The residual is decomposed into its constituent facets (e.g.,
+#' `"Person:Rater"` → `c("Person", "Rater")`). The divisor is the product
+#' of `n[[f]]` for facets that are NOT the object of measurement. For
+#' example, with `residual_is = "Person:Rater"`, `object = "Person"`, and
+#' `n = list(Rater = 4)`, the divisor is `4` (Rater only; Person excluded).
+#'
+#' @keywords internal
+compute_residual_divisor <- function(residual_is, n, object_spec) {
+  if (is.null(n) || length(n) == 0) {
+    return(1)
+  }
+
+  if (!is.null(residual_is) && residual_is != "") {
+    residual_facets <- parse_component_facets(residual_is)
+  } else {
+    residual_facets <- names(n)
+  }
+
+  non_object_facets <- setdiff(residual_facets, object_spec)
+
+  divisor <- 1
+  for (f in non_object_facets) {
+    if (f %in% names(n)) {
+      divisor <- divisor * n[[f]]
+    }
+  }
+
+  divisor
+}

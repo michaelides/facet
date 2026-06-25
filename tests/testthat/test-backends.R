@@ -453,3 +453,128 @@ test_that("mom backend handles correlated random effects syntax", {
   expect_true(!is.null(result$correlations$random_effect_cor))
   expect_true("person" %in% names(result$correlations$random_effect_cor))
 })
+
+# =============================================================================
+# adapt_mom_aov_formula tests (brennan-style nested Rater within Task)
+# =============================================================================
+
+test_that("adapt_mom_aov_formula rewrites Error() for Rater nested in Task", {
+  data(brennan)
+  f <- Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)
+
+  out <- facet:::adapt_mom_aov_formula(f, brennan)
+
+  # Should rewrite the Rater stratum to Rater:Task (aov alphabetizes to
+  # "Task:Rater", which we also accept).
+  expect_true(grepl("Rater:Task", out$aov_formula) ||
+                grepl("Task:Rater", out$aov_formula))
+
+  # The standalone "Rater" term should no longer appear in the rewritten
+  # Error() decomposition: strip "Rater:Task" and "Task:Rater" first, then
+  # check for a bare "Rater" word.
+  stripped <- out$aov_formula
+  stripped <- gsub("Rater:Task", "", stripped)
+  stripped <- gsub("Task:Rater", "", stripped)
+  expect_false(grepl("\\bRater\\b", stripped))
+
+  # Name mapping should preserve the user-supplied name "Rater"
+  expect_equal(out$name_mapping[["Rater:Task"]], "Rater")
+  expect_equal(out$name_mapping[["Task:Rater"]], "Rater")
+})
+
+test_that("adapt_mom_aov_formula is a no-op for fully-crossed designs", {
+  test_data <- expand.grid(
+    person = factor(1:10),
+    item = factor(1:5)
+  )
+  test_data$score <- rnorm(50)
+
+  f <- score ~ (1 | person) + (1 | item)
+  out <- facet:::adapt_mom_aov_formula(f, test_data)
+
+  # No nesting detected, so aov_formula should be the standard one
+  expect_equal(
+    out$aov_formula,
+    "score ~ person + item + Error( person + item )"
+  )
+  expect_equal(out$name_mapping, list())
+})
+
+test_that("adapt_mom_aov_formula respects the explicit nested form", {
+  data(brennan)
+  # User writes (1 | Rater:Task) directly
+  f <- Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task)
+  out <- facet:::adapt_mom_aov_formula(f, brennan)
+
+  # No rewrite should happen; the spec is already the nested form. aov
+  # alphabetizes the order to "Rater:Task" (since R < T) so the formula
+  # preserves the user-supplied order.
+  expect_equal(
+    out$aov_formula,
+    "Score ~ Person + Task + Rater:Task + Person:Task + Error( Person + Task + Rater:Task + Person:Task )"
+  )
+  # Name mapping is identity for the user-supplied nested form
+  expect_equal(out$name_mapping[["Rater:Task"]], "Rater:Task")
+})
+
+test_that("adapt_mom_aov_formula handles user-supplied nested argument", {
+  data(brennan)
+  f <- Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)
+
+  out <- facet:::adapt_mom_aov_formula(
+    f,
+    brennan,
+    nested = list(Rater = "Task")
+  )
+
+  expect_equal(out$name_mapping[["Rater:Task"]], "Rater")
+})
+
+test_that("gstudy mom backend on brennan produces no singular-model warning", {
+  data(brennan)
+  f <- Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)
+
+  # Should not produce "Error() model is singular" warning
+  expect_no_warning(gstudy(f, data = brennan, backend = "mom"))
+})
+
+test_that("gstudy mom on brennan gives Rater row with lme4-matching variance", {
+  skip_if_not_installed("lme4")
+  data(brennan)
+  library(lme4)
+
+  f <- Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)
+
+  vc_mom <- gstudy(f, data = brennan, backend = "mom")$variance_components
+  m_lme4 <- lmer(f, data = brennan, REML = FALSE)
+  vc_lme4 <- as.data.frame(VarCorr(m_lme4))[, c("grp", "vcov")]
+
+  # Variance components have the user-supplied component name "Rater"
+  expect_true("Rater" %in% vc_mom$component)
+  expect_false("Rater:Task" %in% vc_mom$component)
+  expect_false("Task:Rater" %in% vc_mom$component)
+
+  # The Rater row in the mom output should match lme4's Rater variance
+  rater_mom <- vc_mom$var[vc_mom$component == "Rater"]
+  rater_lme4 <- vc_lme4$vcov[vc_lme4$grp == "Rater"]
+  expect_equal(rater_mom, rater_lme4, tolerance = 1e-3)
+})
+
+test_that("gstudy mom on brennan is invariant to the explicit nested form", {
+  data(brennan)
+  f_unnested <- Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)
+  f_nested <- Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task)
+
+  vc_unnested <- gstudy(f_unnested, data = brennan, backend = "mom")$variance_components
+  vc_nested <- gstudy(f_nested, data = brennan, backend = "mom")$variance_components
+
+  # The Person:Task and Residual rows should match exactly
+  expect_equal(
+    vc_unnested$var[vc_unnested$component == "Person:Task"],
+    vc_nested$var[vc_nested$component == "Person:Task"]
+  )
+  expect_equal(
+    vc_unnested$var[vc_unnested$component == "Residual"],
+    vc_nested$var[vc_nested$component == "Residual"]
+  )
+})

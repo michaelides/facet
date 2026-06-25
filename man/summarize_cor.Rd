@@ -4,12 +4,12 @@
 \alias{summarize_cor}
 \title{Summarize Correlation Tibble for Display}
 \usage{
-summarize_cor(cor_tibble, digits = 3)
+summarize_cor(cor_tibble, digits = 4)
 }
 \arguments{
 \item{cor_tibble}{A tibble with columns: dim1, dim2, estimate, se, lower, upper, Rhat, Bulk_ESS, Tail_ESS}
 
-\item{digits}{Number of digits for rounding (default 3).}
+\item{digits}{Number of digits for rounding (default 4).}
 }
 \value{
 A tibble formatted for display.

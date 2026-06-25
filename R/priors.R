@@ -44,7 +44,8 @@ NULL
 #' g <- gstudy(score ~ (1 | person) + (1 | item),
 #'   data = mydata,
 #'   prior = prior,
-#'   backend = "brms"
+#'   backend = "brms",
+#'   iter = 2000, cores = 4, refresh = 1000
 #' )
 #' }
 set_prior <- function(prior, class = "b", coef = "", group = "", resp = "",
@@ -118,7 +119,8 @@ default_prior <- function(object, ...) {
 #' @examples
 #' \dontrun{
 #' prior <- prior(normal(0, 1), class = sd)
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms")
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+#'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 prior <- function(prior, ...) {
   brms::prior(prior, ...)
@@ -146,7 +148,8 @@ prior <- function(prior, ...) {
 #' @examples
 #' \dontrun{
 #' prior <- prior_(~ normal(0, 1), class = "sd")
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms")
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+#'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 prior_ <- function(prior, ...) {
   brms::prior_(prior, ...)
@@ -174,7 +177,8 @@ prior_ <- function(prior, ...) {
 #' @examples
 #' \dontrun{
 #' prior <- prior_string("normal(0, 1)", class = "sd", group = "person")
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms")
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+#'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 prior_string <- function(prior, ...) {
   brms::prior_string(prior, ...)
@@ -201,7 +205,8 @@ prior_string <- function(prior, ...) {
 #' # Start with empty prior and add custom priors
 #' my_prior <- empty_prior()
 #' my_prior <- rbind(my_prior, set_prior("normal(0, 1)", class = "sd", group = "person"))
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = my_prior, backend = "brms")
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = my_prior, backend = "brms",
+#'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 empty_prior <- function() {
   brms::empty_prior()

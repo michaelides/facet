@@ -18,7 +18,8 @@
 #' @export
 #' @examples
 #' # Fit a G-study with lme4 (default) using the brennan dataset
-#' g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+#' g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#'   (1 | Person:Task),
 #'   data = brennan
 #' )
 #'
@@ -30,9 +31,11 @@
 #'
 #' \donttest{
 #' # Fit G-study with brms for Bayesian credible intervals
-#' g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task),
+#' g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#'   (1 | Person:Task),
 #'   data = brennan,
-#'   backend = "brms"
+#'   backend = "brms",
+#'   iter = 2000, cores = 4, refresh = 1000
 #' )
 #'
 #' # Plot with brms (uses posterior credible intervals)

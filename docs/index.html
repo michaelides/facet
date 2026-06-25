@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -99,12 +99,16 @@
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">facet</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Load included Brennan dataset (10 persons, 3 tasks, 12 raters)</span></span>
+<span><span class="co"># Load included Brennan dataset (10 persons, 3 tasks, 4 raters per task)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">brennan</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Conduct a G-study with Persons, Tasks, and Raters</span></span>
-<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span> </span>
-<span>            <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Rater</span><span class="op">)</span>, </span>
+<span><span class="co"># Conduct a G-study. The brennan data is a Person x Task x (Rater:Task)</span></span>
+<span><span class="co"># design with one observation per Person x Rater:Task cell, so the</span></span>
+<span><span class="co"># canonical "all possible variance components" formula has the three</span></span>
+<span><span class="co"># main effects plus the only estimable interaction (Person:Task). The</span></span>
+<span><span class="co"># Person x Rater:Task interaction is confounded with the residual.</span></span>
+<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
+<span>            <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>            data <span class="op">=</span> <span class="va">brennan</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># View variance components</span></span>

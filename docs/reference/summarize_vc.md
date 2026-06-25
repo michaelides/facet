@@ -5,7 +5,7 @@ Creates a summary table of variance components suitable for reporting.
 ## Usage
 
 ``` r
-summarize_vc(vc, digits = 3, scale = c("variance", "sd"))
+summarize_vc(vc, digits = 4, scale = c("variance", "sd"))
 ```
 
 ## Arguments
@@ -16,7 +16,7 @@ summarize_vc(vc, digits = 3, scale = c("variance", "sd"))
 
 - digits:
 
-  Number of decimal places for rounding.
+  Number of decimal places for rounding (default 4).
 
 - scale:
 

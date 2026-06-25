@@ -40,7 +40,15 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
 
   n_dims <- length(dimensions)
 
-  scale_factors <- compute_scale_factors_for_viable(components, n, universe_spec, object_spec)
+  residual_for_scale <- if (!is.null(dstudy_obj$residual_is)) {
+    dstudy_obj$residual_is
+  } else {
+    dstudy_obj$residual_composition
+  }
+  scale_factors <- compute_scale_factors_for_viable(
+    components, n, universe_spec, object_spec,
+    residual_is = residual_for_scale
+  )
 
   # Construct covariance arrays for Haberman formula
   # uni_cov_draws: universe-score covariance (G-study, UNSCALED)
@@ -178,25 +186,25 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
 #' Computes scale factors for multiple variance components.
 #' Universe components always receive a scale factor of 1 (unscaled).
 #' Non-universe components are scaled by the product of non-object facet
-#' sample sizes in that component.
+#' sample sizes in that component. For the residual, `residual_is` is used
+#' to decompose the residual into its constituent facets, and the object
+#' of measurement is excluded from the divisor.
 #'
 #' @param components Character vector of variance component names
 #' @param n Named list of sample sizes
 #' @param universe_spec Universe components specification
 #' @param object_spec Object of measurement specification
+#' @param residual_is Character string specifying residual composition
+#'   (e.g., "Person:Rater"). Used only when `comp == "Residual"`.
 #' @keywords internal
-compute_scale_factors_for_viable <- function(components, n, universe_spec, object_spec) {
+compute_scale_factors_for_viable <- function(components, n, universe_spec, object_spec, residual_is = NULL) {
   scale_factors <- list()
 
   for (comp in components) {
     if (comp %in% universe_spec) {
       scale_factors[[comp]] <- 1
     } else if (comp == "Residual") {
-      sf <- 1
-      for (facet in names(n)) {
-        sf <- sf * n[[facet]]
-      }
-      scale_factors[[comp]] <- sf
+      scale_factors[[comp]] <- compute_residual_divisor(residual_is, n, object_spec)
     } else {
       facets <- parse_component_facets(comp)
       sf <- 1

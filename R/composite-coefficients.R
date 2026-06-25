@@ -468,7 +468,7 @@ calculate_composite_variance_draws <- function(vc_draws, cov_draws, weights, sca
 #'   }
 #'
 #' @keywords internal
-calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n, object, n_provided) {
+calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n, object, n_provided, residual_is = NULL) {
   dimensions <- names(weights)
   components <- names(vc_draws[[1]])
 
@@ -479,7 +479,7 @@ calculate_dstudy_variance_composite <- function(vc_draws, cov_draws, weights, n,
 
   for (comp in components) {
     scale_factor <- compute_component_scale_factor(
-      comp, n, object_spec, n_provided
+      comp, n, object_spec, n_provided, residual_is = residual_is
     )
 
     comp_draws <- calculate_composite_variance_draws(

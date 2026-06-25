@@ -8,7 +8,7 @@ Print Method for mgstudy Objects
 # S3 method for class 'mgstudy'
 print(
   x,
-  digits = 3,
+  digits = 4,
   scale = c("variance", "sd"),
   cor_format = c("long", "matrix"),
   vc_format = c("dimension", "facet"),
@@ -25,7 +25,7 @@ print(
 
 - digits:
 
-  Number of digits to display.
+  Number of digits to display (default 4).
 
 - scale:
 

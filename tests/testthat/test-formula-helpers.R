@@ -402,7 +402,11 @@ test_that("validate_interaction_levels passes for nested designs", {
     task = factor(rep(1:2, each = 12)),
     rater = factor(paste0(rep(1:2, each = 12), ".", rep(1:2, each = 12)))
   )
-  # Rater nested in task - Rater:Task has 4 levels, not 24
+  # Rater labels are unique within each task (e.g. "1.1", "1.2", "2.1", "2.2"),
+  # so rater:task has 4 levels, not 24. The formula uses the nested form here
+  # for the unit test of validate_interaction_levels itself; in canonical G-study
+  # formulas the un-nested form (1 | rater) is preferred when the rater labels
+  # are already unique within the nesting facet.
   f <- score ~ (1 | person) + (1 | task) + (1 | rater:task)
   expect_silent(validate_interaction_levels(f, data, "lme4"))
 })

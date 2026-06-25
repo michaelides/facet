@@ -847,8 +847,9 @@ test_that("Bug 2: composite row CI uses multivariate draws (brms)", {
 
 test_that("Bug 9/10: prmse drops dead ci_method/n_bootstrap parameters", {
   data(brennan)
-  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
-  d <- dstudy(g, n = list(Task = 3))
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
+  d <- dstudy(g, n = list(Task = 3, Rater = 4))
 
   expect_error(prmse(d, ci_method = "delta"), "unused argument")
   expect_error(prmse(d, n_bootstrap = 500), "unused argument")

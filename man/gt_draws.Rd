@@ -97,7 +97,8 @@ columns in each dimension's tibble.
 \examples{
 \dontrun{
 # Univariate gstudy
-g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, backend = "brms")
+g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000)
 draws <- gt_draws(g)
 
 # Filter specific components
@@ -105,7 +106,7 @@ draws <- gt_draws(g, components = c("person", "Residual"))
 
 # Multivariate gstudy - returns named list
 mg <- gstudy(cbind(score1, score2) ~ (1 | person) + (1 | item),
-  data = my_data, backend = "brms")
+  data = my_data, backend = "brms", iter = 2000, cores = 4, refresh = 1000)
 draws <- gt_draws(mg)
 draws$score1  # Access dimension-specific draws
 draws$score2
@@ -115,7 +116,8 @@ draws <- gt_draws(mg, dims = "score1")
 }
 \dontrun{
 # D-study with posterior estimation
-g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, backend = "brms")
+g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000)
 d <- dstudy(g, n = list(item = 10), estimation = "posterior")
 
 # Extract all draws
@@ -126,7 +128,7 @@ draws <- gt_draws(d, what = "coefficients")
 
 # Multivariate - returns named list
 mg <- gstudy(cbind(score1, score2) ~ (1 | person) + (1 | item),
-  data = my_data, backend = "brms")
+  data = my_data, backend = "brms", iter = 2000, cores = 4, refresh = 1000)
 md <- dstudy(mg, n = list(item = 10), estimation = "posterior")
 draws <- gt_draws(md)
 draws$score1  # Per-dimension draws with VAR columns

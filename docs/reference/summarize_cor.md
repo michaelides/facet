@@ -5,7 +5,7 @@ Formats a correlation tibble for printing, similar to summarize_vc.
 ## Usage
 
 ``` r
-summarize_cor(cor_tibble, digits = 3)
+summarize_cor(cor_tibble, digits = 4)
 ```
 
 ## Arguments
@@ -17,7 +17,7 @@ summarize_cor(cor_tibble, digits = 3)
 
 - digits:
 
-  Number of digits for rounding (default 3).
+  Number of digits for rounding (default 4).
 
 ## Value
 

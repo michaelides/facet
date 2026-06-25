@@ -13,14 +13,18 @@ NULL
 #'
 #' Calculates the scaling factor for a variance component based on
 #' the D-study sample sizes. For main effects, divides by n_facet.
-#' For interactions, divides by the product of n for each facet.
+#' For interactions, divides by the product of n for each non-object facet.
+#' Facets in `object_spec` are excluded from the divisor (the object of
+#' measurement is not averaged over).
 #'
 #' @param facets Character vector of facet names in the component.
 #' @param n Named list of sample sizes for each facet.
+#' @param object_spec Character vector of object component names. Facets
+#'   in `object_spec` are excluded from the divisor. Default NULL (no exclusion).
 #' @return The scale factor (numeric).
 #'
 #' @keywords internal
-compute_scale_factor_from_facets <- function(facets, n) {
+compute_scale_factor_from_facets <- function(facets, n, object_spec = NULL) {
   if (length(facets) == 0 || identical(facets, "Residual")) {
     return(1)
   }
@@ -28,7 +32,9 @@ compute_scale_factor_from_facets <- function(facets, n) {
   scale_factor <- 1
   for (facet in facets) {
     if (facet %in% names(n)) {
-      scale_factor <- scale_factor * n[[facet]]
+      if (is.null(object_spec) || !(facet %in% object_spec)) {
+        scale_factor <- scale_factor * n[[facet]]
+      }
     }
   }
   scale_factor
@@ -37,31 +43,34 @@ compute_scale_factor_from_facets <- function(facets, n) {
 #' Compute Scale Factor for a Component
 #'
 #' Computes the scale factor for a variance component.
-#' Used in composite variance calculations.
+#' Used in composite variance calculations. The object of measurement is
+#' always excluded from the divisor (per generalizability theory). For
+#' the residual, `residual_is` is used to decompose the residual into
+#' its constituent facets before computing the divisor.
 #'
 #' @param comp The variance component name.
 #' @param n Named list of sample sizes.
 #' @param object_spec Character vector of object components.
 #' @param n_provided Logical indicating if n was explicitly provided.
+#' @param residual_is Character string specifying residual composition
+#'   (e.g., "Person:Rater"). Used only when `comp == "Residual"`.
 #' @return The scale factor for this component.
 #'
 #' @keywords internal
-compute_component_scale_factor <- function(comp, n, object_spec, n_provided) {
+compute_component_scale_factor <- function(comp, n, object_spec, n_provided, residual_is = NULL) {
   if (comp %in% object_spec) {
     return(1)
   }
 
-  total_n <- if (length(n) > 0) prod(unlist(n)) else 1
-
   if (n_provided && length(n) > 0) {
     if (comp == "Residual") {
-      return(total_n)
+      return(compute_residual_divisor(residual_is, n, object_spec))
     }
 
     comp_facets <- parse_component_facets(comp)
     scale_factor <- 1
     for (f in comp_facets) {
-      if (f %in% names(n)) {
+      if (f %in% names(n) && !(f %in% object_spec)) {
         scale_factor <- scale_factor * n[[f]]
       }
     }
@@ -143,7 +152,7 @@ calculate_dstudy_variance <- function(vc, n, object, aggregation = NULL, n_provi
       is_object = component %in% object_spec,
       is_residual = (component == "Residual"),
       is_interaction = purrr::map_lgl(facets_list, ~ length(.x) > 1),
-      scale_factor = purrr::map_dbl(facets_list, compute_scale_factor_from_facets, n = n_original),
+      scale_factor = purrr::map_dbl(facets_list, compute_scale_factor_from_facets, n = n_original, object_spec = object_spec),
       n_facet = purrr::map_dbl(facets_list, function(flist) {
         if (length(flist) == 1 && flist %in% names(n)) {
           n[[flist]]
@@ -217,8 +226,6 @@ calculate_dstudy_variance <- function(vc, n, object, aggregation = NULL, n_provi
         "scale_factor", "n_facet", "has_additional_agg", "additional_agg_factor",
         "has_agg", "agg_n", "error", "se", "lower", "upper", "sd", "Rhat", "Bulk_ESS", "Tail_ESS")))
   } else {
-    total_n <- if (length(n) > 0) prod(unlist(n)) else 1
-
     if (has_aggregation) {
       d_vc <- d_vc %>%
         mutate(
@@ -227,7 +234,7 @@ calculate_dstudy_variance <- function(vc, n, object, aggregation = NULL, n_provi
             is_object ~ .data$var,
             has_additional_agg ~ .data$var / (scale_factor * additional_agg_factor),
             is_residual & has_agg ~ .data$var / (scale_factor * additional_agg_factor),
-            is_residual ~ .data$var / total_n,
+            is_residual ~ .data$var / scale_factor,
             has_agg & !is_interaction ~ .data$var / (scale_factor * additional_agg_factor),
             has_agg & is_interaction ~ .data$var / (scale_factor * additional_agg_factor),
             is_interaction ~ .data$var / scale_factor,
@@ -248,7 +255,7 @@ calculate_dstudy_variance <- function(vc, n, object, aggregation = NULL, n_provi
           var = case_when(
             is_object ~ .data$var,
             has_agg ~ .data$var / scale_factor,
-            is_residual ~ .data$var / total_n,
+            is_residual ~ .data$var / scale_factor,
             is_interaction ~ .data$var / scale_factor,
             n_facet > 1 ~ .data$var / n_facet,
             TRUE ~ .data$var

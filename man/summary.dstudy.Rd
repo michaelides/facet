@@ -4,14 +4,14 @@
 \alias{summary.dstudy}
 \title{Summary Method for dstudy Objects}
 \usage{
-\method{summary}{dstudy}(object, scale = c("variance", "sd"), digits = 3, sem = FALSE, ...)
+\method{summary}{dstudy}(object, scale = c("variance", "sd"), digits = 4, sem = FALSE, ...)
 }
 \arguments{
 \item{object}{A dstudy object.}
 
 \item{scale}{Scale for displaying results: "variance" (default) or "sd".}
 
-\item{digits}{Number of digits to display.}
+\item{digits}{Number of digits to display (default 4).}
 
 \item{sem}{Logical; if TRUE, include standard errors of measurement
 (sem_rel and sem_abs) in the output. Default is FALSE.}

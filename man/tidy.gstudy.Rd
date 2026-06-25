@@ -5,12 +5,14 @@
 \alias{tidy.mgstudy}
 \title{Tidy Method for gstudy Objects}
 \usage{
-\method{tidy}{gstudy}(x, ...)
+\method{tidy}{gstudy}(x, digits = 4, ...)
 
-\method{tidy}{mgstudy}(x, ...)
+\method{tidy}{mgstudy}(x, digits = 4, ...)
 }
 \arguments{
 \item{x}{An mgstudy object.}
+
+\item{digits}{Number of decimal places for rounding numeric columns (default 4).}
 
 \item{...}{Additional arguments (ignored).}
 }
@@ -20,7 +22,9 @@ A tibble.
 A tibble.
 }
 \description{
-Returns a tidy tibble of variance components.
+Returns a tidy tibble of variance components with numeric columns
+rounded to \code{digits} decimal places (default 4).
 
-Returns a tidy tibble of variance components for multivariate G-studies.
+Returns a tidy tibble of variance components for multivariate G-studies
+with numeric columns rounded to \code{digits} decimal places (default 4).
 }

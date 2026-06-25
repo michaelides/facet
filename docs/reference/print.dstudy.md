@@ -6,7 +6,7 @@ Print Method for dstudy Objects
 
 ``` r
 # S3 method for class 'dstudy'
-print(x, digits = 3, scale = c("variance", "sd"), sem = FALSE, ...)
+print(x, digits = 4, scale = c("variance", "sd"), sem = FALSE, ...)
 ```
 
 ## Arguments
@@ -17,7 +17,7 @@ print(x, digits = 3, scale = c("variance", "sd"), sem = FALSE, ...)
 
 - digits:
 
-  Number of digits to display.
+  Number of digits to display (default 4).
 
 - scale:
 

@@ -10,7 +10,7 @@ data(brennan)
 head(brennan)
 
 ## ----gstudy-------------------------------------------------------------------
-g_obj <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+g_obj <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
   data = brennan)
 

@@ -4,12 +4,15 @@
 \alias{compute_scale_factor_from_facets}
 \title{Compute Scale Factor for D-Study Variance Component}
 \usage{
-compute_scale_factor_from_facets(facets, n)
+compute_scale_factor_from_facets(facets, n, object_spec = NULL)
 }
 \arguments{
 \item{facets}{Character vector of facet names in the component.}
 
 \item{n}{Named list of sample sizes for each facet.}
+
+\item{object_spec}{Character vector of object component names. Facets
+in \code{object_spec} are excluded from the divisor. Default NULL (no exclusion).}
 }
 \value{
 The scale factor (numeric).
@@ -17,6 +20,8 @@ The scale factor (numeric).
 \description{
 Calculates the scaling factor for a variance component based on
 the D-study sample sizes. For main effects, divides by n_facet.
-For interactions, divides by the product of n for each facet.
+For interactions, divides by the product of n for each non-object facet.
+Facets in \code{object_spec} are excluded from the divisor (the object of
+measurement is not averaged over).
 }
 \keyword{internal}

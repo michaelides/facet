@@ -6,7 +6,7 @@ Summary Method for gstudy Objects
 
 ``` r
 # S3 method for class 'gstudy'
-summary(object, scale = c("variance", "sd"), digits = 3, ...)
+summary(object, scale = c("variance", "sd"), digits = 4, ...)
 ```
 
 ## Arguments
@@ -21,7 +21,7 @@ summary(object, scale = c("variance", "sd"), digits = 3, ...)
 
 - digits:
 
-  Number of digits to display (default 3).
+  Number of digits to display (default 4).
 
 - ...:
 

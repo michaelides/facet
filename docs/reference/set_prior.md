@@ -96,7 +96,8 @@ prior <- set_prior("normal(0, 1)", class = "sd", group = "person")
 g <- gstudy(score ~ (1 | person) + (1 | item),
   data = mydata,
   prior = prior,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 } # }
 ```

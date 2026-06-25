@@ -29,6 +29,7 @@ if (FALSE) { # \dontrun{
 # Start with empty prior and add custom priors
 my_prior <- empty_prior()
 my_prior <- rbind(my_prior, set_prior("normal(0, 1)", class = "sd", group = "person"))
-g <- gstudy(score ~ (1 | person), data = mydata, prior = my_prior, backend = "brms")
+g <- gstudy(score ~ (1 | person), data = mydata, prior = my_prior, backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000)
 } # }
 ```

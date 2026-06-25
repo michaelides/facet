@@ -307,44 +307,84 @@ Other decision studies:
 
 ``` r
 # First conduct a G-study using the brennan dataset
-# (Person crossed with Task and Rater)
+# (Person crossed with Task; Rater nested in Task).
+# Canonical "all possible variance components" formula:
 g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+  (1 | Person:Task),
 data = brennan)
-#> Error: Interaction term(s) have as many or more levels than observations, making them confounded with the residual:
-#>  - Person:Rater: 120 levels (120 observations)
-#> 
-#> This occurs when an interaction has a unique combination for each observation, meaning the interaction variance cannot be distinguished from residual variance.
-#> 
-#> Solutions:
-#>  1. Remove the problematic interaction term from your model
-#>  2. Use method = "mom" for ANOVA-based estimation which handles this differently
-#>  3. Use backend = "brms" for Bayesian estimation
-#> 
-#> Note: In a fully crossed design where all facets are crossed with each other, the highest-order interaction is typically confounded with the residual and should not be included.
 
 # D-study with specific sample sizes
 d <- dstudy(g, n = list(Task = 3, Rater = 4))
-#> Error: object 'g' not found
 print(d)
-#> Error: object 'd' not found
+#> Decision Study (D-Study)
+#> ========================
+#> 
+#> Based on G Study with lme4 backend
+#> Object of measurement: Person 
+#> Universe components: Person 
+#> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
+#> Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Task, Person:Rater (Residual) 
+#> 
+#> Sample Sizes:
+#>  Task: 3
+#>  Rater: 4
+#> 
+#> Variance Components:
+#> # A tibble: 5 × 6
+#>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
+#>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
+#> 1 Person      Score       0.473       10.7851     0.473     31.0181
+#> 2 Task        Score       0.3253       7.4173     0.1084     7.1108
+#> 3 Rater       Score       0.6475      14.7639     0.1619    10.6153
+#> 4 Person:Task Score       0.5596      12.7597     0.1865    12.2324
+#> 5 Residual    Score       2.3803      54.2741     0.5951    39.0234
+#> 
+#> Coefficients:
+#>    dim   uni sigma2_delta sigma2_delta_abs     g    phi
+#>  Score 0.473       0.7816            1.052 0.377 0.3102
 
 # D-study exploring multiple sample sizes (sweep)
 d_sweep <- dstudy(g, n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)))
-#> Error: object 'g' not found
 print(d_sweep)
-#> Error: object 'd_sweep' not found
+#> Decision Study (D-Study)
+#> ========================
+#> 
+#> Based on G Study with lme4 backend
+#> Object of measurement: Person 
+#> Universe components: Person 
+#> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
+#> Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Task, Person:Rater (Residual) 
+#> 
+#> Sample Size Sweep (by dimension):
+#> 
+#> Dimension: Score
+#> ---------------------------------------- 
+#> # A tibble: 9 × 8
+#>    Task Rater dim     uni sigma2_delta sigma2_delta_abs     g   phi
+#>   <dbl> <dbl> <chr> <dbl>        <dbl>            <dbl> <dbl> <dbl>
+#> 1     3     2 Score 0.473        1.38             1.81  0.256 0.207
+#> 2     5     2 Score 0.473        1.30             1.69  0.266 0.219
+#> 3    10     2 Score 0.473        1.25             1.60  0.275 0.228
+#> 4     3     4 Score 0.473        0.782            1.05  0.377 0.310
+#> 5     5     4 Score 0.473        0.707            0.934 0.401 0.336
+#> 6    10     4 Score 0.473        0.651            0.845 0.421 0.359
+#> 7     3     8 Score 0.473        0.484            0.673 0.494 0.413
+#> 8     5     8 Score 0.473        0.409            0.555 0.536 0.460
+#> 9    10     8 Score 0.473        0.353            0.467 0.572 0.503
+#> 
 
 # D-study with aggregation (averaging over Raters)
 d_agg <- dstudy(g, n = list(Task = 3, Rater = 4),
   aggregation = "Rater",
-  residual_is = "Person:Task:Rater")
-#> Error: object 'g' not found
+  residual_is = "Person:Task:Rater"
+)
 
 # \donttest{
 # D-study with posterior estimation (requires brms backend)
-g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-  data = brennan, backend = "brms")
+g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task),
+  data = brennan, backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000)
 #> Compiling Stan program...
 #> Trying to compile a simple C file
 #> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c
@@ -361,157 +401,52 @@ g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
 #> 1 error generated.
 #> make: *** [foo.o] Error 1
 #> Start sampling
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
-#> Chain 1: 
-#> Chain 1: Gradient evaluation took 6.1e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.61 seconds.
-#> Chain 1: Adjust your expectations accordingly!
-#> Chain 1: 
-#> Chain 1: 
-#> Chain 1: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 1: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 1: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 1: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 1: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 1: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 1: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 1: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 1: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 1: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 1: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.294 seconds (Warm-up)
-#> Chain 1:                0.275 seconds (Sampling)
-#> Chain 1:                0.569 seconds (Total)
-#> Chain 1: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
-#> Chain 2: 
-#> Chain 2: Gradient evaluation took 1.4e-05 seconds
-#> Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.14 seconds.
-#> Chain 2: Adjust your expectations accordingly!
-#> Chain 2: 
-#> Chain 2: 
-#> Chain 2: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 2: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 2: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 2: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 2: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 2: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 2: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 2: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 2: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 2: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 2: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 2: 
-#> Chain 2:  Elapsed Time: 0.304 seconds (Warm-up)
-#> Chain 2:                0.245 seconds (Sampling)
-#> Chain 2:                0.549 seconds (Total)
-#> Chain 2: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
-#> Chain 3: 
-#> Chain 3: Gradient evaluation took 9e-06 seconds
-#> Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.09 seconds.
-#> Chain 3: Adjust your expectations accordingly!
-#> Chain 3: 
-#> Chain 3: 
-#> Chain 3: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 3: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 3: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 3: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 3: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 3: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 3: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 3: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 3: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 3: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 3: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 3: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 3: 
-#> Chain 3:  Elapsed Time: 0.288 seconds (Warm-up)
-#> Chain 3:                0.246 seconds (Sampling)
-#> Chain 3:                0.534 seconds (Total)
-#> Chain 3: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
-#> Chain 4: 
-#> Chain 4: Gradient evaluation took 1e-05 seconds
-#> Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.1 seconds.
-#> Chain 4: Adjust your expectations accordingly!
-#> Chain 4: 
-#> Chain 4: 
-#> Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
-#> Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
-#> Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
-#> Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
-#> Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
-#> Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-#> Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-#> Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-#> Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-#> Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-#> Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-#> Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
-#> Chain 4: 
-#> Chain 4:  Elapsed Time: 0.321 seconds (Warm-up)
-#> Chain 4:                0.275 seconds (Sampling)
-#> Chain 4:                0.596 seconds (Total)
-#> Chain 4: 
-#> Warning: There were 91 divergent transitions after warmup. See
+#> Warning: There were 39 divergent transitions after warmup. See
 #> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #> to find out why this is a problem and how to eliminate them.
 #> Warning: Examine the pairs() plot to diagnose sampling problems
-#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
-#> Running the chains for more iterations may help. See
-#> https://mc-stan.org/misc/warnings.html#bulk-ess
 #> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
 #> Running the chains for more iterations may help. See
 #> https://mc-stan.org/misc/warnings.html#tail-ess
 d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
-#> Warning: Low bulk effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
-#> Warning: Low tail effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
+#> Warning: Low tail effective sample size (ESS < 400) detected for: Task. The g and phi coefficients cannot be trusted.
 
 # D-study with credible intervals (requires brms backend)
 d_ci <- dstudy(g_brms, n = list(Task = 3, Rater = 4), ci = c("g", "phi"))
-#> Warning: Low bulk effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
-#> Warning: Low tail effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
+#> Warning: Low tail effective sample size (ESS < 400) detected for: Task. The g and phi coefficients cannot be trusted.
 print(d_ci)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G-Study with brms backend
+#> Based on G Study with brms backend
 #> Object of measurement: Person 
 #> Universe components: Person 
-#> Error components for relative error (sigma2_delta): Person:Rater (Residual) 
-#> Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Rater (Residual) 
+#> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
+#> Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Task, Person:Rater (Residual) 
 #> 
 #> Sample Sizes:
 #>  Task: 3
 #>  Rater: 4
 #> 
 #> Variance Components:
-#> # A tibble: 4 × 6
-#>   component dim   var_unscaled pct_unscaled var_scaled pct_scaled
-#>   <chr>     <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person    Score        0.915         12.5      0.915       33.6
-#> 2 Task      Score        2.41          32.8      0.802       29.5
-#> 3 Rater     Score        1.13          15.5      0.284       10.4
-#> 4 Residual  Score        2.88          39.3      0.721       26.5
+#> # A tibble: 5 × 6
+#>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
+#>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
+#> 1 Person      Score       0.6891       9.6062     0.6891    26.9261
+#> 2 Task        Score       2.2899      31.9217     0.7633    29.8254
+#> 3 Rater       Score       0.9688      13.5053     0.2422     9.4638
+#> 4 Person:Task Score       0.6984       9.7358     0.2328     9.0965
+#> 5 Residual    Score       2.5273      35.2311     0.6318    24.6881
 #> 
 #> Coefficients:
 #> # A tibble: 1 × 9
-#>     uni sigma2_delta sigma2_delta_abs     g   phi  g_LL  g_UL phi_LL phi_UL
-#>   <dbl>        <dbl>            <dbl> <dbl> <dbl> <dbl> <dbl>  <dbl>  <dbl>
-#> 1 0.915        0.240             1.33 0.727 0.450 0.367 0.928 0.0580  0.822
+#>     uni sigma2_delta sigma2_delta_abs     g   phi    g_LL  g_UL  phi_LL phi_UL
+#>   <dbl>        <dbl>            <dbl> <dbl> <dbl>   <dbl> <dbl>   <dbl>  <dbl>
+#> 1 0.689        0.865             1.87 0.358 0.254 0.00827 0.763 0.00391  0.655
 
 # Custom probability levels (90% credible interval)
 d_ci_90 <- dstudy(g_brms, n = list(Task = 3, Rater = 4),
   ci = "g", probs = c(0.05, 0.95))
-#> Warning: Low bulk effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
-#> Warning: Low tail effective sample size (ESS < 400) detected for: Task, Rater. The g and phi coefficients cannot be trusted.
+#> Warning: Low tail effective sample size (ESS < 400) detected for: Task. The g and phi coefficients cannot be trusted.
 # }
 ```

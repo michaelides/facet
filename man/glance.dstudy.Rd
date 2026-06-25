@@ -4,16 +4,25 @@
 \alias{glance.dstudy}
 \title{Glance Method for dstudy Objects}
 \usage{
-\method{glance}{dstudy}(x, ...)
+\method{glance}{dstudy}(x, digits = 4, ...)
 }
 \arguments{
 \item{x}{A dstudy object.}
 
+\item{digits}{Number of decimal places for rounding numeric values (default 4).}
+
 \item{...}{Additional arguments (ignored).}
 }
 \value{
-A one-row tibble.
+A tibble of unscaled variance component estimates.
 }
 \description{
-Returns a one-row summary of D-study results.
+Returns the unscaled variance component estimates from a D-study as a
+tibble. For univariate D-studies the result is a one-row tibble with
+one column per variance component, named \code{var_unscaled_<component>}.
+For multivariate D-studies the result is a multi-row tibble with one
+row per variance component and one column per dimension. Covariances
+are not included; "Composite" rows from posterior estimation are
+dropped. Numeric values are rounded to \code{digits} decimal places
+(default 4).
 }

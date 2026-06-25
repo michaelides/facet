@@ -13,7 +13,7 @@ or a user-specified universe."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -124,16 +124,17 @@ and returned in wide format with separate columns per dimension.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Basic usage - object of measurement only</span></span></span>
-<span class="r-in"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">brennan</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span></span>
+<span class="r-in"><span>  <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">brennan</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">latent_scores</span> <span class="op">&lt;-</span> <span class="fu">latent</span><span class="op">(</span><span class="va">g</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">latent_scores</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Person        latent</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1      1  3.559172e-15</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2      2  7.292988e-01</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3      3 -6.077490e-01</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4      4 -6.077490e-01</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5      5  6.685239e-01</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6      6 -9.116235e-01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1      1 -7.895482e-15</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2      2  5.513730e-01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3      3 -4.594775e-01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4      4 -4.594775e-01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5      5  5.054252e-01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6      6 -6.892162e-01</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># With interaction in universe</span></span></span>
 <span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>

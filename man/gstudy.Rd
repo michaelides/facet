@@ -35,7 +35,12 @@ For multivariate models, use brms syntax: \code{mvbind(y1, y2) ~ (1|person)}.}
 \item{nested}{Optional named list specifying nesting relationships.
 Names are nested facets and values are nesting facets.
 For example, \code{list(task = "rater")} means task is nested within rater.
-If NULL (default), nesting is auto-detected from the data structure.}
+If NULL (default), nesting is auto-detected from the data structure.
+For the mom backend, this is used by \code{\link[=adapt_mom_aov_formula]{adapt_mom_aov_formula()}} to rewrite
+the aov Error() decomposition so designs with nested facets (e.g. the
+brennan dataset, where Rater is nested within Task) fit without spurious
+"Error() model is singular" warnings from \code{\link[stats:aov]{stats::aov()}}. The lme4 and
+brms backends do not require this adaptation.}
 
 \item{unbalanced}{Logical indicating whether to enable unbalanced multivariate
 estimation. Default is FALSE. When TRUE:
@@ -97,15 +102,21 @@ mixed effects models. Supports frequentist (lme4), Bayesian (brms), and
 method of moments (mom) backends.
 }
 \examples{
-# Basic univariate G-study with lme4 (default)
+# Basic univariate G-study with lme4 (default).
+# The brennan data is Person x Task x (Rater:Task) with one observation
+# per Person x Rater:Task cell, so the canonical "all possible variance
+# components" formula has the three main effects plus the only estimable
+# interaction (Person:Task); the Person x Rater:Task interaction is
+# confounded with the residual.
 g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+  (1 | Person:Task),
 data = brennan
 )
 
 # G-study with profile confidence intervals
 \dontrun{
-g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task),
+g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
 )
@@ -113,24 +124,28 @@ g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task),
 
 # Method of moments G-study (ANOVA-based)
 g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-  (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+  (1 | Person:Task),
 data = brennan,
 backend = "mom"
 )
 
 \donttest{
 # Bayesian G-study with brms
-g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task),
+g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Bayesian G-study with custom priors
 my_prior <- set_prior("normal(0, 1)", class = "sd", group = "Person")
-g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task),
+g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task),
   data = brennan,
   prior = my_prior,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Multivariate G-study (automatically uses brms)
@@ -138,7 +153,8 @@ g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task),
 b_wide <- tidyr::pivot_wider(brennan, names_from = Task, values_from = Score,
   names_prefix = "Task")
 g_multi <- gstudy(mvbind(Task1, Task2) ~ (1 | Person) + (1 | Rater),
-  data = b_wide
+  data = b_wide,
+  iter = 2000, cores = 4, refresh = 1000
 )
 }
 }

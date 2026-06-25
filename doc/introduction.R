@@ -12,19 +12,25 @@ knitr::opts_chunk$set(
 )
 
 ## ----eval=FALSE---------------------------------------------------------------
+# # Fully crossed design with REPLICATION per cell (e.g. each rater rates
+# # every person on every task on multiple occasions). The three-way
+# # Person:Task:Rater interaction IS estimable here because each cell has
+# # more than one observation.
 # g_crossed <- gstudy(
 #   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater) +
 #     (1 | Person:Task:Rater),
 #   data = crossed_data,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
 # g_nested <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task),
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task),
 #   data = brennan,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 
 ## -----------------------------------------------------------------------------
@@ -42,8 +48,12 @@ data(rajaratnam)
 head(rajaratnam)
 
 ## -----------------------------------------------------------------------------
-# Simple G-study with default REML backend
-g <- gstudy(Score ~ (1 | Person) + (1 | Task),
+# Canonical G-study for the brennan data: all main effects plus
+# the only estimable interaction (Person:Task). The Person x Rater:Task
+# interaction is confounded with the residual and absorbed into the
+# error term.
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+              (1 | Person:Task),
             data = brennan)
 
 # Print basic results
@@ -70,9 +80,12 @@ tidy(g) %>%
 
 ## -----------------------------------------------------------------------------
 # G-study with profile likelihood confidence intervals
-# Note: Rater is nested within Task, so we use Rater:Task notation
+# Note: (1 | Rater) and (1 | Rater:Task) are equivalent in the brennan data
+# because the 12 Rater labels are unique within each Task. We use the
+# un-nested form so the formula reads as "all main effects + the only
+# estimable interaction".
 g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -95,7 +108,7 @@ summary(g_boot)
 ## -----------------------------------------------------------------------------
 # Fit the same model with both methods
 g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -116,9 +129,10 @@ bind_rows(profile_ci, boot_ci) %>%
   mutate(across(c(var, lower, upper), ~ sprintf("%.3f", .x)))
 
 ## -----------------------------------------------------------------------------
-# Method of moments G-study with nested design (Rater nested in Task)
+# Method of moments G-study with nested design (Rater nested in Task;
+# (1 | Rater) and (1 | Rater:Task) are equivalent here)
 g_mom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "mom"
@@ -128,8 +142,9 @@ summary(g_mom)
 
 ## -----------------------------------------------------------------------------
 # Items nested within subtests (rajaratnam dataset)
+# (1 | ItemId) and (1 | Item:Subtest) are exactly equivalent here.
 g_nested <- gstudy(
-  Score ~ (1 | Person) + (1 | Subtest) + (1 | Item:Subtest) +
+  Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) +
     (1 | Person:Subtest),
   data = rajaratnam,
   backend = "mom"
@@ -156,10 +171,11 @@ summary(g_nested)
 ## ----eval=FALSE---------------------------------------------------------------
 # # Bayesian G-study with default priors
 # g_bayes <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task),
 #   data = brennan,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # print(g_bayes)
@@ -167,22 +183,23 @@ summary(g_nested)
 
 ## ----eval=FALSE---------------------------------------------------------------
 # g_full <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
 #   chains = 4,        # Number of chains
-#   iter = 4000,       # Total iterations per chain
+#   iter = 2000,       # Total iterations per chain
 #   warmup = 1000,     # Warmup iterations
 #   thin = 1,          # Thinning interval
 #   cores = 4,         # Parallel processing
+#   refresh = 1000,    # Progress message frequency
 #   seed = 123         # Reproducibility
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
 # # View default priors for a model
 # library(brms)
-# default_prior(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+# default_prior(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #                 (1 | Person:Task),
 #               data = brennan)
 # 
@@ -194,8 +211,8 @@ summary(g_nested)
 #   # Task variance: exponential with rate 1
 #   set_prior("exponential(1)", class = "sd", group = "Task"),
 # 
-#   # Rater-within-Task variance: exponential with rate 0.5 (more spread)
-#   set_prior("exponential(0.5)", class = "sd", group = "Rater:Task"),
+#   # Rater variance: exponential with rate 0.5 (more spread)
+#   set_prior("exponential(0.5)", class = "sd", group = "Rater"),
 # 
 #   # Person:Task interaction: exponential with rate 1
 #   set_prior("exponential(1)", class = "sd", group = "Person:Task"),
@@ -205,11 +222,12 @@ summary(g_nested)
 # )
 # 
 # g_custom <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
-#   prior = my_prior
+#   prior = my_prior,
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
@@ -219,7 +237,8 @@ summary(g_nested)
 #   Score ~ (1 | Person) + (1 | Task),
 #   data = brennan,
 #   backend = "brms",
-#   prior = prior_weak
+#   prior = prior_weak,
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # # More informative prior
@@ -228,7 +247,8 @@ summary(g_nested)
 #   Score ~ (1 | Person) + (1 | Task),
 #   data = brennan,
 #   backend = "brms",
-#   prior = prior_info
+#   prior = prior_info,
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # # Compare posterior means
@@ -243,7 +263,7 @@ g_weak_run <- gstudy(
   data = brennan,
   backend = "brms",
   prior = prior_weak_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
 
 prior_info_run <- set_prior("exponential(1)", class = "sd")
@@ -252,7 +272,7 @@ g_info_run <- gstudy(
   data = brennan,
   backend = "brms",
   prior = prior_info_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
 
 # Side-by-side comparison
@@ -441,7 +461,8 @@ summary(d_agg)
 # g_brms <- gstudy(
 #   Score ~ (1 | Person) + (1 | Task),
 #   data = brennan,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # # D-study with 95% credible intervals
@@ -504,7 +525,8 @@ summary(d_agg)
 # g_mv <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
 #   data = crossed_wide,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # summary(g_mv)
@@ -531,7 +553,8 @@ summary(d_agg)
 # g_mv <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
 #   data = crossed_wide,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # # D-study with default equal weights
@@ -583,7 +606,8 @@ summary(d_agg)
 # g_mv_wide <- gstudy(
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
 #   data = crossed_wide,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
@@ -600,10 +624,11 @@ summary(d_agg)
 # g_mv_long <- gstudy(
 #   bf(Score ~ 0 + Subtest +
 #          (0 + Subtest | r | Person) +
-#          (0 + Subtest || Item)),
+#          (0 + Subtest || ItemId)),
 #   sigma ~ 0 + Subtest,
 #   data = rajaratnam,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
@@ -651,7 +676,7 @@ summary(d_agg)
 #   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
 #   data = crossed_wide,
 #   backend = "brms",
-#   chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+#   chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 # )
 # 
 # # Print the wide-format variance components
@@ -720,14 +745,16 @@ summary(d_agg)
 # library(brms)
 # 
 # # Multivariate G-study with items nested within subtests
-# # Note: This uses long-format specification
+# # Note: This uses long-format specification with the ItemId column
 # g_mv <- gstudy(
-#   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
+#   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
 #      sigma ~ 0 + Subtest),
 #   data = rajaratnam,
 #   backend = "brms",
 #   chains = 2,
-#   iter = 1000
+#   iter = 2000,
+#   cores = 4,
+#   refresh = 1000
 # )
 # 
 # # D-study computing VAR
@@ -773,10 +800,11 @@ summary(d_agg)
 # library(brms)
 # 
 # g_long <- gstudy(
-#   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
+#   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
 #      sigma ~ 0 + Subtest),
 #   data = rajaratnam,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # # Check detection
@@ -904,9 +932,9 @@ brennan %>%
     n_raters = n_distinct(Rater)
   )
 
-# 2. Conduct G-study with profile CIs (using nested design)
+# 2. Conduct G-study with profile CIs (canonical formula)
 g_full <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -925,7 +953,7 @@ tidy(g_full) %>%
 
 # 4. Conduct D-study to optimize design
 # Current design: 3 tasks, 4 raters per task
-d_current <- dstudy(g_full, n = list(Task = 3, `Rater:Task` = 4))
+d_current <- dstudy(g_full, n = list(Task = 3, Rater = 4))
 cat("Current design G:", d_current$coefficients$g, "\n")
 cat("Current design Phi:", d_current$coefficients$phi, "\n")
 
@@ -934,7 +962,7 @@ d_explore <- dstudy(
   g_full,
   n = list(
     Task = c(1, 2, 3, 5, 10),
-    `Rater:Task` = c(1, 2, 4, 8, 12)
+    Rater = c(1, 2, 4, 8, 12)
   )
 )
 
@@ -950,15 +978,15 @@ plot(d_explore, type = "sweep")
 # Optimal design: minimum resources for G >= 0.80
 optimal <- tidy(d_explore) %>%
   filter(g >= 0.80) %>%
-  arrange(Task * `Rater:Task`) %>%
+  arrange(Task * Rater) %>%
   slice(1)
 
 print(optimal)
 
 ## -----------------------------------------------------------------------------
-# G-study with nested design (Raters nested within Task)
+# G-study with the canonical brennan formula
 g_3f <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan
 )
@@ -966,13 +994,12 @@ g_3f <- gstudy(
 summary(g_3f)
 
 # D-study: what if we used 5 tasks with 2 raters each?
-# Note: Use backticks for nested facet names in dstudy
-d_3f <- dstudy(g_3f, n = list(Task = 5, `Rater:Task` = 2))
+d_3f <- dstudy(g_3f, n = list(Task = 5, Rater = 2))
 
 summary(d_3f)
 
 # Compare with original design
-d_orig <- dstudy(g_3f, n = list(Task = 3, `Rater:Task` = 4))
+d_orig <- dstudy(g_3f, n = list(Task = 3, Rater = 4))
 
 cat("Original (3 tasks, 4 raters/task): G =", d_orig$coefficients$g, "\n")
 cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
@@ -1038,10 +1065,12 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # 
 # # Fit alternative models
 # g_simple <- gstudy(Score ~ (1 | Person) + (1 | Task),
-#                    data = brennan, backend = "brms")
-# g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#                    data = brennan, backend = "brms",
+#                    iter = 2000, cores = 4, refresh = 1000)
+# g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #                    (1 | Person:Task),
-#                  data = brennan, backend = "brms")
+#                  data = brennan, backend = "brms",
+#                  iter = 2000, cores = 4, refresh = 1000)
 # 
 # # LOO comparison
 # loo_simple <- loo(g_simple$model)
@@ -1060,7 +1089,8 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # g_missing <- gstudy(
 #   Score ~ (1 | Person) + (1 | Task),
 #   data = data_with_missing,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
@@ -1069,7 +1099,8 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 #   bf(Score ~ (1 | Person) + (1 | Task),
 #      family = student()),
 #   data = brennan,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 
 ## ----eval=FALSE---------------------------------------------------------------
@@ -1108,10 +1139,11 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # 
 # # a) Bayesian G-study
 # g_bayes <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task),
 #   data = brennan,
-#   backend = "brms"
+#   backend = "brms",
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # # b) Posterior summaries
@@ -1119,7 +1151,7 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # 
 # # c) Compare to REML
 # g_reml <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task),
 #   data = brennan,
 #   backend = "lme4"
@@ -1138,18 +1170,19 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # custom_prior <- c(
 #   set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
 #   set_prior("cauchy(0, 2)", class = "sd", group = "Task"),
-#   set_prior("cauchy(0, 2)", class = "sd", group = "Rater:Task"),
+#   set_prior("cauchy(0, 2)", class = "sd", group = "Rater"),
 #   set_prior("cauchy(0, 2)", class = "sd", group = "Person:Task"),
 #   set_prior("cauchy(0, 2)", class = "sigma")
 # )
 # 
 # # b) Fit with custom priors
 # g_custom <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
-#   prior = custom_prior
+#   prior = custom_prior,
+#   iter = 2000, cores = 4, refresh = 1000
 # )
 # 
 # # Compare
@@ -1172,18 +1205,20 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 ## ----eval=FALSE---------------------------------------------------------------
 # # a) G-study
 # g_ex3 <- gstudy(
-#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+#   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #     (1 | Person:Task),
 #   data = brennan,
 #   backend = "brms",
 #   chains = 4,
-#   iter = 4000
+#   iter = 2000,
+#   cores = 4,
+#   refresh = 1000
 # )
 # 
 # # b) D-study sweep
 # d_ex3 <- dstudy(
 #   g_ex3,
-#   n = list(Task = 2:5, `Rater:Task` = 1:3),
+#   n = list(Task = 2:5, Rater = 1:3),
 #   ci = c("g", "phi")
 # )
 # 
@@ -1203,12 +1238,14 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # g_mv_ex4 <- gstudy(
 #   bf(Score ~ 0 + Subtest +
 #          (0 + Subtest | r | Person) +
-#          (0 + Subtest || Item)),
+#          (0 + Subtest || ItemId)),
 #   sigma ~ 0 + Subtest,
 #   data = rajaratnam,
 #   backend = "brms",
 #   chains = 2,
-#   iter = 2000
+#   iter = 2000,
+#   cores = 4,
+#   refresh = 1000
 # )
 # 
 # # b) VAR with credible intervals
@@ -1231,12 +1268,18 @@ cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 # prior_mod <- set_prior("cauchy(0, 1)", class = "sd")
 # prior_strong <- set_prior("exponential(2)", class = "sd")
 # 
-# g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task),
-#                  data = brennan, backend = "brms", prior = prior_weak)
-# g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task),
-#                 data = brennan, backend = "brms", prior = prior_mod)
-# g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task),
-#                    data = brennan, backend = "brms", prior = prior_strong)
+# g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#                  (1 | Person:Task),
+#                  data = brennan, backend = "brms", prior = prior_weak,
+#                  iter = 2000, cores = 4, refresh = 1000)
+# g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#                 (1 | Person:Task),
+#                 data = brennan, backend = "brms", prior = prior_mod,
+#                 iter = 2000, cores = 4, refresh = 1000)
+# g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#                    (1 | Person:Task),
+#                    data = brennan, backend = "brms", prior = prior_strong,
+#                    iter = 2000, cores = 4, refresh = 1000)
 # 
 # # b) Compare posteriors
 # library(ggplot2)

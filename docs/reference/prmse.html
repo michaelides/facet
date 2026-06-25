@@ -15,7 +15,7 @@ For univariate models, returns the G and Phi coefficients as PRMSE metrics."></h
 
     <a class="navbar-brand me-2" href="../index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -382,7 +382,8 @@ should be verified before being cited in published work.</p>
 <span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/paul-buerkner/brms" class="external-link">brms</a></span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">g_mv</span> <span class="op">&lt;-</span> <span class="fu"><a href="gstudy.html">gstudy</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="bf.html">bf</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">+</span> <span class="op">(</span><span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">|</span> <span class="va">r</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">data</span>, backend <span class="op">=</span> <span class="st">"brms"</span></span></span>
+<span class="r-in"><span>  data <span class="op">=</span> <span class="va">data</span>, backend <span class="op">=</span> <span class="st">"brms"</span>,</span></span>
+<span class="r-in"><span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">d_mv</span> <span class="op">&lt;-</span> <span class="fu"><a href="dstudy.html">dstudy</a></span><span class="op">(</span><span class="va">g_mv</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Person <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">prmse</span><span class="op">(</span><span class="va">d_mv</span>, ci <span class="op">=</span> <span class="st">"prmse"</span><span class="op">)</span> <span class="co"># Returns point estimates with credible intervals</span></span></span>

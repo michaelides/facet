@@ -196,6 +196,109 @@ The variance components are:
   variance
 - $`\sigma^2_e`$ (residual): Unexplained variance
 
+#### Specifying All Possible Variance Components
+
+A well-specified G-study model contains **every main-effect random
+factor** and **every estimable interaction** between those factors—no
+more and no less. This is the rule we follow throughout the **facet**
+package and the rule that every example in this vignette obeys. Two
+practical subtleties determine which interactions are estimable in a
+given dataset:
+
+1.  **Interactions confounded with the residual must be omitted.** When
+    an interaction has as many unique combinations as observations
+    (i.e., one observation per cell), the interaction is algebraically
+    indistinguishable from the residual error. The `lme4` backend will
+    refuse to fit such a model, and the `mom` and `brms` backends will
+    silently absorb that interaction into the residual. The correct
+    specification is to leave it out of the formula. In every built-in
+    dataset that has one observation per fully crossed cell, the
+    highest-order interaction is therefore omitted from the canonical
+    formula.
+
+2.  **Nested random effects can be written either way when labels are
+    unique.** If facet $`A`$ is nested in facet $`B`$ and the $`A`$
+    labels are already unique within each level of $`B`$ (e.g., “Item 1”
+    in Subtest 1 is a different item from “Item 1” in Subtest 2), then
+    `(1 | A)` and `(1 | A:B)` produce the same fitted model. We use the
+    un-nested form in canonical formulas because it makes the “all main
+    effects + all estimable interactions” structure more transparent and
+    lets
+    [`dstudy()`](https://github.com/yourorg/facet/reference/dstudy.md)
+    refer to the facet by a single, unbackticked name.
+
+**Worked example 1 (`brennan` data).** The `brennan` data is a Person
+$`\times`$ Task $`\times`$ (Rater:Task) design with one observation per
+Person $`\times`$ Rater:Task cell. The canonical formula is:
+
+``` r
+
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+              (1 | Person:Task),
+            data = brennan)
+```
+
+Each term is interpretable: `Person` is the universe-score variance,
+`Task` is task-difficulty variance, `Rater` is within-task
+rater-leniency variance (the 12 `Rater` labels are unique to each task,
+so `(1 | Rater)` and `(1 | Rater:Task)` are equivalent), and
+`Person:Task` is the person-by-task interaction. The Person $`\times`$
+Rater:Task interaction is **not** in the formula because each Person
+$`\times`$ Rater:Task cell has a single observation, so that effect is
+confounded with the residual and is absorbed into the error term.
+
+**Worked example 2 (`rajaratnam` data).** The `rajaratnam` data is a
+Person $`\times`$ Subtest $`\times`$ (Item:Subtest) design with one
+observation per Person $`\times`$ Item:Subtest cell. The dataset ships
+with both an `Item` column (the original 4-level Rajaratnam et
+al. (1965) factor, whose labels are reused across subtests) and an
+`ItemId` column (an 8-level disambiguated factor, formed as
+`paste(Subtest, Item, sep = ".")`, e.g. “1.1”, “1.2”, “2.1”, “2.2”,
+“2.3”, “2.4”, “3.1”, “3.2”). The canonical formula uses `ItemId` so the
+within-subtest nesting of items is visible in the formula:
+
+``` r
+
+g <- gstudy(Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) +
+              (1 | Person:Subtest),
+            data = rajaratnam)
+```
+
+Because `ItemId` is unique within `Subtest`, `(1 | ItemId)` and
+`(1 | Item:Subtest)` are exactly equivalent random-effect
+specifications. The Person $`\times`$ Item:Subtest interaction is
+**not** in the formula because each Person $`\times`$ Item:Subtest cell
+has a single observation, so that effect is confounded with the residual
+and is absorbed into the error term.
+
+**Worked example 3 (fully crossed Person $`\times`$ Task $`\times`$
+Rater).** If every rater rates every person on every task (one
+observation per cell), the canonical formula is:
+
+``` r
+
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+              (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+            data = fully_crossed_data)
+```
+
+All three main effects and all three two-way interactions are estimable;
+the three-way `Person:Task:Rater` interaction is confounded with the
+residual and is therefore omitted.
+
+**Why this rule matters.** Under-specifying a G-study (omitting an
+estimable interaction) is a form of model mis-specification: the omitted
+variance is silently absorbed by the included terms, biasing the
+variance-component estimates and the G/Phi coefficients computed from
+them. Cronbach, Gleser, Nanda, & Rajaratnam (1972) and Brennan (2001)
+are emphatic on this point—a properly specified G-theory model includes
+every estimable interaction by design. Over-specifying (adding a
+confounded interaction) is detected and rejected by `lme4`; with `mom`
+or `brms` it is silently absorbed into the residual, which is harmless
+but obscures the model structure. The canonical formulas in this
+vignette always take the middle path: every estimable interaction is
+present, and only those.
+
 #### Relative and Absolute Error
 
 G-theory distinguishes between two types of measurement error:
@@ -364,6 +467,7 @@ components.
 (balanced design). Each dimension is a separate column:
 
 ``` r
+
 # Wide format: Task1, Task2, Task3 as separate columns
 gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater), data = data_wide)
 ```
@@ -372,9 +476,11 @@ gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater), data = data_wide)
 (unbalanced designs). A single score column with a dimension indicator:
 
 ``` r
+
 # Long format: single Score column with Subtest indicator
-gstudy(bf(Score ~ 0 + Subtest + (0+Subtest|r|Person), sigma ~ 0 + Subtest), 
-       data = data_long, backend = "brms")
+gstudy(bf(Score ~ 0 + Subtest + (0+Subtest|r|Person), sigma ~ 0 + Subtest),
+       data = data_long, backend = "brms",
+       iter = 2000, cores = 4, refresh = 1000)
 ```
 
 Long-format models are more flexible but require Bayesian estimation.
@@ -500,7 +606,13 @@ For item variance:
 
 #### EMS for Three-Facet Designs
 
-For a person $`\times`$ item $`\times`$ rater design
+> **Note.** The EMS table below is for a **fully crossed** Person
+> $`\times`$ Item $`\times`$ Rater design in which every rater rates
+> every person on every item. The `brennan` dataset analyzed later in
+> this vignette is *not* fully crossed (Rater is nested within Task), so
+> its EMS table is different; see the next subsection.
+
+For a fully crossed person $`\times`$ item $`\times`$ rater design
 ($`p \times i \times r`$), the EMS becomes more complex:
 
 | Source | EMS |
@@ -515,6 +627,40 @@ For a person $`\times`$ item $`\times`$ rater design
 
 The solving procedure follows the same pattern, starting from the
 three-way interaction.
+
+#### EMS for the Nested brennan Design
+
+The `brennan` data is a Person $`\times`$ Task $`\times`$ (Rater:Task)
+design — Person is crossed with Task, but Rater is nested within Task,
+with $`n_r`$ raters per task. The model is
+
+``` math
+X_{ptr} = \mu + \tau_p + \alpha_t + \rho_{r(t)} + (\tau\alpha)_{pt} + e_{ptr}
+```
+
+where $`e_{ptr}`$ absorbs the Person $`\times`$ Rater:Task interaction
+(each cell has a single observation, so that effect is confounded with
+the residual). The EMS table for a balanced nested design with $`n_p`$
+persons, $`n_t`$ tasks, and $`n_r`$ raters per task is:
+
+| Source | df | EMS |
+|----|----|----|
+| Person ($`p`$) | $`n_p - 1`$ | $`\sigma^2_e + n_r \sigma^2_{pt} + n_t n_r \sigma^2_p`$ |
+| Task ($`t`$) | $`n_t - 1`$ | $`\sigma^2_e + n_r \sigma^2_{pt} + n_p \sigma^2_{r:t} + n_p n_r \sigma^2_t`$ |
+| Rater within Task ($`r:t`$) | $`n_t (n_r - 1)`$ | $`\sigma^2_e + \sigma^2_{pt} + n_p \sigma^2_{r:t}`$ |
+| Person $`\times`$ Task ($`pt`$) | $`(n_p - 1)(n_t - 1)`$ | $`\sigma^2_e + n_r \sigma^2_{pt}`$ |
+| Residual ($`e \equiv p \times r:t`$) | $`n_t (n_p - 1)(n_r - 1)`$ | $`\sigma^2_e`$ |
+
+Solving the EMS equations (Henderson’s Method I) for the nested design,
+in the same bottom-up order:
+
+``` math
+\hat{\sigma}^2_e = MS_e, \qquad \hat{\sigma}^2_{pt} = \frac{MS_{pt} - MS_e}{n_r}, \qquad \hat{\sigma}^2_{r:t} = \frac{MS_{r:t} - MS_e - \hat{\sigma}^2_{pt}}{n_p}
+```
+
+``` math
+\hat{\sigma}^2_p = \frac{MS_p - n_r \hat{\sigma}^2_{pt} - MS_e}{n_t n_r}, \qquad \hat{\sigma}^2_t = \frac{MS_t - n_p \hat{\sigma}^2_{r:t} - n_r \hat{\sigma}^2_{pt} - MS_e}{n_p n_r}
+```
 
 #### EMS for Nested Designs
 
@@ -715,8 +861,11 @@ The `backend = "mom"` option uses R’s
 strata:
 
 ``` r
-# Method of moments G-study
-g_mom <- gstudy(Score ~ (1|Person) + (1|Task), 
+
+# Method of moments G-study (canonical brennan formula; see
+# "Specifying All Possible Variance Components")
+g_mom <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                (1|Person:Task),
                 data = brennan, backend = "mom")
 ```
 
@@ -845,16 +994,21 @@ The default `backend = "lme4"` uses
 [`lme4::lmer()`](https://rdrr.io/pkg/lme4/man/lmer.html) for estimation:
 
 ``` r
-# REML G-study (default)
-g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater), 
+
+# REML G-study (default; canonical brennan formula; see
+# "Specifying All Possible Variance Components")
+g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                 (1|Person:Task),
                  data = brennan)
 
 # With profile likelihood CIs
-g_profile <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater), 
+g_profile <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                    (1|Person:Task),
                     data = brennan, ci_method = "profile")
 
 # With bootstrap CIs
-g_boot <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater), 
+g_boot <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                 (1|Person:Task),
                  data = brennan, ci_method = "boot", nsim = 100)
 ```
 
@@ -915,15 +1069,40 @@ BUGS/JAGS implementations.
 #### Full Crossed Designs with Bayesian Estimation
 
 In crossed designs where all facet combinations are observed, a properly
-specified G-theory model includes all relevant interaction terms. For
-example, a Person $`\times`$ Task $`\times`$ Rater design:
+specified G-theory model includes all *estimable* interaction terms. For
+example, a fully crossed Person $`\times`$ Task $`\times`$ Rater design
+with multiple observations per Person $`\times`$ Task $`\times`$ Rater
+cell would include all two-way and three-way interactions:
 
 ``` r
+
+# Fully crossed design with REPLICATION per cell (e.g. each rater rates
+# every person on every task on multiple occasions). The three-way
+# Person:Task:Rater interaction IS estimable here because each cell has
+# more than one observation.
 g_crossed <- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-    (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+    (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater) +
+    (1 | Person:Task:Rater),
+  data = crossed_data,
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
+)
+```
+
+The `brennan` dataset is **not** such a design: it is Rater nested
+within Task with one observation per Person $`\times`$ Rater:Task cell,
+so the three-way interaction is confounded with the residual and is
+absorbed into the error term. For `brennan`, the canonical Bayesian
+specification (per “Specifying All Possible Variance Components”) is:
+
+``` r
+
+g_nested <- gstudy(
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -1076,23 +1255,33 @@ The `backend = "brms"` option uses
 compiles models to Stan:
 
 ``` r
-# Bayesian G-study with default priors
-g_brms <- gstudy(Score ~ (1|Person) + (1|Task), 
-                 data = brennan, backend = "brms")
+
+# Bayesian G-study with default priors (canonical brennan formula; see
+# "Specifying All Possible Variance Components")
+g_brms <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                 (1|Person:Task),
+                 data = brennan, backend = "brms",
+                 iter = 2000, cores = 4, refresh = 1000)
 
 # With custom priors
 library(brms)
 my_prior <- c(
   set_prior("exponential(1)", class = "sd", group = "Person"),
   set_prior("exponential(0.5)", class = "sd", group = "Task"),
+  set_prior("exponential(1)", class = "sd", group = "Rater"),
+  set_prior("exponential(1)", class = "sd", group = "Person:Task"),
   set_prior("exponential(1)", class = "sigma")
 )
-g_custom <- gstudy(Score ~ (1|Person) + (1|Task), 
-                   data = brennan, backend = "brms", prior = my_prior)
+g_custom <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                   (1|Person:Task),
+                   data = brennan, backend = "brms", prior = my_prior,
+                   iter = 2000, cores = 4, refresh = 1000)
 
-# Multivariate Bayesian G-study
-g_mv <- gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater), 
-               data = brennan_wide, backend = "brms")
+# Multivariate Bayesian G-study (requires a fully crossed design;
+# see the `crossed_wide` data defined in the Multivariate G-Study section)
+g_mv <- gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater),
+               data = crossed_wide, backend = "brms",
+               iter = 2000, cores = 4, refresh = 1000)
 ```
 
 The implementation:
@@ -1121,6 +1310,7 @@ Bayesian estimation is particularly valuable when:
 The Bayesian backend requires additional packages:
 
 ``` r
+
 # Core package
 library(facet)
 
@@ -1203,6 +1393,7 @@ zero.**
 **Regularizing Priors** (code examples):
 
 ``` r
+
 # Weakly informative (recommended for most applications)
 prior_weak <- c(
   set_prior("cauchy(0, 2)", class = "sd"),
@@ -1234,6 +1425,7 @@ uninformative:
 Or more informative if the scale of measurement is known:
 
 ``` r
+
 # If scores are expected around 5 on a 1-10 scale
 prior_mean <- set_prior("normal(5, 2)", class = "Intercept")
 ```
@@ -1254,6 +1446,7 @@ reasons to use Bayesian estimation when you need defensible uncertainty
 quantification for reliability coefficients.
 
 ``` r
+
 # If scores are expected around 5 on a 1-10 scale
 prior_mean <- set_prior("normal(5, 2)", class = "Intercept")
 ```
@@ -1345,6 +1538,7 @@ G-theory applications for English Language Learner assessment.
 ### Installation
 
 ``` r
+
 # Install from GitHub
 # install.packages("devtools")
 devtools::install_github("michaelides/facet")
@@ -1366,6 +1560,7 @@ methods require the broom package to be loaded.
 The facet package includes two classic G-theory datasets:
 
 ``` r
+
 library(facet)
 library(broom)
 library(dplyr)
@@ -1385,62 +1580,113 @@ head(brennan)
 # Items nested within Subtest
 data(rajaratnam)
 head(rajaratnam)
-#>   Person Subtest Item Score
-#> 1      1       1    1     4
-#> 2      2       1    1     2
-#> 3      3       1    1     2
-#> 4      4       1    1     1
-#> 5      5       1    1     3
-#> 6      6       1    1     1
+#>   Person Subtest Item ItemId Score
+#> 1      1       1    1    1.1     4
+#> 2      2       1    1    1.1     2
+#> 3      3       1    1    1.1     2
+#> 4      4       1    1    1.1     1
+#> 5      5       1    1    1.1     3
+#> 6      6       1    1    1.1     1
 ```
 
-The **brennan** dataset contains scores for 10 persons across 3 tasks
-and 12 raters in a fully crossed design ($`p \times t \times r`$). This
-is ideal for demonstrating crossed designs.
+The **brennan** dataset contains scores for 10 persons across 3 tasks,
+with a panel of 4 raters nested within each task (12 raters in total).
+The design is $`p \times t \times (r:t)`$: Person is crossed with Task,
+and Rater is nested within Task (raters 1–4 only see Task 1, raters 5–8
+only see Task 2, and raters 9–12 only see Task 3). This is ideal for
+demonstrating nested designs.
+
+> **Design note (`brennan`).** The canonical G-study formula for the
+> brennan data (per the rule in “Specifying All Possible Variance
+> Components”) is
+>
+>     Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)
+>
+> The four estimable random-effect variances are
+> $`\sigma^2_{\text{Person}}`$ (universe-score variance),
+> $`\sigma^2_{\text{Task}}`$ (task-difficulty variance),
+> $`\sigma^2_{\text{Rater}}`$ (within-task rater-leniency variance,
+> equivalent to $`\sigma^2_{\text{Rater:Task}}`$ because the 12 `Rater`
+> labels are unique within each `Task`), and
+> $`\sigma^2_{\text{Person:Task}}`$ (person-by-task interaction). The
+> residual absorbs the person-by-rater:task interaction (each Person
+> $`\times`$ Rater:Task cell has a single observation, so that effect is
+> confounded with the residual). Formally `(1 | Rater)` and
+> `(1 | Rater:Task)` produce the same fitted model here—we use
+> `(1 | Rater)` so the formula reads as “all main effects + the only
+> estimable interaction” and so that downstream
+> [`dstudy()`](https://github.com/yourorg/facet/reference/dstudy.md)
+> calls can refer to the facet by the simple name `Rater`.
 
 The **rajaratnam** dataset contains scores for 8 persons across 3
-subtests, with 4 items nested within each subtest. This is ideal for
-demonstrating nested designs.
+subtests, with items nested within subtest. The dataset ships with two
+item-related columns: the original `Item` factor (4 levels, with labels
+reused across subtests) and a disambiguated `ItemId` factor (8 levels,
+formed as `paste(Subtest, Item, sep = ".")`). The `ItemId` column is
+what the canonical G-study formula uses, because it makes the
+within-subtest nesting of items visible in the formula. Because `ItemId`
+is unique within `Subtest`, `(1 | ItemId)` and `(1 | Item:Subtest)` are
+exactly equivalent random-effect specifications—we use `(1 | ItemId)`
+for the same reason we use `(1 | Rater)` for `brennan`: it makes the
+“all main effects + the only estimable interaction” structure explicit
+and lets
+[`dstudy()`](https://github.com/yourorg/facet/reference/dstudy.md) refer
+to the facet as `ItemId = n_items`. This is ideal for demonstrating
+nested designs.
 
 ### Basic G-Study
 
 A G-study estimates variance components for each facet in the
 measurement design. The formula syntax follows **lme4** conventions,
-specifying random effects with `(1 | facet)`.
+specifying random effects with `(1 | facet)`. We use the canonical
+brennan formula (per “Specifying All Possible Variance Components”):
 
 ``` r
-# Simple G-study with default REML backend
-g <- gstudy(Score ~ (1 | Person) + (1 | Task),
+
+# Canonical G-study for the brennan data: all main effects plus
+# the only estimable interaction (Person:Task). The Person x Rater:Task
+# interaction is confounded with the residual and absorbed into the
+# error term.
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+              (1 | Person:Task),
             data = brennan)
 
 # Print basic results
 print(g)
-#> Generalizability Study (G-Study)
+#> Generalizability Study (G Study)
 #> ================================
 #> 
 #> Backend: lme4 
-#> Formula: Score ~ (1 | Person) + (1 | Task) 
+#> Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #> Number of observations: 120 
 #> Multivariate: No 
 #> 
 #> Object of measurement: Person 
-#> Facets: Person, Task 
+#> Facets: Person, Task, Rater 
 #> 
 #> Sample Sizes:
-#> # A tibble: 3 × 3
-#>   effect            type         n
-#>   <chr>             <chr>    <int>
-#> 1 Person            main        10
-#> 2 Task              main         3
-#> 3 Person:Task (res) residual    30
+#> # A tibble: 6 × 3
+#>   effect             type            n
+#>   <chr>              <chr>       <dbl>
+#> 1 Person             main           10
+#> 2 Task               main            3
+#> 3 Rater              main           12
+#> 4 Person:Task        interaction    30
+#> 5 Person:Rater (res) residual      120
+#> 6 Rater per Task     nested          4
+#> 
+#> Nested details:
+#>   Rater per Task: 3 Tasks, 4.0 Raters per Task
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 3
-#>   component estimate   pct
-#>   <chr>        <dbl> <dbl>
-#> 1 Person       0.584  13.3
-#> 2 Task         0.52   11.8
-#> 3 Residual     3.29   74.9
+#> # A tibble: 5 × 3
+#>   component   estimate     pct
+#>   <chr>          <dbl>   <dbl>
+#> 1 Person        0.473  10.7856
+#> 2 Task          0.3253  7.418 
+#> 3 Rater         0.6475 14.7637
+#> 4 Person:Task   0.5596 12.7586
+#> 5 Residual      2.3803 54.2741
 ```
 
 The output shows the estimated variance components:
@@ -1448,8 +1694,11 @@ The output shows the estimated variance components:
 - **Person**: Variance attributable to differences between persons
   (universe score variance)
 - **Task**: Variance attributable to differences in task difficulty
-- **Residual**: Remaining variance (person $`\times`$ task interaction +
-  error)
+- **Rater**: Variance attributable to differences between raters
+  (within-task rater leniency)
+- **Person:Task**: Person-by-task interaction
+- **Residual**: Remaining variance (person $`\times`$ rater:task
+  interaction + error)
 
 #### Viewing Results
 
@@ -1457,93 +1706,114 @@ Use [`summary()`](https://rdrr.io/r/base/summary.html) for a detailed
 view with options to display on variance or SD scale:
 
 ``` r
+
 # Summary with variance estimates (default)
 summary(g)
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: lme4 
-#>  Formula: Score ~ (1 | Person) + (1 | Task) 
+#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #>  Observations: 120 
 #>  Multivariate: No 
 #> 
 #> Facet Information:
 #>  Object of measurement: Person 
-#>  Facets: Person, Task 
+#>  Facets: Person, Task, Rater 
 #> 
 #> Sample Sizes:
-#> # A tibble: 3 × 3
-#>   effect            type         n
-#>   <chr>             <chr>    <int>
-#> 1 Person            main        10
-#> 2 Task              main         3
-#> 3 Person:Task (res) residual    30
+#> # A tibble: 6 × 3
+#>   effect             type            n
+#>   <chr>              <chr>       <dbl>
+#> 1 Person             main           10
+#> 2 Task               main            3
+#> 3 Rater              main           12
+#> 4 Person:Task        interaction    30
+#> 5 Person:Rater (res) residual      120
+#> 6 Rater per Task     nested          4
+#> 
+#> Nested details:
+#>   Rater per Task: 3 Tasks, 4.0 Raters per Task
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 3
-#>   component estimate   pct
-#>   <chr>        <dbl> <dbl>
-#> 1 Person       0.584  13.3
-#> 2 Task         0.52   11.8
-#> 3 Residual     3.29   74.9
+#> # A tibble: 5 × 3
+#>   component   estimate     pct
+#>   <chr>          <dbl>   <dbl>
+#> 1 Person        0.473  10.7856
+#> 2 Task          0.3253  7.418 
+#> 3 Rater         0.6475 14.7637
+#> 4 Person:Task   0.5596 12.7586
+#> 5 Residual      2.3803 54.2741
 #> 
-#> Total variance: 4.397
+#> Total variance: 4.3857
 
 # Summary with standard deviation estimates
 summary(g, scale = "sd")
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: lme4 
-#>  Formula: Score ~ (1 | Person) + (1 | Task) 
+#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #>  Observations: 120 
 #>  Multivariate: No 
 #> 
 #> Facet Information:
 #>  Object of measurement: Person 
-#>  Facets: Person, Task 
+#>  Facets: Person, Task, Rater 
 #> 
 #> Sample Sizes:
-#> # A tibble: 3 × 3
-#>   effect            type         n
-#>   <chr>             <chr>    <int>
-#> 1 Person            main        10
-#> 2 Task              main         3
-#> 3 Person:Task (res) residual    30
+#> # A tibble: 6 × 3
+#>   effect             type            n
+#>   <chr>              <chr>       <dbl>
+#> 1 Person             main           10
+#> 2 Task               main            3
+#> 3 Rater              main           12
+#> 4 Person:Task        interaction    30
+#> 5 Person:Rater (res) residual      120
+#> 6 Rater per Task     nested          4
+#> 
+#> Nested details:
+#>   Rater per Task: 3 Tasks, 4.0 Raters per Task
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 3
-#>   component estimate   pct
-#>   <chr>        <dbl> <dbl>
-#> 1 Person       0.764  13.3
-#> 2 Task         0.721  11.8
-#> 3 Residual     1.82   74.9
+#> # A tibble: 5 × 3
+#>   component   estimate     pct
+#>   <chr>          <dbl>   <dbl>
+#> 1 Person        0.6877 10.7856
+#> 2 Task          0.5704  7.418 
+#> 3 Rater         0.8047 14.7637
+#> 4 Person:Task   0.7481 12.7586
+#> 5 Residual      1.5428 54.2741
 #> 
-#> Total variance: 4.397
+#> Total variance: 4.3857
 ```
 
 Extract variance components as a tibble using
 [`tidy()`](https://generics.r-lib.org/reference/tidy.html):
 
 ``` r
+
 tidy(g)
-#> # A tibble: 3 × 5
-#>   component dim   type       var   pct
-#>   <chr>     <chr> <chr>    <dbl> <dbl>
-#> 1 Person    Score main     0.584  13.3
-#> 2 Task      Score main     0.52   11.8
-#> 3 Residual  Score residual 3.29   74.9
+#> # A tibble: 5 × 5
+#>   component   dim   type          var   pct
+#>   <chr>       <chr> <chr>       <dbl> <dbl>
+#> 1 Person      Score main        0.473 10.8 
+#> 2 Task        Score main        0.325  7.42
+#> 3 Rater       Score main        0.648 14.8 
+#> 4 Person:Task Score interaction 0.560 12.8 
+#> 5 Residual    Score residual    2.38  54.3
 ```
 
 Use [`glance()`](https://generics.r-lib.org/reference/glance.html) for a
 one-row summary of the G-study:
 
 ``` r
+
 glance(g)
 #> # A tibble: 1 × 5
 #>   n_obs n_facets backend is_multivariate object
 #>   <int>    <int> <chr>   <lgl>           <chr> 
-#> 1   120        2 lme4    FALSE           Person
+#> 1   120        3 lme4    FALSE           Person
 ```
 
 #### Variance Component Percentages
@@ -1553,16 +1823,19 @@ accounts for. This helps identify which facets contribute most to
 measurement error:
 
 ``` r
+
 # Components ordered by variance
 tidy(g) %>%
   arrange(desc(var)) %>%
   mutate(pct_cumulative = cumsum(pct))
-#> # A tibble: 3 × 6
-#>   component dim   type       var   pct pct_cumulative
-#>   <chr>     <chr> <chr>    <dbl> <dbl>          <dbl>
-#> 1 Residual  Score residual 3.29   74.9           74.9
-#> 2 Person    Score main     0.584  13.3           88.2
-#> 3 Task      Score main     0.52   11.8          100
+#> # A tibble: 5 × 6
+#>   component   dim   type          var   pct pct_cumulative
+#>   <chr>       <chr> <chr>       <dbl> <dbl>          <dbl>
+#> 1 Residual    Score residual    2.38  54.3            54.3
+#> 2 Rater       Score main        0.648 14.8            69.0
+#> 3 Person:Task Score interaction 0.560 12.8            81.8
+#> 4 Person      Score main        0.473 10.8            92.6
+#> 5 Task        Score main        0.325  7.42          100
 ```
 
 **Interpreting variance component percentages.** The `pct` column tells
@@ -1590,21 +1863,25 @@ within Task (each Task has its own set of 4 raters), so we should not
 include crossed Rater effects with Task:
 
 ``` r
+
 # G-study with profile likelihood confidence intervals
-# Note: Rater is nested within Task, so we use Rater:Task notation
+# Note: (1 | Rater) and (1 | Rater:Task) are equivalent in the brennan data
+# because the 12 Rater labels are unique within each Task. We use the
+# un-nested form so the formula reads as "all main effects + the only
+# estimable interaction".
 g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
 )
 
 summary(g_profile)
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: lme4 
-#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task) 
+#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #>  Observations: 120 
 #>  Multivariate: No 
 #> 
@@ -1618,7 +1895,7 @@ summary(g_profile)
 #>   <chr>              <chr>       <dbl>
 #> 1 Person             main           10
 #> 2 Task               main            3
-#> 3 Rater:Task         interaction    12
+#> 3 Rater              main           12
 #> 4 Person:Task        interaction    30
 #> 5 Person:Rater (res) residual      120
 #> 6 Rater per Task     nested          4
@@ -1628,15 +1905,15 @@ summary(g_profile)
 #> 
 #> Variance Components:
 #> # A tibble: 5 × 5
-#>   component   estimate   pct `2.5% CI` `97.5% CI`
-#>   <chr>          <dbl> <dbl>     <dbl>      <dbl>
-#> 1 Person         0.473 10.8      0           1.94
-#> 2 Task           0.325  7.42     0           3.56
-#> 3 Rater:Task     0.647 14.8      0.149       2.28
-#> 4 Person:Task    0.56  12.8      0           1.88
-#> 5 Residual       2.38  54.3      1.78        3.29
+#>   component   estimate     pct `2.5% CI` `97.5% CI`
+#>   <chr>          <dbl>   <dbl>     <dbl>      <dbl>
+#> 1 Person        0.473  10.7856    0          1.9449
+#> 2 Task          0.3253  7.418     0          3.5622
+#> 3 Rater         0.6475 14.7637    0.149      2.2824
+#> 4 Person:Task   0.5596 12.7586    0          1.8827
+#> 5 Residual      2.3803 54.2741    1.7758     3.2931
 #> 
-#> Total variance: 4.385
+#> Total variance: 4.3857
 ```
 
 #### Bootstrap Confidence Intervals
@@ -1644,6 +1921,7 @@ summary(g_profile)
 Parametric bootstrap CIs are the most accurate but slowest:
 
 ``` r
+
 # G-study with bootstrap confidence intervals (50 iterations for speed)
 g_boot <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
@@ -1655,7 +1933,7 @@ g_boot <- gstudy(
 #> ================================================================================
 
 summary(g_boot)
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: lme4 
@@ -1677,13 +1955,13 @@ summary(g_boot)
 #> 
 #> Variance Components:
 #> # A tibble: 3 × 5
-#>   component estimate   pct `2.5% CI` `97.5% CI`
-#>   <chr>        <dbl> <dbl>     <dbl>      <dbl>
-#> 1 Person       0.584  13.3     0.004       1.22
-#> 2 Task         0.52   11.8     0           1.92
-#> 3 Residual     3.29   74.9     2.29        4.32
+#>   component estimate     pct `2.5% CI` `97.5% CI`
+#>   <chr>        <dbl>   <dbl>     <dbl>      <dbl>
+#> 1 Person      0.5836 13.274     0.0043     1.2205
+#> 2 Task        0.5202 11.8314    0          1.9237
+#> 3 Residual    3.2929 74.8946    2.2943     4.3185
 #> 
-#> Total variance: 4.397
+#> Total variance: 4.3967
 ```
 
 For production use, increase `nsim` to 500-1000 for stable CI estimates.
@@ -1695,9 +1973,10 @@ component?) with different tradeoffs. The following chunk fits the same
 model with both methods and prints the CIs together:
 
 ``` r
+
 # Fit the same model with both methods
 g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -1721,10 +2000,10 @@ bind_rows(profile_ci, boot_ci) %>%
 #>   <chr>          <chr>       <chr> <chr> <chr>
 #> 1 profile        Person      0.473 0.000 1.945
 #> 2 profile        Task        0.325 0.000 3.562
-#> 3 profile        Rater:Task  0.647 0.149 2.283
+#> 3 profile        Rater       0.647 0.149 2.282
 #> 4 profile        Person:Task 0.560 0.000 1.883
 #> 5 profile        Residual    2.380 1.776 3.293
-#> 6 boot (nsim=50) Person      0.584 0.004 1.221
+#> 6 boot (nsim=50) Person      0.584 0.004 1.220
 #> 7 boot (nsim=50) Task        0.520 0.000 1.924
 #> 8 boot (nsim=50) Residual    3.293 2.294 4.319
 ```
@@ -1746,20 +2025,22 @@ The Method of Moments backend uses ANOVA-based variance component
 estimation:
 
 ``` r
-# Method of moments G-study with nested design (Rater nested in Task)
+
+# Method of moments G-study with nested design (Rater nested in Task;
+# (1 | Rater) and (1 | Rater:Task) are equivalent here)
 g_mom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "mom"
 )
 
 summary(g_mom)
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: mom 
-#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task) 
+#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #>  Observations: 120 
 #>  Multivariate: No 
 #> 
@@ -1773,7 +2054,7 @@ summary(g_mom)
 #>   <chr>              <chr>       <dbl>
 #> 1 Person             main           10
 #> 2 Task               main            3
-#> 3 Rater:Task         interaction    12
+#> 3 Rater              main           12
 #> 4 Person:Task        interaction    30
 #> 5 Person:Rater (res) residual      120
 #> 6 Rater per Task     nested          4
@@ -1783,15 +2064,15 @@ summary(g_mom)
 #> 
 #> Variance Components:
 #> # A tibble: 5 × 5
-#>   component   estimate   pct `2.5% CI` `97.5% CI`
-#>   <chr>          <dbl> <dbl>     <dbl>      <dbl>
-#> 1 Person         0.473 10.7       0          1.30
-#> 2 Task           0.381  8.58      0          1.44
-#> 3 Rater:Task     0.648 14.6       0          1.47
-#> 4 Person:Task    0.56  12.6       0          1.34
-#> 5 Residual       2.38  53.6       1.65       3.11
+#>   component   estimate     pct `2.5% CI` `97.5% CI`
+#>   <chr>          <dbl>   <dbl>     <dbl>      <dbl>
+#> 1 Person        0.4731 10.4045    0          1.3048
+#> 2 Task          0.487  10.7099    0          1.6703
+#> 3 Rater         0.6475 14.2392    0          1.469 
+#> 4 Person:Task   0.5596 12.3049    0          1.3359
+#> 5 Residual      2.3802 52.3415    1.6472     3.1133
 #> 
-#> Total variance: 4.442
+#> Total variance: 4.5474
 ```
 
 MOM automatically provides asymptotic confidence intervals. This
@@ -1799,51 +2080,62 @@ approach works best with balanced designs.
 
 #### Nested Designs with MOM
 
-For nested designs, specify the nesting structure using `:` notation:
+For nested designs, the canonical formula uses the un-nested form when
+the nested-factor labels are already unique within the nesting factor.
+For `rajaratnam`, items are uniquely labelled within each subtest via
+the new `ItemId` column (formed as `paste(Subtest, Item, sep = ".")`),
+so `(1 | ItemId)` and `(1 | Item:Subtest)` are exactly equivalent (we
+use `(1 | ItemId)`):
 
 ``` r
+
 # Items nested within subtests (rajaratnam dataset)
+# (1 | ItemId) and (1 | Item:Subtest) are exactly equivalent here.
 g_nested <- gstudy(
-  Score ~ (1 | Person) + (1 | Subtest) + (1 | Item:Subtest) +
+  Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) +
     (1 | Person:Subtest),
   data = rajaratnam,
   backend = "mom"
 )
 
 summary(g_nested)
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: mom 
-#>  Formula: Score ~ (1 | Person) + (1 | Subtest) + (1 | Item:Subtest) + (1 |      Person:Subtest) 
+#>  Formula: Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) + (1 | Person:Subtest) 
 #>  Observations: 64 
 #>  Multivariate: No 
 #> 
 #> Facet Information:
 #>  Object of measurement: Person 
-#>  Facets: Person, Subtest, Item 
+#>  Facets: Person, Subtest, ItemId 
 #> 
 #> Sample Sizes:
-#> # A tibble: 5 × 3
-#>   effect                    type            n
-#>   <chr>                     <chr>       <int>
-#> 1 Person                    main            8
-#> 2 Subtest                   main            3
-#> 3 Item:Subtest              interaction     8
-#> 4 Person:Subtest            interaction    24
-#> 5 Person:Subtest:Item (res) residual       64
+#> # A tibble: 6 × 3
+#>   effect              type            n
+#>   <chr>               <chr>       <dbl>
+#> 1 Person              main         8   
+#> 2 Subtest             main         3   
+#> 3 ItemId              main         8   
+#> 4 Person:Subtest      interaction 24   
+#> 5 Person:ItemId (res) residual    64   
+#> 6 ItemId per Subtest  nested       2.67
+#> 
+#> Nested details:
+#>   ItemId per Subtest: 3 Subtests, 2.7 ItemIds per Subtest (harmonic: 2.4)
 #> 
 #> Variance Components:
 #> # A tibble: 5 × 5
-#>   component      estimate   pct `2.5% CI` `97.5% CI`
-#>   <chr>             <dbl> <dbl>     <dbl>      <dbl>
-#> 1 Person            1.26  20.4      0          3.05 
-#> 2 Subtest           2.85  46.1      0          8.73 
-#> 3 Item:Subtest      0.295  4.77     0          0.793
-#> 4 Person:Subtest    0.929 15.0      0          1.86 
-#> 5 Residual          0.843 13.6      0.448      1.24 
+#>   component      estimate     pct `2.5% CI` `97.5% CI`
+#>   <chr>             <dbl>   <dbl>     <dbl>      <dbl>
+#> 1 Person           1.2634 20.4609     0         3.0486
+#> 2 Subtest          2.8443 46.0642     0         8.7253
+#> 3 ItemId           0.2946  4.7718     0         0.7929
+#> 4 Person:Subtest   0.9295 15.0529     0         1.864 
+#> 5 Residual         0.8429 13.6502     0.448     1.2378
 #> 
-#> Total variance: 6.18
+#> Total variance: 6.1747
 ```
 
 ### Bayesian G-Study
@@ -1857,32 +2149,38 @@ The `brennan` dataset provides a crossed design with persons, tasks, and
 raters:
 
 ``` r
+
 library(facet)
 data(brennan)
 
 # Examine structure
 head(brennan)
 #   Person Task Rater Score
-# 1      1    1     1     4
-# 2      1    1     2     3
-# 3      1    2     1     5
-# 4      1    2     2     4
-# 5      1    3     1     6
-# 6      1    3     2     5
+# 1      1    1     1     5
+# 2      2    1     1     9
+# 3      3    1     1     3
+# 4      4    1     1     7
+# 5      5    1     1     9
+# 6      6    1     1     3
 
 str(brennan)
 ```
 
 #### Default Bayesian G-Study
 
-The simplest Bayesian G-study uses default priors:
+The simplest Bayesian G-study uses default priors. The canonical brennan
+formula uses `(1 | Rater)` (equivalent to `(1 | Rater:Task)` because the
+12 Rater labels are unique within each Task) and `(1 | Person:Task)`:
 
 ``` r
+
 # Bayesian G-study with default priors
 g_bayes <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 print(g_bayes)
@@ -1946,15 +2244,18 @@ may be unreliable and you should not trust tail-based inferences (e.g.,
 Control MCMC sampling with additional arguments:
 
 ``` r
+
 g_full <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
   chains = 4,        # Number of chains
-  iter = 4000,       # Total iterations per chain
+  iter = 2000,       # Total iterations per chain
   warmup = 1000,     # Warmup iterations
   thin = 1,          # Thinning interval
   cores = 4,         # Parallel processing
+  refresh = 1000,    # Progress message frequency
   seed = 123         # Reproducibility
 )
 ```
@@ -1971,9 +2272,11 @@ g_full <- gstudy(
 View and modify default priors:
 
 ``` r
+
 # View default priors for a model
 library(brms)
-default_prior(Score ~ (1 | Person) + (1 | Task),
+default_prior(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task),
               data = brennan)
 
 # Define custom priors
@@ -1987,15 +2290,20 @@ my_prior <- c(
   # Rater variance: exponential with rate 0.5 (more spread)
   set_prior("exponential(0.5)", class = "sd", group = "Rater"),
 
+  # Person:Task interaction: exponential with rate 1
+  set_prior("exponential(1)", class = "sd", group = "Person:Task"),
+
   # Residual: half-Cauchy with scale 1
   set_prior("cauchy(0, 1)", class = "sigma")
 )
 
 g_custom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
-  prior = my_prior
+  prior = my_prior,
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -2004,13 +2312,15 @@ g_custom <- gstudy(
 Check sensitivity to prior choice:
 
 ``` r
+
 # Weakly informative prior
 prior_weak <- set_prior("cauchy(0, 5)", class = "sd")
 g_weak <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
   backend = "brms",
-  prior = prior_weak
+  prior = prior_weak,
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # More informative prior
@@ -2019,7 +2329,8 @@ g_info <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
   backend = "brms",
-  prior = prior_info
+  prior = prior_info,
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Compare posterior means
@@ -2029,11 +2340,10 @@ g_info$variance_components$estimate
 
 **A worked sensitivity analysis.** The chunk below actually runs two
 Bayesian G-studies with different priors on the standard deviation
-parameters and shows how the posteriors respond. We use small `chains`,
-`iter`, and `warmup` here so the example builds quickly; for a real
-sensitivity analysis use the defaults.
+parameters and shows how the posteriors respond.
 
 ``` r
+
 # Fit two models with contrasting priors
 prior_weak_run <- set_prior("cauchy(0, 5)", class = "sd")
 g_weak_run <- gstudy(
@@ -2041,70 +2351,21 @@ g_weak_run <- gstudy(
   data = brennan,
   backend = "brms",
   prior = prior_weak_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
-#> Running /usr/lib64/R/bin/R CMD SHLIB foo.c
-#> using C compiler: ‘gcc (GCC) 16.1.1 20260430’
-#> gcc -I"/usr/include/R/" -DNDEBUG   -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/Rcpp/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/unsupported"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/BH/include" -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/src/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppParallel/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/usr/local/include    -fpic  -march=native -O3 -pipe -fno-plt -fexceptions         -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security         -fstack-clash-protection -fcf-protection -mpclmul -g1 -ffile-prefix-map=/startdir/src=/usr/src/debug/r -flto=auto -ffat-lto-objects  -c foo.c -o foo.o
-#> In file included from /home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/Eigen/Core:19,
-#>                  from /home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/Eigen/Dense:1,
-#>                  from /home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22,
-#>                  from <command-line>:
-#> /home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: cmath: No such file or directory
+#> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c
+#> using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
+#> using SDK: ‘MacOSX26.5.sdk’
+#> clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I"/Users/afp18axu/Library/R/arm64/4.6/library/Rcpp/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/unsupported"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/BH/include" -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/src/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppParallel/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -c foo.c -o foo.o
+#> In file included from <built-in>:1:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Dense:1:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Core:19:
+#> /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found
 #>   679 | #include <cmath>
 #>       |          ^~~~~~~
-#> compilation terminated.
-#> make: *** [/usr/lib64/R/etc/Makeconf:190: foo.o] Error 1
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
-#> Chain 1: 
-#> Chain 1: Gradient evaluation took 2.8e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.28 seconds.
-#> Chain 1: Adjust your expectations accordingly!
-#> Chain 1: 
-#> Chain 1: 
-#> Chain 1: Iteration:   1 / 1000 [  0%]  (Warmup)
-#> Chain 1: Iteration: 100 / 1000 [ 10%]  (Warmup)
-#> Chain 1: Iteration: 200 / 1000 [ 20%]  (Warmup)
-#> Chain 1: Iteration: 300 / 1000 [ 30%]  (Warmup)
-#> Chain 1: Iteration: 400 / 1000 [ 40%]  (Warmup)
-#> Chain 1: Iteration: 500 / 1000 [ 50%]  (Warmup)
-#> Chain 1: Iteration: 501 / 1000 [ 50%]  (Sampling)
-#> Chain 1: Iteration: 600 / 1000 [ 60%]  (Sampling)
-#> Chain 1: Iteration: 700 / 1000 [ 70%]  (Sampling)
-#> Chain 1: Iteration: 800 / 1000 [ 80%]  (Sampling)
-#> Chain 1: Iteration: 900 / 1000 [ 90%]  (Sampling)
-#> Chain 1: Iteration: 1000 / 1000 [100%]  (Sampling)
-#> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.079 seconds (Warm-up)
-#> Chain 1:                0.062 seconds (Sampling)
-#> Chain 1:                0.141 seconds (Total)
-#> Chain 1: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
-#> Chain 2: 
-#> Chain 2: Gradient evaluation took 6e-06 seconds
-#> Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.06 seconds.
-#> Chain 2: Adjust your expectations accordingly!
-#> Chain 2: 
-#> Chain 2: 
-#> Chain 2: Iteration:   1 / 1000 [  0%]  (Warmup)
-#> Chain 2: Iteration: 100 / 1000 [ 10%]  (Warmup)
-#> Chain 2: Iteration: 200 / 1000 [ 20%]  (Warmup)
-#> Chain 2: Iteration: 300 / 1000 [ 30%]  (Warmup)
-#> Chain 2: Iteration: 400 / 1000 [ 40%]  (Warmup)
-#> Chain 2: Iteration: 500 / 1000 [ 50%]  (Warmup)
-#> Chain 2: Iteration: 501 / 1000 [ 50%]  (Sampling)
-#> Chain 2: Iteration: 600 / 1000 [ 60%]  (Sampling)
-#> Chain 2: Iteration: 700 / 1000 [ 70%]  (Sampling)
-#> Chain 2: Iteration: 800 / 1000 [ 80%]  (Sampling)
-#> Chain 2: Iteration: 900 / 1000 [ 90%]  (Sampling)
-#> Chain 2: Iteration: 1000 / 1000 [100%]  (Sampling)
-#> Chain 2: 
-#> Chain 2:  Elapsed Time: 0.075 seconds (Warm-up)
-#> Chain 2:                0.075 seconds (Sampling)
-#> Chain 2:                0.15 seconds (Total)
-#> Chain 2:
+#> 1 error generated.
+#> make: *** [foo.o] Error 1
 
 prior_info_run <- set_prior("exponential(1)", class = "sd")
 g_info_run <- gstudy(
@@ -2112,70 +2373,21 @@ g_info_run <- gstudy(
   data = brennan,
   backend = "brms",
   prior = prior_info_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
-#> Running /usr/lib64/R/bin/R CMD SHLIB foo.c
-#> using C compiler: ‘gcc (GCC) 16.1.1 20260430’
-#> gcc -I"/usr/include/R/" -DNDEBUG   -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/Rcpp/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/unsupported"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/BH/include" -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/src/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppParallel/include/"  -I"/home/george/R/x86_64-pc-linux-gnu-library/4.6/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/usr/local/include    -fpic  -march=native -O3 -pipe -fno-plt -fexceptions         -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security         -fstack-clash-protection -fcf-protection -mpclmul -g1 -ffile-prefix-map=/startdir/src=/usr/src/debug/r -flto=auto -ffat-lto-objects  -c foo.c -o foo.o
-#> In file included from /home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/Eigen/Core:19,
-#>                  from /home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/Eigen/Dense:1,
-#>                  from /home/george/R/x86_64-pc-linux-gnu-library/4.6/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22,
-#>                  from <command-line>:
-#> /home/george/R/x86_64-pc-linux-gnu-library/4.6/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: cmath: No such file or directory
+#> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c
+#> using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
+#> using SDK: ‘MacOSX26.5.sdk’
+#> clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I"/Users/afp18axu/Library/R/arm64/4.6/library/Rcpp/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/unsupported"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/BH/include" -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/src/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppParallel/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -c foo.c -o foo.o
+#> In file included from <built-in>:1:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Dense:1:
+#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Core:19:
+#> /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found
 #>   679 | #include <cmath>
 #>       |          ^~~~~~~
-#> compilation terminated.
-#> make: *** [/usr/lib64/R/etc/Makeconf:190: foo.o] Error 1
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
-#> Chain 1: 
-#> Chain 1: Gradient evaluation took 2.7e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.27 seconds.
-#> Chain 1: Adjust your expectations accordingly!
-#> Chain 1: 
-#> Chain 1: 
-#> Chain 1: Iteration:   1 / 1000 [  0%]  (Warmup)
-#> Chain 1: Iteration: 100 / 1000 [ 10%]  (Warmup)
-#> Chain 1: Iteration: 200 / 1000 [ 20%]  (Warmup)
-#> Chain 1: Iteration: 300 / 1000 [ 30%]  (Warmup)
-#> Chain 1: Iteration: 400 / 1000 [ 40%]  (Warmup)
-#> Chain 1: Iteration: 500 / 1000 [ 50%]  (Warmup)
-#> Chain 1: Iteration: 501 / 1000 [ 50%]  (Sampling)
-#> Chain 1: Iteration: 600 / 1000 [ 60%]  (Sampling)
-#> Chain 1: Iteration: 700 / 1000 [ 70%]  (Sampling)
-#> Chain 1: Iteration: 800 / 1000 [ 80%]  (Sampling)
-#> Chain 1: Iteration: 900 / 1000 [ 90%]  (Sampling)
-#> Chain 1: Iteration: 1000 / 1000 [100%]  (Sampling)
-#> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.059 seconds (Warm-up)
-#> Chain 1:                0.036 seconds (Sampling)
-#> Chain 1:                0.095 seconds (Total)
-#> Chain 1: 
-#> 
-#> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
-#> Chain 2: 
-#> Chain 2: Gradient evaluation took 6e-06 seconds
-#> Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.06 seconds.
-#> Chain 2: Adjust your expectations accordingly!
-#> Chain 2: 
-#> Chain 2: 
-#> Chain 2: Iteration:   1 / 1000 [  0%]  (Warmup)
-#> Chain 2: Iteration: 100 / 1000 [ 10%]  (Warmup)
-#> Chain 2: Iteration: 200 / 1000 [ 20%]  (Warmup)
-#> Chain 2: Iteration: 300 / 1000 [ 30%]  (Warmup)
-#> Chain 2: Iteration: 400 / 1000 [ 40%]  (Warmup)
-#> Chain 2: Iteration: 500 / 1000 [ 50%]  (Warmup)
-#> Chain 2: Iteration: 501 / 1000 [ 50%]  (Sampling)
-#> Chain 2: Iteration: 600 / 1000 [ 60%]  (Sampling)
-#> Chain 2: Iteration: 700 / 1000 [ 70%]  (Sampling)
-#> Chain 2: Iteration: 800 / 1000 [ 80%]  (Sampling)
-#> Chain 2: Iteration: 900 / 1000 [ 90%]  (Sampling)
-#> Chain 2: Iteration: 1000 / 1000 [100%]  (Sampling)
-#> Chain 2: 
-#> Chain 2:  Elapsed Time: 0.063 seconds (Warm-up)
-#> Chain 2:                0.048 seconds (Sampling)
-#> Chain 2:                0.111 seconds (Total)
-#> Chain 2:
+#> 1 error generated.
+#> make: *** [foo.o] Error 1
 
 # Side-by-side comparison
 bind_rows(
@@ -2187,12 +2399,28 @@ bind_rows(
 #> # A tibble: 6 × 5
 #>   prior          component var   lower upper 
 #>   <chr>          <chr>     <chr> <chr> <chr> 
-#> 1 cauchy(0, 5)   Person    0.966 0.121 3.139 
-#> 2 cauchy(0, 5)   Task      3.676 0.107 23.828
-#> 3 cauchy(0, 5)   Residual  3.401 2.560 4.371 
-#> 4 exponential(1) Person    0.727 0.011 2.275 
-#> 5 exponential(1) Task      1.235 0.056 6.500 
-#> 6 exponential(1) Residual  3.444 2.560 4.677
+#> 1 cauchy(0, 5)   Person    0.907 0.104 2.858 
+#> 2 cauchy(0, 5)   Task      2.885 0.114 16.738
+#> 3 cauchy(0, 5)   Residual  3.392 2.590 4.432 
+#> 4 exponential(1) Person    0.692 0.065 2.284 
+#> 5 exponential(1) Task      0.973 0.067 4.245 
+#> 6 exponential(1) Residual  3.424 2.622 4.481 
+#> pling)
+#> Chain 1: Iteration:  501 / 2000 [ 25%]  (Sampling)
+#> Chain 2: Iteration: 1500 / 2000 [ 75%]  (Sampling)
+#> Chain 1: Iteration: 1500 / 2000 [ 75%]  (Sampling)
+#> Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)
+#> Chain 2: 
+#> Chain 2:  Elapsed Time: 0.086 seconds (Warm-up)
+#> Chain 2:                0.147 seconds (Sampling)
+#> Chain 2:                0.233 seconds (Total)
+#> Chain 2: 
+#> Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)
+#> Chain 1: 
+#> Chain 1:  Elapsed Time: 0.09 seconds (Warm-up)
+#> Chain 1:                0.175 seconds (Sampling)
+#> Chain 1:                0.265 seconds (Total)
+#> Chain 1:
 ```
 
 **Reading the comparison.** The Person variance is the dominant signal,
@@ -2210,6 +2438,7 @@ matters most.**
 #### Checking Convergence
 
 ``` r
+
 # Extract and check diagnostics
 library(posterior)
 
@@ -2237,6 +2466,7 @@ inference, predictive checks, and visualization.
 #### Extracting Posterior Draws
 
 ``` r
+
 library(posterior)
 
 # Extract draws matrix
@@ -2252,6 +2482,7 @@ summarise_draws(draws)
 #### Variance Component Posteriors
 
 ``` r
+
 # Variance components with posterior summaries
 g_bayes$variance_components
 ```
@@ -2259,6 +2490,7 @@ g_bayes$variance_components
 #### Computing Custom Quantiles
 
 ``` r
+
 # Different credible interval levels
 g_bayes$variance_components %>%
   dplyr::mutate(
@@ -2271,6 +2503,7 @@ g_bayes$variance_components %>%
 #### Visualizing Posteriors
 
 ``` r
+
 # Variance component distributions
 plot(g_bayes, type = "variance")
 
@@ -2292,6 +2525,7 @@ mcmc_pairs(draws, pars = c("sd_Person__Intercept", "sd_Task__Intercept", "sigma"
 Validate model fit by comparing observed data to replicated data:
 
 ``` r
+
 # Posterior predictive check
 pp_check(g_bayes$model)
 
@@ -2335,6 +2569,7 @@ different measurement designs.
 #### Basic D-Study
 
 ``` r
+
 # Conduct D-study with 3 tasks and 4 raters
 d <- dstudy(g, n = list(Task = 3, Rater = 4))
 
@@ -2342,27 +2577,29 @@ print(d)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G-Study with lme4 backend
+#> Based on G Study with lme4 backend
 #> Object of measurement: Person 
 #> Universe components: Person 
-#> Error components for relative error (sigma2_delta): Person:Task (Residual) 
-#> Error components for absolute error (sigma2_delta_abs): Task, Person:Task (Residual) 
+#> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
+#> Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Task, Person:Rater (Residual) 
 #> 
 #> Sample Sizes:
 #>  Task: 3
 #>  Rater: 4
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 6
-#>   component dim   var_unscaled pct_unscaled var_scaled pct_scaled
-#>   <chr>     <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person    Score        0.584         13.3      0.584      31.5 
-#> 2 Task      Score        0.52          11.8      0.173       9.34
-#> 3 Residual  Score        3.29          74.9      1.10       59.2 
+#> # A tibble: 5 × 6
+#>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
+#>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
+#> 1 Person      Score       0.473       10.7851     0.473     31.0181
+#> 2 Task        Score       0.3253       7.4173     0.1084     7.1108
+#> 3 Rater       Score       0.6475      14.7639     0.1619    10.6153
+#> 4 Person:Task Score       0.5596      12.7597     0.1865    12.2324
+#> 5 Residual    Score       2.3803      54.2741     0.5951    39.0234
 #> 
 #> Coefficients:
-#>    dim   uni sigma2_delta sigma2_delta_abs     g   phi
-#>  Score 0.584          1.1             1.27 0.347 0.315
+#>    dim   uni sigma2_delta sigma2_delta_abs     g    phi
+#>  Score 0.473       0.7816            1.052 0.377 0.3102
 ```
 
 The output shows:
@@ -2386,32 +2623,33 @@ criterion-referenced (use Phi).
 #### Understanding the Coefficients
 
 ``` r
+
 # Access coefficients directly
 d$coefficients
-#>     dim   uni sigma2_delta sigma2_delta_abs         g       phi  sem_rel
-#> 1 Score 0.584     1.097667            1.271 0.3472745 0.3148248 1.047696
-#>    sem_abs
-#> 1 1.127386
+#>     dim   uni sigma2_delta sigma2_delta_abs         g       phi   sem_rel
+#> 1 Score 0.473    0.7816083         1.051917 0.3770101 0.3101809 0.8840862
+#>   sem_abs
+#> 1 1.02563
 
 # Universe score variance (true variance)
 cat("Universe score variance:", d$coefficients$uni, "\n")
-#> Universe score variance: 0.584
+#> Universe score variance: 0.473
 
 # Relative error variance (affects rank-ordering)
 cat("Relative error variance:", d$coefficients$sigma2_delta, "\n")
-#> Relative error variance: 1.097667
+#> Relative error variance: 0.7816083
 
 # Absolute error variance (affects absolute scores)
 cat("Absolute error variance:", d$coefficients$sigma2_delta_abs, "\n")
-#> Absolute error variance: 1.271
+#> Absolute error variance: 1.051917
 
 # G coefficient
 cat("G coefficient:", d$coefficients$g, "\n")
-#> G coefficient: 0.3472745
+#> G coefficient: 0.3770101
 
 # Phi coefficient
 cat("Phi coefficient:", d$coefficients$phi, "\n")
-#> Phi coefficient: 0.3148248
+#> Phi coefficient: 0.3101809
 ```
 
 #### Sample Size Exploration (Sweep)
@@ -2419,6 +2657,7 @@ cat("Phi coefficient:", d$coefficients$phi, "\n")
 Explore multiple sample size combinations:
 
 ``` r
+
 # Explore different numbers of tasks and raters
 d_sweep <- dstudy(g, n = list(Task = c(3, 5, 10), Rater = c(2, 4, 8)))
 
@@ -2427,15 +2666,15 @@ tidy(d_sweep)
 #> # A tibble: 9 × 10
 #>    Task Rater dim     uni sigma2_delta sigma2_delta_abs     g   phi sem_rel
 #>   <dbl> <dbl> <chr> <dbl>        <dbl>            <dbl> <dbl> <dbl>   <dbl>
-#> 1     3     2 Score 0.584        1.10             1.27  0.347 0.315   1.05 
-#> 2     5     2 Score 0.584        0.659            0.763 0.470 0.434   0.812
-#> 3    10     2 Score 0.584        0.329            0.381 0.639 0.605   0.574
-#> 4     3     4 Score 0.584        1.10             1.27  0.347 0.315   1.05 
-#> 5     5     4 Score 0.584        0.659            0.763 0.470 0.434   0.812
-#> 6    10     4 Score 0.584        0.329            0.381 0.639 0.605   0.574
-#> 7     3     8 Score 0.584        1.10             1.27  0.347 0.315   1.05 
-#> 8     5     8 Score 0.584        0.659            0.763 0.470 0.434   0.812
-#> 9    10     8 Score 0.584        0.329            0.381 0.639 0.605   0.574
+#> 1     3     2 Score 0.473        1.38             1.81  0.256 0.207   1.17 
+#> 2     5     2 Score 0.473        1.30             1.69  0.266 0.219   1.14 
+#> 3    10     2 Score 0.473        1.25             1.60  0.275 0.228   1.12 
+#> 4     3     4 Score 0.473        0.782            1.05  0.377 0.310   0.884
+#> 5     5     4 Score 0.473        0.707            0.934 0.401 0.336   0.841
+#> 6    10     4 Score 0.473        0.651            0.845 0.421 0.359   0.807
+#> 7     3     8 Score 0.473        0.484            0.673 0.494 0.413   0.696
+#> 8     5     8 Score 0.473        0.410            0.556 0.536 0.460   0.640
+#> 9    10     8 Score 0.473        0.354            0.467 0.572 0.503   0.595
 #> # ℹ 1 more variable: sem_abs <dbl>
 ```
 
@@ -2445,11 +2684,12 @@ needed to achieve G \> 0.80?”
 #### Visualizing Sweep Results
 
 ``` r
+
 # Plot sweep results
 plot(d_sweep, type = "sweep")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-29-1.png)
+![](introduction_files/figure-html/unnamed-chunk-30-1.png)
 
 The plot shows how G and Phi coefficients change across different sample
 size combinations.
@@ -2466,6 +2706,7 @@ incorporates a specific cut-score:
 Where $`c`$ is the cut-score and $`\mu`$ is the grand mean.
 
 ``` r
+
 # Extract grand mean from G-study
 mu_y <- mean(brennan$Score)
 cat("Grand mean:", mu_y, "\n")
@@ -2478,27 +2719,29 @@ print(d_cut)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G-Study with lme4 backend
+#> Based on G Study with lme4 backend
 #> Object of measurement: Person 
 #> Universe components: Person 
-#> Error components for relative error (sigma2_delta): Person:Task (Residual) 
-#> Error components for absolute error (sigma2_delta_abs): Task, Person:Task (Residual) 
+#> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
+#> Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Task, Person:Rater (Residual) 
 #> 
 #> Sample Sizes:
 #>  Task: 3
 #>  Rater: 4
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 6
-#>   component dim   var_unscaled pct_unscaled var_scaled pct_scaled
-#>   <chr>     <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person    Score        0.584         13.3      0.584      31.5 
-#> 2 Task      Score        0.52          11.8      0.173       9.34
-#> 3 Residual  Score        3.29          74.9      1.10       59.2 
+#> # A tibble: 5 × 6
+#>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
+#>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
+#> 1 Person      Score       0.473       10.7851     0.473     31.0181
+#> 2 Task        Score       0.3253       7.4173     0.1084     7.1108
+#> 3 Rater       Score       0.6475      14.7639     0.1619    10.6153
+#> 4 Person:Task Score       0.5596      12.7597     0.1865    12.2324
+#> 5 Residual    Score       2.3803      54.2741     0.5951    39.0234
 #> 
 #> Coefficients:
-#>    dim   uni sigma2_delta sigma2_delta_abs     g   phi phi_cut
-#>  Score 0.584          1.1             1.27 0.347 0.315   0.816
+#>    dim   uni sigma2_delta sigma2_delta_abs     g    phi phi_cut
+#>  Score 0.473       0.7816            1.052 0.377 0.3102  0.8403
 ```
 
 The phi-cut coefficient is useful for decisions like “Does this person
@@ -2520,17 +2763,18 @@ instruments than pass/fail at the mean.
 #### Comparing Cut-Scores
 
 ``` r
+
 # Compare different cut-scores
 d_cut_5 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 5)
 d_cut_7 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 7)
 d_cut_9 <- dstudy(g, n = list(Task = 3, Rater = 4), cut_score = 9)
 
 cat("Phi-cut (c=5):", d_cut_5$coefficients$phi_cut, "\n")
-#> Phi-cut (c=5): 0.3371578
+#> Phi-cut (c=5): 0.3373405
 cat("Phi-cut (c=7):", d_cut_7$coefficients$phi_cut, "\n")
-#> Phi-cut (c=7): 0.8162631
+#> Phi-cut (c=7): 0.8403142
 cat("Phi-cut (c=9):", d_cut_9$coefficients$phi_cut, "\n")
-#> Phi-cut (c=9): 0.9361868
+#> Phi-cut (c=9): 0.9462963
 ```
 
 ### Advanced D-Study Options
@@ -2541,6 +2785,7 @@ By default, the universe includes only the object of measurement. You
 can include additional components:
 
 ``` r
+
 # Include Person:Task interaction in universe
 d_universe <- dstudy(
   g, 
@@ -2552,23 +2797,25 @@ summary(d_universe)
 #> === D-Study Summary ===
 #> 
 #> Object of measurement: Person 
-#> Based on G-Study: Score ~ (1 | Person) + (1 | Task) 
+#> Based on G Study: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #> 
 #> Sample Sizes:
 #>  Task: 3
 #>  Rater: 4
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 6
-#>   component dim   var_unscaled pct_unscaled var_scaled pct_scaled
-#>   <chr>     <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person    Score        0.584         13.3      0.584      31.5 
-#> 2 Task      Score        0.52          11.8      0.173       9.34
-#> 3 Residual  Score        3.29          74.9      1.10       59.2 
+#> # A tibble: 5 × 6
+#>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
+#>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
+#> 1 Person      Score       0.473       10.7851     0.473     31.0181
+#> 2 Task        Score       0.3253       7.4173     0.1084     7.1108
+#> 3 Rater       Score       0.6475      14.7639     0.1619    10.6153
+#> 4 Person:Task Score       0.5596      12.7597     0.1865    12.2324
+#> 5 Residual    Score       2.3803      54.2741     0.5951    39.0234
 #> 
 #> Coefficients:
-#>     dim   uni sigma2_delta sigma2_delta_abs         g      phi
-#> 1 Score 3.877     1.097667            1.271 0.7793487 0.753108
+#>     dim    uni sigma2_delta sigma2_delta_abs         g       phi
+#> 1 Score 1.0326     0.595075        0.8653833 0.6344018 0.5440511
 ```
 
 This is useful when a facet is considered “fixed” in the universe of
@@ -2592,6 +2839,7 @@ the G and Phi coefficients side-by-side so the effect of the choice is
 concrete:
 
 ``` r
+
 # Default universe: only Person is in the universe
 d_default <- dstudy(g, n = list(Task = 3, Rater = 4))
 
@@ -2613,8 +2861,8 @@ tribble(
 #> # A tibble: 2 × 3
 #>   universe                          G   Phi
 #>   <chr>                         <dbl> <dbl>
-#> 1 default (Person only)         0.347 0.315
-#> 2 custom (Person + Person:Task) 0.779 0.753
+#> 1 default (Person only)         0.377 0.31 
+#> 2 custom (Person + Person:Task) 0.634 0.544
 ```
 
 **Reading the comparison.** Adding `Person:Task` to the universe
@@ -2633,6 +2881,7 @@ believe the interaction reflects a stable, generalizable trait.
 Specify which components contribute to error:
 
 ``` r
+
 # Only use specific interactions as error sources
 d_error <- dstudy(
   g,
@@ -2644,23 +2893,25 @@ summary(d_error)
 #> === D-Study Summary ===
 #> 
 #> Object of measurement: Person 
-#> Based on G-Study: Score ~ (1 | Person) + (1 | Task) 
+#> Based on G Study: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #> 
 #> Sample Sizes:
 #>  Task: 3
 #>  Rater: 4
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 6
-#>   component dim   var_unscaled pct_unscaled var_scaled pct_scaled
-#>   <chr>     <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person    Score        0.584         13.3      0.584      31.5 
-#> 2 Task      Score        0.52          11.8      0.173       9.34
-#> 3 Residual  Score        3.29          74.9      1.10       59.2 
+#> # A tibble: 5 × 6
+#>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
+#>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
+#> 1 Person      Score       0.473       10.7851     0.473     31.0181
+#> 2 Task        Score       0.3253       7.4173     0.1084     7.1108
+#> 3 Rater       Score       0.6475      14.7639     0.1619    10.6153
+#> 4 Person:Task Score       0.5596      12.7597     0.1865    12.2324
+#> 5 Residual    Score       2.3803      54.2741     0.5951    39.0234
 #> 
 #> Coefficients:
-#>     dim   uni sigma2_delta sigma2_delta_abs g phi
-#> 1 Score 0.584            0                0 1   1
+#>     dim   uni sigma2_delta sigma2_delta_abs         g       phi
+#> 1 Score 0.473    0.1865333        0.1865333 0.7171738 0.7171738
 ```
 
 By default, *all* interaction effects involving the object of
@@ -2678,6 +2929,7 @@ overstates G.
 When averaging over a facet, use the `aggregation` parameter:
 
 ``` r
+
 # Average scores across Raters
 d_agg <- dstudy(
   g,
@@ -2690,23 +2942,25 @@ summary(d_agg)
 #> === D-Study Summary ===
 #> 
 #> Object of measurement: Person 
-#> Based on G-Study: Score ~ (1 | Person) + (1 | Task) 
+#> Based on G Study: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #> 
 #> Sample Sizes:
 #>  Task: 3
 #>  Rater: 4
 #> 
 #> Variance Components:
-#> # A tibble: 3 × 6
-#>   component dim   var_unscaled pct_unscaled var_scaled pct_scaled
-#>   <chr>     <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person    Score        0.584         13.3      0.584       56.6
-#> 2 Task      Score        0.52          11.8      0.173       16.8
-#> 3 Residual  Score        3.29          74.9      0.274       26.6
+#> # A tibble: 5 × 6
+#>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
+#>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
+#> 1 Person      Score       0.473       10.7851     0.473     41.9252
+#> 2 Task        Score       0.3253       7.4173     0.1084     9.6112
+#> 3 Rater       Score       0.6475      14.7639     0.1619    14.3481
+#> 4 Person:Task Score       0.5596      12.7597     0.1865    16.5337
+#> 5 Residual    Score       2.3803      54.2741     0.1984    17.5818
 #> 
 #> Coefficients:
 #>     dim   uni sigma2_delta sigma2_delta_abs         g       phi
-#> 1 Score 0.584    0.2744167          0.44775 0.6803223 0.5660286
+#> 1 Score 0.473    0.3848917         0.493325 0.5513517 0.4894834
 ```
 
 The `aggregation` parameter tells facet that you plan to *average over*
@@ -2727,11 +2981,13 @@ For Bayesian G-studies, you can compute credible intervals for
 coefficients:
 
 ``` r
+
 # Bayesian G-study
 g_brms <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # D-study with 95% credible intervals
@@ -2752,6 +3008,7 @@ The output includes:
 #### Custom Probability Levels
 
 ``` r
+
 # 90% credible interval
 d_ci_90 <- dstudy(
   g_brms,
@@ -2763,25 +3020,65 @@ d_ci_90 <- dstudy(
 
 ### Multivariate G-Study
 
+> **Data note.**
+> [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md)
+> requires wide-format data with one row per (Person, Rater) cell and
+> one column per task/dimension. The `brennan` dataset is
+> Rater-nested-in-Task, so its wide pivot has missing values for every
+> row. To illustrate
+> [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md)
+> properly, the examples below use a small synthetic **fully crossed**
+> Person $`\times`$ Task $`\times`$ Rater design in which every rater
+> rates every person on every task.
+
 For multiple outcome variables, use the **brms** backend with
 [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md):
 
 ``` r
-# Prepare multivariate data (wide format)
-brennan_wide <- brennan %>%
+
+# Synthetic fully crossed design: 6 persons x 3 tasks x 4 raters
+set.seed(42)
+n_p <- 6; n_t <- 3; n_r <- 4
+crossed_data <- expand.grid(
+  Person = paste0("P", seq_len(n_p)),
+  Task   = seq_len(n_t),
+  Rater  = paste0("R", seq_len(n_r)),
+  stringsAsFactors = FALSE
+)
+mu <- 5
+task_eff  <- c(0.5, 0, -0.5)
+rater_eff <- c(0.2, 0.1, -0.1, -0.2)
+p_eff <- setNames(rnorm(n_p, 0, 1), paste0("P", seq_len(n_p)))
+crossed_data$Score <- with(crossed_data,
+  mu + p_eff[Person] +
+    task_eff[Task] +
+    rater_eff[as.integer(sub("R", "", Rater))] +
+    rnorm(nrow(crossed_data), 0, 0.8)   # residual + interactions
+)
+
+# Pivot to wide format: one row per Person x Rater, one column per Task
+crossed_wide <- crossed_data %>%
   tidyr::pivot_wider(
-    names_from = Task, 
+    names_from  = Task,
     values_from = Score,
     names_prefix = "Task"
   )
 
-head(brennan_wide)
+head(crossed_wide)
+#   Person Rater Task1 Task2 Task3
+# 1     P1    R1   8.3   5.5   4.1
+# 2     P2    R1   5.1   4.4   5.2
+# 3     P3    R1   7.7   5.5   4.8
+# 4     P4    R1   6.3   6.3   3.9
+# 5     P5    R1   7.2   5.4   5.0
+# 6     P6    R1   7.4   3.0   5.6
 
 # Multivariate G-study
 g_mv <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
-  backend = "brms"
+  data = crossed_wide,
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 summary(g_mv)
@@ -2797,6 +3094,7 @@ The multivariate output shows:
   across outcomes
 
 ``` r
+
 # View variance components by dimension
 tidy(g_mv)
 
@@ -2810,6 +3108,7 @@ g_mv$correlations$random_effect_cor
 #### Multivariate D-Study
 
 ``` r
+
 # D-study for multivariate model
 d_mv <- dstudy(g_mv, n = list(Rater = 4))
 
@@ -2895,9 +3194,9 @@ Conversely, if the subscales were *negatively* correlated (a rare but
 theoretically possible situation), the composite variance would be
 *smaller* than the average of the dimension variances — and the
 composite reliability would be lower. This is why it is essential to
-inspect `g_mv_wide$correlations$residual_cor` before forming a
-composite: the sign and magnitude of the correlations determine whether
-combining subscales helps or hurts.
+inspect the residual correlation matrix of any multivariate G-study
+object before forming a composite: the sign and magnitude of the
+correlations determine whether combining subscales helps or hurts.
 
 ##### Using Composite Coefficients
 
@@ -2906,11 +3205,13 @@ By default,
 equal weights (1 for each dimension):
 
 ``` r
-# Multivariate G-study
+
+# Multivariate G-study on the fully crossed synthetic data
 g_mv <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
-  backend = "brms"
+  data = crossed_wide,
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # D-study with default equal weights
@@ -2948,6 +3249,7 @@ You can specify custom weights when dimensions should contribute
 differently to the composite:
 
 ``` r
+
 # Custom weights: Task1=50%, Task2=30%, Task3=20%
 d_weighted <- dstudy(
   g_mv,
@@ -3020,29 +3322,36 @@ effects across multiple dimensions. This enables:
 
 #### Data Formats
 
-**Wide Format (`mvbind`)** — When each dimension is a separate column:
+**Wide Format (`mvbind`)** — When each dimension is a separate column.
+This format requires a fully crossed design so that every (Person,
+Rater) cell has a value for every task:
 
 ``` r
-# Reshape to wide format
+
+# Fully crossed synthetic data (defined in the Multivariate G-Study section)
 library(tidyr)
-brennan_wide <- brennan %>%
+crossed_wide <- crossed_data %>%
   pivot_wider(
     names_from = Task,
     values_from = Score,
     names_prefix = "Task"
   )
 
-head(brennan_wide)
+head(crossed_wide)
 #   Person Rater Task1 Task2 Task3
-# 1      1     1     4     5     6
-# 2      1     2     3     4     5
-# ...
+# 1     P1    R1   8.3   5.5   4.1
+# 2     P2    R1   5.1   4.4   5.2
+# 3     P3    R1   7.7   5.5   4.8
+# 4     P4    R1   6.3   6.3   3.9
+# 5     P5    R1   7.2   5.4   5.0
+# 6     P6    R1   7.4   3.0   5.6
 
 # Multivariate G-study
 g_mv_wide <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
-  backend = "brms"
+  data = crossed_wide,
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -3050,6 +3359,7 @@ g_mv_wide <- gstudy(
 variable:
 
 ``` r
+
 # Use rajaratnam dataset (nested: items within subtests)
 data(rajaratnam)
 
@@ -3063,10 +3373,11 @@ head(rajaratnam)
 g_mv_long <- gstudy(
   bf(Score ~ 0 + Subtest +
          (0 + Subtest | r | Person) +
-         (0 + Subtest || Item)),
+         (0 + Subtest || ItemId)),
   sigma ~ 0 + Subtest,
   data = rajaratnam,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -3083,6 +3394,7 @@ g_mv_long <- gstudy(
 #### Variance Components and Correlation Matrices
 
 ``` r
+
 # Variance components by dimension
 g_mv_wide$variance_components
 
@@ -3103,6 +3415,7 @@ Interpretation:
 #### Multivariate Bayesian D-Study
 
 ``` r
+
 d_mv <- dstudy(g_mv_wide, n = list(Rater = 4), ci = c("g", "phi"))
 
 print(d_mv)
@@ -3117,6 +3430,7 @@ Y_{\text{composite}} = \frac{1}{D}\sum_{d=1}^{D} Y_d
 Specify custom weights:
 
 ``` r
+
 # Custom weights: Task1=50%, Task2=30%, Task3=20%
 d_weighted <- dstudy(
   g_mv_wide,
@@ -3130,32 +3444,34 @@ print(d_weighted)
 
 #### Wide vs Long Format: A Worked Comparison
 
-The two formats are not interchangeable — wide format requires balanced
-data and uses simpler syntax, while long format is the only option for
-unbalanced data and gives you more modeling flexibility. The chunk below
-shows both formats on the same `brennan` data (which happens to be
-balanced, so both are valid):
+The two formats are not interchangeable — wide format requires a fully
+crossed design (one value per cell) and uses simpler syntax, while long
+format is the only option for unbalanced data and gives you more
+modeling flexibility. The chunk below uses the synthetic fully crossed
+`crossed_data` / `crossed_wide` defined in the Multivariate G-Study
+section:
 
 ``` r
+
 # Wide format: one column per dimension
-brennan_wide <- brennan %>%
+crossed_wide <- crossed_data %>%
   tidyr::pivot_wider(
     names_from = Task,
     values_from = Score,
     names_prefix = "Task"
   )
 
-# Long format on a multivariate variable: each row is a (person, item) score
-# For brennan, we treat Score as the response and Task as the dimension
-# indicator. (The brms bf() syntax is more complex; see Multivariate G-Study
-# section for the full multivariate model.)
+# Long format on a multivariate variable: each row is a (person, task) score
+# and the multivariate response is built from the columns of crossed_data.
+# (The brms bf() syntax is more complex; see Multivariate G-Study section
+# for the full multivariate model.)
 
 # Wide-format G-study (default for multivariate)
 g_wide_run <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
-  data = brennan_wide,
+  data = crossed_wide,
   backend = "brms",
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
 
 # Print the wide-format variance components
@@ -3247,26 +3563,143 @@ $`PRMSE(C \rightarrow S_i)`$ incorporates the **covariances between
 subscales**:
 
 ``` math
-PRMSE(C \rightarrow S_i) = \frac{(\sigma^2_{S_i} \cdot Rel(S_i) + \sum_{j \neq i} \sigma_{S_i, S_j})^2}{\sigma^2_{S_i} \cdot Rel(C) \cdot \sigma^2_C}
+PRMSE(C \rightarrow S_i) = \frac{[\mathrm{Cov}(\tau_i, C)]^2}{\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot \mathrm{Var}(C)}
 ```
+
+where
+$`\mathrm{Cov}(\tau_i, C) = \sum_j w_j \, \mathrm{Cov}(\tau_i, \tau_j)`$
+is the weighted covariance between subscale $`i`$’s universe score and
+the composite universe score, computed from the universe-score
+(disattenuated) covariance matrix $`\Sigma_\tau`$.
 
 Where:
 
-- $`\sigma^2_{S_i}`$ is the observed variance of subscale $`i`$
-- $`Rel(S_i)`$ is the reliability of subscale $`i`$ (G coefficient for
-  relative, Phi for absolute)
-- $`\sigma_{S_i, S_j}`$ is the observed covariance between subscales
-  $`i`$ and $`j`$
-- $`Rel(C)`$ is the reliability of the composite
-- $`\sigma^2_C`$ is the observed variance of the composite
+- $`\mathrm{Var}(\tau_i) = \Sigma_{\tau,ii}`$ is the universe-score
+  variance of subscale $`i`$
+- $`\mathrm{Rel}(C) = \mathrm{Var}(\tau_C) / \mathrm{Var}(C)`$ is the
+  composite reliability (G for relative, $`\Phi`$ for absolute)
+- $`\mathrm{Var}(C) = \mathbf{w}^\top \Sigma_{\mathrm{obs}} \mathbf{w}`$
+  is the D-study observed variance of the composite
+- $`\mathbf{w}`$ is the vector of subscale weights (e.g.,
+  $`w_j = 1/n_s`$ for equal weighting)
+
+> **Note on Vispoel et al. (2023) Equation 38.** The formula above is
+> the Haberman (2008) correct form. The equation labeled “Equation 38”
+> in Vispoel et al. (2023, p. 9) contains a typesetting error in the
+> denominator (using $`\hat\sigma^2(S_i) \cdot \mathrm{Rel}(C)`$ instead
+> of $`\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C)`$); the implementation
+> in
+> [`facet::prmse()`](https://github.com/yourorg/facet/reference/prmse.md)
+> uses the corrected form, which matches the numerical values reported
+> in their Table 8.
 
 **Key insight**: When subscales are positively correlated, the
-covariance terms ($`\sigma_{S_i, S_j}`$) increase the numerator, making
-it more likely that the composite provides useful information for
-estimating the subscale’s universe score. This is why VAR can be less
-than 1 even when subscale reliability is high—strong correlations with
-other subscales mean the composite “borrows strength” from these
-relationships.
+covariance terms ($`\mathrm{Cov}(\tau_i, \tau_j)`$) increase
+$`|\mathrm{Cov}(\tau_i, C)|`$, making it more likely that the composite
+provides useful information for estimating the subscale’s universe
+score. This is why VAR can be less than 1 even when subscale reliability
+is high—strong correlations with other subscales mean the composite
+“borrows strength” from these relationships.
+
+> **Experimental.** The
+> [`facet::prmse()`](https://github.com/yourorg/facet/reference/prmse.md)
+> function is experimental. Testing has been limited, and its API and
+> output columns may change before the function graduates to stable.
+> Verify results against an independent implementation before citing
+> them in published work.
+
+#### Three Types of PRMSE in facet::prmse()
+
+The [`prmse()`](https://github.com/yourorg/facet/reference/prmse.md)
+function computes three distinct types of PRMSE, each answering a
+different question about prediction accuracy:
+
+| Metric | Question Answered |
+|----|----|
+| `prmse_s_rel` | “How reliable is this subscale alone?” (equals G coefficient) |
+| `prmse_c_rel` | “How well does the composite predict this subscale?” (Haberman’s PRMSE_C) |
+| `prmse_p_rel` | “How well does the full profile predict this subscale?” (diagonal slice of $`\Sigma_\tau \Sigma_{\mathrm{obs}}^{-1} \Sigma_\tau`$) |
+
+In addition, the global profile reliability is available as
+`attr(result, "prmse_mv_rel")`, which is the **trace** of the same
+matrix (not the diagonal slice), normalized by
+$`\mathrm{tr}(\Sigma_\tau)`$. This equals the matrix analog of a squared
+canonical correlation and always satisfies
+$`\mathrm{PRMSE}_{MV} \geq \mathrm{PRMSE}_P[d]`$ for any dimension
+$`d`$.
+
+#### Validating the PRMSE formula on synthetic data
+
+The Haberman (2008) closed form is fully reproducible from the package’s
+output. The following example constructs a balanced 3-dimension design
+with known variance components and shows that
+[`prmse()`](https://github.com/yourorg/facet/reference/prmse.md)
+recovers the analytical values to within ANOVA estimation noise.
+
+``` r
+
+library(facet)
+set.seed(123)
+n_persons <- 1500
+n_items <- 10
+
+# True data-generating parameters:
+#   Var(tau_A) = Var(tau_B) = Var(tau_C) = 1.0
+#   Cov(tau_A, tau_B) = Cov(tau_A, tau_C) = Cov(tau_B, tau_C) = 0.5
+#   Item variance = 0.1 per subscale
+#   Person:Item variance = 0.9 per subscale
+Sigma_person <- matrix(c(1, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 1), 3, 3,
+  dimnames = list(c("A", "B", "C"), c("A", "B", "C")))
+
+# Generate Person effects and build the data
+L <- chol(Sigma_person)
+tau <- matrix(rnorm(n_persons * 3), n_persons, 3) %*% L
+data <- do.call(rbind, lapply(seq_len(n_persons), function(p) {
+  data.frame(
+    person = factor(p),
+    item   = factor(seq_len(n_items)),
+    A = tau[p, 1] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+    B = tau[p, 2] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9)),
+    C = tau[p, 3] + rnorm(n_items, 0, sqrt(0.1)) + rnorm(n_items, 0, sqrt(0.9))
+  )
+}))
+
+# Fit and run prmse
+g <- gstudy(mvbind(A, B, C) ~ (1 | person) + (1 | item), data = data, backend = "mom")
+d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
+result <- suppressWarnings(prmse(d))
+
+# Closed-form reference (Haberman 2008)
+n_i <- 10
+Sigma_tau <- Sigma_person
+Sigma_obs_rel <- Sigma_tau
+diag(Sigma_obs_rel) <- diag(Sigma_obs_rel) + 0.9 / n_i
+w <- rep(1/3, 3)
+var_tau_C <- as.numeric(t(w) %*% Sigma_tau %*% w)
+var_obs_C_rel <- as.numeric(t(w) %*% Sigma_obs_rel %*% w)
+Rel_C <- var_tau_C / var_obs_C_rel
+cov_tau_C <- as.numeric(Sigma_tau %*% w)
+
+# PRMSE_S reference = G coefficient
+ref_s <- diag(Sigma_tau) / (diag(Sigma_tau) + 0.9 / n_i)
+
+# PRMSE_C reference = Haberman closed form
+ref_c <- (cov_tau_C^2) / (diag(Sigma_tau) * Rel_C * var_obs_C_rel)
+
+# Compare
+data.frame(
+  dim = c("A", "B", "C"),
+  ref_prmse_s = ref_s,
+  pkg_prmse_s = result$prmse_s_rel,
+  ref_prmse_c = ref_c,
+  pkg_prmse_c = result$prmse_c_rel
+)
+```
+
+The `pkg_prmse_*` values should match `ref_prmse_*` to within 0.05 (the
+tolerance for ANOVA estimation noise with the chosen sample sizes). This
+validation is also encoded in the package’s automated test suite
+(`tests/testthat/test-viable.R`, tests H1–H10).
 
 #### Two Variants: var_rel and var_abs
 
@@ -3287,18 +3720,21 @@ VAR requires multivariate data with multiple dimensions. The following
 example uses the rajaratnam dataset, which has three subtests:
 
 ``` r
+
 library(facet)
 library(brms)
 
 # Multivariate G-study with items nested within subtests
-# Note: This uses long-format specification
+# Note: This uses long-format specification with the ItemId column
 g_mv <- gstudy(
-  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
+  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
      sigma ~ 0 + Subtest),
   data = rajaratnam,
   backend = "brms",
   chains = 2,
-  iter = 1000
+  iter = 2000,
+  cores = 4,
+  refresh = 1000
 )
 
 # D-study computing VAR
@@ -3308,7 +3744,6 @@ d_mv <- dstudy(
 )
 
 # Access PRMSE and VAR results using prmse()
-# Note: facet::prmse() is experimental; verify before citing.
 prmse(d_mv)
 ```
 
@@ -3340,6 +3775,7 @@ VAR results are stored in the `var` element of the dstudy object and can
 be accessed in several ways:
 
 ``` r
+
 # Get a tidy data frame with all PRMSE and VAR results
 prmse(d_mv)
 
@@ -3361,6 +3797,7 @@ full posterior distributions. You can compute credible intervals with
 any probability level:
 
 ``` r
+
 # Default 95% credible intervals
 prmse(d_mv)
 
@@ -3415,6 +3852,7 @@ The `var` element will be `NULL` in these situations:
 You can check if VAR is available:
 
 ``` r
+
 # Check if VAR results are available (use [[ to avoid partial matching)
 if (!is.null(d_mv[["var"]])) {
   prmse(d_mv)
@@ -3429,14 +3867,16 @@ For unbalanced designs where dimensions have different sample sizes, use
 long-format models:
 
 ``` r
+
 # Long-format specification
 library(brms)
 
 g_long <- gstudy(
-  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
+  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
      sigma ~ 0 + Subtest),
   data = rajaratnam,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Check detection
@@ -3452,7 +3892,7 @@ summary(g_long)
 - `0 + Subtest`: Estimates separate intercepts per dimension
 - `(0 + Subtest | r | Person)`: Correlated random effects (use `|r|` for
   correlation)
-- `(0 + Subtest || Item)`: Independent random effects (use `||` for no
+- `(0 + Subtest || ItemId)`: Independent random effects (use `||` for no
   correlation)
 - `sigma ~ 0 + Subtest`: Dimension-specific residual variances
 
@@ -3477,17 +3917,18 @@ The [`latent()`](https://github.com/yourorg/facet/reference/latent.md)
 function extracts universe score estimates based on random effects:
 
 ``` r
+
 # Basic latent scores (Person only)
 latent_scores <- latent(g)
 
 head(latent_scores)
 #>   Person        latent
-#> 1      1 -6.872381e-16
-#> 2      2  6.801873e-01
-#> 3      3 -5.668228e-01
-#> 4      4 -5.668228e-01
-#> 5      5  6.235050e-01
-#> 6      6 -8.502341e-01
+#> 1      1 -7.895482e-15
+#> 2      2  5.513730e-01
+#> 3      3 -4.594775e-01
+#> 4      4 -4.594775e-01
+#> 5      5  5.054252e-01
+#> 6      6 -6.892162e-01
 ```
 
 **What latent scores represent.** The values returned by
@@ -3506,22 +3947,24 @@ especially when you have unbalanced observations per person.
 #### Custom Universe for Latent Scores
 
 ``` r
+
 # Include Person:Task interaction
 latent_interaction <- latent(g, universe = c("Person", "Person:Task"))
 
 head(latent_interaction)
-#>   Person        latent
-#> 1      1 -6.872381e-16
-#> 2      2  6.801873e-01
-#> 3      3 -5.668228e-01
-#> 4      4 -5.668228e-01
-#> 5      5  6.235050e-01
-#> 6      6 -8.502341e-01
+#>   Person        latent    latent_1    latent_2   latent_3
+#> 1      1 -7.895482e-15 -0.05152004 -0.26189782  0.3134179
+#> 2      2  5.513730e-01  0.28704749  0.07666971  0.2885216
+#> 3      3 -4.594775e-01 -0.79808562 -0.16038119  0.4149345
+#> 4      4 -4.594775e-01  0.04999660 -0.76615420  0.1726253
+#> 5      5  5.054252e-01  0.43046921  0.34124603 -0.1738297
+#> 6      6 -6.892162e-01 -0.44444080 -0.17020017 -0.2006575
 ```
 
 #### Latent Scores from Bayesian Models
 
 ``` r
+
 # Latent scores from Bayesian G-study
 latent_bayes <- latent(g_bayes)
 
@@ -3533,23 +3976,26 @@ head(latent_bayes)
 #### Variance Component Plots
 
 ``` r
+
 # Variance scale
 plot(g, type = "variance")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-57-1.png)
+![](introduction_files/figure-html/unnamed-chunk-59-1.png)
 
 ``` r
+
 
 # Proportion of variance
 plot(g, type = "proportion")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-57-2.png)
+![](introduction_files/figure-html/unnamed-chunk-59-2.png)
 
 #### Forest Plots (with Confidence Intervals)
 
 ``` r
+
 # Forest plot (requires CIs)
 g_ci <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
@@ -3560,26 +4006,28 @@ g_ci <- gstudy(
 plot(g_ci, type = "forest")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-58-1.png)
+![](introduction_files/figure-html/unnamed-chunk-60-1.png)
 
 #### Caterpillar Plots
 
 Visualize random effects (BLUPs) with uncertainty:
 
 ``` r
+
 # All random effects
 plot_ranef(g)
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-59-1.png)
+![](introduction_files/figure-html/unnamed-chunk-61-1.png)
 
 ``` r
+
 
 # Specific facet
 plot_ranef(g, which = "Person")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-59-2.png)
+![](introduction_files/figure-html/unnamed-chunk-61-2.png)
 
 **Reading caterpillar plots.** Each row is one level of the facet (e.g.,
 one rater, one task); the point is the BLUP (best linear unbiased
@@ -3596,6 +4044,7 @@ size, so the most extreme levels are at the top and bottom.
 #### D-Study Sweep Plots
 
 ``` r
+
 # Create sweep
 d_sweep <- dstudy(g, n = list(Task = c(2, 5, 10), Rater = c(2, 4, 8)))
 
@@ -3603,21 +4052,23 @@ d_sweep <- dstudy(g, n = list(Task = c(2, 5, 10), Rater = c(2, 4, 8)))
 plot(d_sweep, type = "sweep")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-60-1.png)
+![](introduction_files/figure-html/unnamed-chunk-62-1.png)
 
 ``` r
+
 
 # Single coefficient
 plot(d_sweep, type = "sweep", coefficient = "g")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-60-2.png)
+![](introduction_files/figure-html/unnamed-chunk-62-2.png)
 
 ### Working with Model Objects
 
 #### Extracting Model Components
 
 ``` r
+
 # Access the underlying model object
 model <- g$model
 
@@ -3630,38 +4081,89 @@ class(model)
 # Extract random effects
 re <- ranef(g)
 re
+#> $`Person:Task`
+#>      (Intercept)
+#> 1:1  -0.05152004
+#> 1:2  -0.26189782
+#> 1:3   0.31341786
+#> 2:1   0.28704749
+#> 2:2   0.07666971
+#> 2:3   0.28852158
+#> 3:1  -0.79808562
+#> 3:2  -0.16038119
+#> 3:3   0.41493450
+#> 4:1   0.04999660
+#> 4:2  -0.76615420
+#> 4:3   0.17262529
+#> 5:1   0.43046921
+#> 5:2   0.34124603
+#> 5:3  -0.17382971
+#> 6:1  -0.44444080
+#> 6:2  -0.17020017
+#> 6:3  -0.20065750
+#> 7:1   0.08927253
+#> 7:2   0.36351316
+#> 7:3   0.09074662
+#> 8:1   0.52216687
+#> 8:2   0.31178908
+#> 8:3  -1.05136888
+#> 9:1   1.18948294
+#> 9:2   0.13102294
+#> 9:3  -0.50520741
+#> 10:1 -0.57804354
+#> 10:2  0.18081550
+#> 10:3 -0.09195104
+#> 
+#> $Rater
+#>    (Intercept)
+#> 1   0.64016437
+#> 2  -0.31039354
+#> 3   0.27456518
+#> 4   0.20144534
+#> 5   0.37902889
+#> 6  -0.35216951
+#> 7  -0.05969015
+#> 8   0.08654953
+#> 9   0.40664361
+#> 10  0.99160233
+#> 11 -1.20199286
+#> 12 -1.05575318
+#> 
 #> $Person
 #>      (Intercept)
-#> 1  -6.872381e-16
-#> 2   6.801873e-01
-#> 3  -5.668228e-01
-#> 4  -5.668228e-01
-#> 5   6.235050e-01
-#> 6  -8.502341e-01
-#> 7   5.668228e-01
-#> 8  -2.267291e-01
-#> 9   8.502341e-01
-#> 10 -5.101405e-01
+#> 1  -7.895482e-15
+#> 2   5.513730e-01
+#> 3  -4.594775e-01
+#> 4  -4.594775e-01
+#> 5   5.054252e-01
+#> 6  -6.892162e-01
+#> 7   4.594775e-01
+#> 8  -1.837910e-01
+#> 9   6.892162e-01
+#> 10 -4.135297e-01
 #> 
 #> $Task
 #>   (Intercept)
-#> 1  0.64752641
-#> 2  0.04316843
-#> 3 -0.69069484
+#> 1  0.40486519
+#> 2  0.02699101
+#> 3 -0.43185621
 #> 
-#> with conditional variances for "Person" "Task"
+#> with conditional variances for "Person:Task" "Rater" "Person" "Task"
 
 # Extract variance-covariance
 VarCorr(g)
-#>  Groups   Name        Std.Dev.
-#>  Person   (Intercept) 0.76395 
-#>  Task     (Intercept) 0.72124 
-#>  Residual             1.81463
+#>  Groups      Name        Std.Dev.
+#>  Person:Task (Intercept) 0.74803 
+#>  Rater       (Intercept) 0.80467 
+#>  Person      (Intercept) 0.68776 
+#>  Task        (Intercept) 0.57038 
+#>  Residual                1.54282
 ```
 
 #### Posterior Draws (Bayesian)
 
 ``` r
+
 # Extract posterior draws
 draws <- brms::as_draws_matrix(g_bayes$model)
 
@@ -3679,6 +4181,7 @@ posterior::summarise_draws(draws)
 Check for convergence issues:
 
 ``` r
+
 # Check for warnings
 g$model@optinfo$conv$lme4
 #> list()
@@ -3707,6 +4210,7 @@ Method of moments can produce negative estimates, which are truncated to
 zero:
 
 ``` r
+
 # Check if any components were truncated
 g_mom$variance_components %>%
   filter(var == 0)
@@ -3731,6 +4235,7 @@ drop it from the design going forward.
 #### Convergence Diagnostics (Bayesian)
 
 ``` r
+
 # Check Rhat values
 g_bayes$variance_components %>%
   select(component, Rhat, Bulk_ESS, Tail_ESS) %>%
@@ -3760,11 +4265,13 @@ Student-t).
 
 ### Complete Workflow Example
 
-Here is an end-to-end analysis using the `brennan` dataset. Note: In the
-Brennan dataset, Raters are nested within Task, so we use the nested
-notation `Rater:Task`:
+Here is an end-to-end analysis using the `brennan` dataset. The
+canonical G-study formula (per “Specifying All Possible Variance
+Components”) uses `(1 | Rater)`—equivalent to `(1 | Rater:Task)` because
+the 12 Rater labels are unique within each Task:
 
 ``` r
+
 library(facet)
 library(dplyr)
 library(tidyr)
@@ -3796,9 +4303,9 @@ brennan %>%
 #> 2 2     5, 6, 7, 8           4
 #> 3 3     9, 10, 11, 12        4
 
-# 2. Conduct G-study with profile CIs (using nested design)
+# 2. Conduct G-study with profile CIs (canonical formula)
 g_full <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -3806,11 +4313,11 @@ g_full <- gstudy(
 
 # 3. Examine variance components
 summary(g_full)
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: lme4 
-#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task) 
+#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #>  Observations: 120 
 #>  Multivariate: No 
 #> 
@@ -3824,7 +4331,7 @@ summary(g_full)
 #>   <chr>              <chr>       <dbl>
 #> 1 Person             main           10
 #> 2 Task               main            3
-#> 3 Rater:Task         interaction    12
+#> 3 Rater              main           12
 #> 4 Person:Task        interaction    30
 #> 5 Person:Rater (res) residual      120
 #> 6 Rater per Task     nested          4
@@ -3834,15 +4341,15 @@ summary(g_full)
 #> 
 #> Variance Components:
 #> # A tibble: 5 × 5
-#>   component   estimate   pct `2.5% CI` `97.5% CI`
-#>   <chr>          <dbl> <dbl>     <dbl>      <dbl>
-#> 1 Person         0.473 10.8      0           1.94
-#> 2 Task           0.325  7.42     0           3.56
-#> 3 Rater:Task     0.647 14.8      0.149       2.28
-#> 4 Person:Task    0.56  12.8      0           1.88
-#> 5 Residual       2.38  54.3      1.78        3.29
+#>   component   estimate     pct `2.5% CI` `97.5% CI`
+#>   <chr>          <dbl>   <dbl>     <dbl>      <dbl>
+#> 1 Person        0.473  10.7856    0          1.9449
+#> 2 Task          0.3253  7.418     0          3.5622
+#> 3 Rater         0.6475 14.7637    0.149      2.2824
+#> 4 Person:Task   0.5596 12.7586    0          1.8827
+#> 5 Residual      2.3803 54.2741    1.7758     3.2931
 #> 
-#> Total variance: 4.385
+#> Total variance: 4.3857
 
 # Identify largest sources of variance
 tidy(g_full) %>%
@@ -3855,25 +4362,25 @@ tidy(g_full) %>%
 #>   component   dim   type          var   pct lower upper cum_pct
 #>   <fct>       <chr> <chr>       <dbl> <dbl> <dbl> <dbl>   <dbl>
 #> 1 Residual    Score residual    2.38  54.3  1.78   3.29    54.3
-#> 2 Rater:Task  Score interaction 0.647 14.8  0.149  2.28    69.0
-#> 3 Person:Task Score interaction 0.56  12.8  0      1.88    81.8
+#> 2 Rater       Score main        0.648 14.8  0.149  2.28    69.0
+#> 3 Person:Task Score interaction 0.560 12.8  0      1.88    81.8
 #> 4 Person      Score main        0.473 10.8  0      1.94    92.6
-#> 5 Task        Score main        0.325  7.42 0      3.56   100.
+#> 5 Task        Score main        0.325  7.42 0      3.56   100
 
 # 4. Conduct D-study to optimize design
 # Current design: 3 tasks, 4 raters per task
-d_current <- dstudy(g_full, n = list(Task = 3, `Rater:Task` = 4))
+d_current <- dstudy(g_full, n = list(Task = 3, Rater = 4))
 cat("Current design G:", d_current$coefficients$g, "\n")
-#> Current design G: 0.5512821
+#> Current design G: 0.3770101
 cat("Current design Phi:", d_current$coefficients$phi, "\n")
-#> Current design Phi: 0.4001692
+#> Current design Phi: 0.3101809
 
 # 5. Explore alternative designs
 d_explore <- dstudy(
   g_full,
   n = list(
     Task = c(1, 2, 3, 5, 10),
-    `Rater:Task` = c(1, 2, 4, 8, 12)
+    Rater = c(1, 2, 4, 8, 12)
   )
 )
 
@@ -3881,55 +4388,54 @@ d_explore <- dstudy(
 tidy(d_explore) %>%
   filter(g >= 0.80) %>%
   arrange(g)
-#> # A tibble: 3 × 10
-#>    Task `Rater:Task` dim     uni sigma2_delta sigma2_delta_abs     g   phi
-#>   <dbl>        <dbl> <chr> <dbl>        <dbl>            <dbl> <dbl> <dbl>
-#> 1    10            4 Score 0.473       0.116             0.213 0.804 0.690
-#> 2    10            8 Score 0.473       0.0858            0.183 0.847 0.721
-#> 3    10           12 Score 0.473       0.0758            0.173 0.862 0.732
-#> # ℹ 2 more variables: sem_rel <dbl>, sem_abs <dbl>
+#> # A tibble: 0 × 10
+#> # ℹ 10 variables: Task <dbl>, Rater <dbl>, dim <chr>, uni <dbl>,
+#> #   sigma2_delta <dbl>, sigma2_delta_abs <dbl>, g <dbl>, phi <dbl>,
+#> #   sem_rel <dbl>, sem_abs <dbl>
 
 # 6. Visualize
 plot(d_explore, type = "sweep")
 ```
 
-![](introduction_files/figure-html/unnamed-chunk-66-1.png)
+![](introduction_files/figure-html/unnamed-chunk-68-1.png)
 
 ``` r
+
 
 # 7. Make recommendation
 # Optimal design: minimum resources for G >= 0.80
 optimal <- tidy(d_explore) %>%
   filter(g >= 0.80) %>%
-  arrange(Task * `Rater:Task`) %>%
+  arrange(Task * Rater) %>%
   slice(1)
 
 print(optimal)
-#> # A tibble: 1 × 10
-#>    Task `Rater:Task` dim     uni sigma2_delta sigma2_delta_abs     g   phi
-#>   <dbl>        <dbl> <chr> <dbl>        <dbl>            <dbl> <dbl> <dbl>
-#> 1    10            4 Score 0.473        0.116            0.213 0.804 0.690
-#> # ℹ 2 more variables: sem_rel <dbl>, sem_abs <dbl>
+#> # A tibble: 0 × 10
+#> # ℹ 10 variables: Task <dbl>, Rater <dbl>, dim <chr>, uni <dbl>,
+#> #   sigma2_delta <dbl>, sigma2_delta_abs <dbl>, g <dbl>, phi <dbl>,
+#> #   sem_rel <dbl>, sem_abs <dbl>
 ```
 
 ### Three-Facet Design Example
 
-A complete example with a nested design (Raters nested within Task):
+A complete example with a nested design (Raters nested within Task; the
+canonical formula uses `(1 | Rater)` for the within-task rater effect):
 
 ``` r
-# G-study with nested design (Raters nested within Task)
+
+# G-study with the canonical brennan formula
 g_3f <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan
 )
 
 summary(g_3f)
-#> === G-Study Summary ===
+#> === G Study Summary ===
 #> 
 #> Design Information:
 #>  Backend: lme4 
-#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task) 
+#>  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #>  Observations: 120 
 #>  Multivariate: No 
 #> 
@@ -3943,7 +4449,7 @@ summary(g_3f)
 #>   <chr>              <chr>       <dbl>
 #> 1 Person             main           10
 #> 2 Task               main            3
-#> 3 Rater:Task         interaction    12
+#> 3 Rater              main           12
 #> 4 Person:Task        interaction    30
 #> 5 Person:Rater (res) residual      120
 #> 6 Rater per Task     nested          4
@@ -3953,64 +4459,64 @@ summary(g_3f)
 #> 
 #> Variance Components:
 #> # A tibble: 5 × 3
-#>   component   estimate   pct
-#>   <chr>          <dbl> <dbl>
-#> 1 Person         0.473 10.8 
-#> 2 Task           0.325  7.42
-#> 3 Rater:Task     0.647 14.8 
-#> 4 Person:Task    0.56  12.8 
-#> 5 Residual       2.38  54.3 
+#>   component   estimate     pct
+#>   <chr>          <dbl>   <dbl>
+#> 1 Person        0.473  10.7856
+#> 2 Task          0.3253  7.418 
+#> 3 Rater         0.6475 14.7637
+#> 4 Person:Task   0.5596 12.7586
+#> 5 Residual      2.3803 54.2741
 #> 
-#> Total variance: 4.385
+#> Total variance: 4.3857
 
 # D-study: what if we used 5 tasks with 2 raters each?
-# Note: Use backticks for nested facet names in dstudy
-d_3f <- dstudy(g_3f, n = list(Task = 5, `Rater:Task` = 2))
+d_3f <- dstudy(g_3f, n = list(Task = 5, Rater = 2))
 
 summary(d_3f)
 #> === D-Study Summary ===
 #> 
 #> Object of measurement: Person 
-#> Based on G-Study: Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task) 
+#> Based on G Study: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #> 
 #> Sample Sizes:
 #>  Task: 5
-#>  Rater:Task: 2
+#>  Rater: 2
 #> 
 #> Variance Components:
 #> # A tibble: 5 × 6
 #>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
 #>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person      Score        0.473        10.8       0.473      46.5 
-#> 2 Task        Score        0.325         7.41      0.065       6.39
-#> 3 Rater:Task  Score        0.647        14.8       0.129      12.7 
-#> 4 Person:Task Score        0.56         12.8       0.112      11.0 
-#> 5 Residual    Score        2.38         54.3       0.238      23.4 
+#> 1 Person      Score       0.473       10.7851     0.473     21.8589
+#> 2 Task        Score       0.3253       7.4173     0.0651     3.0066
+#> 3 Rater       Score       0.6475      14.7639     0.3238    14.9616
+#> 4 Person:Task Score       0.5596      12.7597     0.1119     5.1722
+#> 5 Residual    Score       2.3803      54.2741     1.1902    55.0007
 #> 
 #> Coefficients:
 #>     dim   uni sigma2_delta sigma2_delta_abs         g       phi
-#> 1 Score 0.473         0.35           0.5444 0.5747266 0.4649106
+#> 1 Score 0.473      1.30207          1.69088 0.2664684 0.2185888
 
 # Compare with original design
-d_orig <- dstudy(g_3f, n = list(Task = 3, `Rater:Task` = 4))
+d_orig <- dstudy(g_3f, n = list(Task = 3, Rater = 4))
 
 cat("Original (3 tasks, 4 raters/task): G =", d_orig$coefficients$g, "\n")
-#> Original (3 tasks, 4 raters/task): G = 0.5512821
+#> Original (3 tasks, 4 raters/task): G = 0.3770101
 cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
-#> Alternative (5 tasks, 2 raters/task): G = 0.5747266
+#> Alternative (5 tasks, 2 raters/task): G = 0.2664684
 ```
 
 **Reading this comparison.** A 5-task × 2-rater design achieves
 comparable or higher G than a 3-task × 4-rater design (10 total
 observation cells vs 12), with one fewer level per task and one more
 task overall. The reason: in this dataset, the Task facet has more
-variance than the Rater:Task facet, so adding tasks reduces error faster
-than adding raters does. The general lesson: when a sweep shows that one
-facet contributes disproportionately to error, investing in more levels
-of that facet is more cost-effective than investing in the facets with
-small variance components. Always inspect `tidy(d_sweep)` and look for
-the facet with the largest ratio of variance to current n before
-deciding where to spend your next round of data collection.
+variance than the Rater facet (the within-task rater-leniency effect),
+so adding tasks reduces error faster than adding raters does. The
+general lesson: when a sweep shows that one facet contributes
+disproportionately to error, investing in more levels of that facet is
+more cost-effective than investing in the facets with small variance
+components. Always inspect `tidy(d_sweep)` and look for the facet with
+the largest ratio of variance to current n before deciding where to
+spend your next round of data collection.
 
 ### Weight Optimization for Composite Scores
 
@@ -4040,6 +4546,7 @@ the composite score itself. This uses an analytical solution via
 generalized eigenvalue decomposition.
 
 ``` r
+
 # Optimize weights for maximum composite reliability
 result <- prmse(d_mv, optimize = "composite")
 
@@ -4064,6 +4571,7 @@ It returns both:
     across all subscales
 
 ``` r
+
 # Optimize weights for maximum subscale VAR
 result <- prmse(d_mv, optimize = "subscale")
 
@@ -4088,6 +4596,7 @@ combinations. This is useful for diagnostic purposes and understanding
 the weight-VAR relationship.
 
 ``` r
+
 # Grid search with 0.2 resolution
 result <- prmse(d_mv, optimize = "tuning", grid_resolution = 0.2)
 
@@ -4111,6 +4620,7 @@ data, because they optimize different objectives. The chunk below fits
 all three and prints a side-by-side comparison:
 
 ``` r
+
 # Fit all three methods on the same multivariate D-study
 comp <- prmse(d_mv, optimize = "composite")
 sub  <- prmse(d_mv, optimize = "subscale")
@@ -4146,6 +4656,7 @@ results for each subscale. To include a Composite row showing the
 composite’s reliability:
 
 ``` r
+
 # Include composite reliability row
 prmse(d_mv, include_composite = TRUE)
 ```
@@ -4181,14 +4692,18 @@ predicts itself) - `var_rel/abs`: Always 1.0
 #### Leave-One-Out Cross-Validation
 
 ``` r
+
 # Compare models with LOO-CV
 library(loo)
 
 # Fit alternative models
 g_simple <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                   data = brennan, backend = "brms")
-g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-                 data = brennan, backend = "brms")
+                   data = brennan, backend = "brms",
+                   iter = 2000, cores = 4, refresh = 1000)
+g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                   (1 | Person:Task),
+                 data = brennan, backend = "brms",
+                 iter = 2000, cores = 4, refresh = 1000)
 
 # LOO comparison
 loo_simple <- loo(g_simple$model)
@@ -4200,6 +4715,7 @@ loo_compare(loo_simple, loo_full)
 #### Bayes Factors
 
 ``` r
+
 # Bayes factor approximation
 bayes_factor(g_full$model, g_simple$model)
 ```
@@ -4209,13 +4725,15 @@ bayes_factor(g_full$model, g_simple$model)
 Bayesian methods handle missing data through multiple imputation:
 
 ``` r
+
 # Missing data is automatically handled by brms
 # using Bayesian imputation during model fitting
 
 g_missing <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = data_with_missing,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -4224,12 +4742,14 @@ g_missing <- gstudy(
 For data with outliers, use robust likelihood:
 
 ``` r
+
 # Student-t likelihood for robustness
 g_robust <- gstudy(
   bf(Score ~ (1 | Person) + (1 | Task),
      family = student()),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -4254,6 +4774,7 @@ When reporting G-theory analyses, include:
 Create a formatted table:
 
 ``` r
+
 tidy(g) %>%
   mutate(
     Variance = sprintf("%.3f", var),
@@ -4337,6 +4858,7 @@ tidy(g) %>%
 #### Table: Variance Components
 
 ``` r
+
 # Function to create APA-style table for variance components
 make_apa_variance_table <- function(gstudy_obj) {
   vc <- gstudy_obj$variance_components
@@ -4465,7 +4987,8 @@ items per subtest are needed to achieve acceptable reliability?
 
 #### Basic Bayesian G-Study
 
-Using the `brennan` dataset:
+Using the `brennan` dataset (Rater nested within Task; canonical formula
+uses `(1 | Rater)`):
 
 1.  Fit a Bayesian G-study with Person, Task, and Rater facets using
     default priors.
@@ -4477,14 +5000,17 @@ Using the `brennan` dataset:
     estimates differ?
 
 ``` r
+
 library(facet)
 data(brennan)
 
 # a) Bayesian G-study
 g_bayes <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # b) Posterior summaries
@@ -4492,7 +5018,8 @@ print(g_bayes)
 
 # c) Compare to REML
 g_reml <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task),
   data = brennan,
   backend = "lme4"
 )
@@ -4514,6 +5041,7 @@ g_reml$variance_components$var
     parameter.
 
 ``` r
+
 library(brms)
 
 # a) Custom prior encoding prior information
@@ -4523,15 +5051,18 @@ custom_prior <- c(
   set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
   set_prior("cauchy(0, 2)", class = "sd", group = "Task"),
   set_prior("cauchy(0, 2)", class = "sd", group = "Rater"),
+  set_prior("cauchy(0, 2)", class = "sd", group = "Person:Task"),
   set_prior("cauchy(0, 2)", class = "sigma")
 )
 
 # b) Fit with custom priors
 g_custom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
-  prior = custom_prior
+  prior = custom_prior,
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Compare
@@ -4565,13 +5096,17 @@ results <- lapply(scales, function(s) {
 4.  Visualize the relationship between design and reliability.
 
 ``` r
+
 # a) G-study
 g_ex3 <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+    (1 | Person:Task),
   data = brennan,
   backend = "brms",
   chains = 4,
-  iter = 4000
+  iter = 2000,
+  cores = 4,
+  refresh = 1000
 )
 
 # b) D-study sweep
@@ -4604,18 +5139,21 @@ Using the `rajaratnam` dataset:
     results.
 
 ``` r
+
 data(rajaratnam)
 
 # a) Multivariate G-study
 g_mv_ex4 <- gstudy(
   bf(Score ~ 0 + Subtest +
          (0 + Subtest | r | Person) +
-         (0 + Subtest || Item)),
+         (0 + Subtest || ItemId)),
   sigma ~ 0 + Subtest,
   data = rajaratnam,
   backend = "brms",
   chains = 2,
-  iter = 2000
+  iter = 2000,
+  cores = 4,
+  refresh = 1000
 )
 
 # b) VAR with credible intervals
@@ -4644,17 +5182,24 @@ prmse(d_mv_ex4)
 3.  Discuss when prior sensitivity matters most.
 
 ``` r
+
 # a) Three prior specifications
 prior_weak <- set_prior("cauchy(0, 5)", class = "sd")
 prior_mod <- set_prior("cauchy(0, 1)", class = "sd")
 prior_strong <- set_prior("exponential(2)", class = "sd")
 
-g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                 data = brennan, backend = "brms", prior = prior_weak)
-g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                data = brennan, backend = "brms", prior = prior_mod)
-g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                   data = brennan, backend = "brms", prior = prior_strong)
+g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                 (1 | Person:Task),
+                 data = brennan, backend = "brms", prior = prior_weak,
+                 iter = 2000, cores = 4, refresh = 1000)
+g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task),
+                data = brennan, backend = "brms", prior = prior_mod,
+                iter = 2000, cores = 4, refresh = 1000)
+g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                   (1 | Person:Task),
+                   data = brennan, backend = "brms", prior = prior_strong,
+                   iter = 2000, cores = 4, refresh = 1000)
 
 # b) Compare posteriors
 library(ggplot2)
@@ -4774,8 +5319,7 @@ Bürkner, P.-C. 2017. “Brms: An r Package for Bayesian Multilevel Models
 Using Stan.” *Journal of Statistical Software* 80 (1): 1–28.
 <https://doi.org/10.18637/jss.v080.i01>.
 
-Carpenter, B., A. Gelman, M. D. Hoffman, D. Lee, B. Goodrich, M.
-Betancourt, M. Brubaker, J. Guo, P. Li, and A. Riddell. 2017. “Stan: A
+Carpenter, B., A. Gelman, M. D. Hoffman, et al. 2017. “Stan: A
 Probabilistic Programming Language.” *Journal of Statistical Software*
 76 (1): 1–32. <https://doi.org/10.18637/jss.v076.i01>.
 
@@ -4791,15 +5335,14 @@ Henderson, C. R. 1953. “Estimation of Variance and Covariance
 Components.” *Biometrics* 9 (2): 226–52.
 <https://doi.org/10.2307/3001851>.
 
+Jackson, D. J. R., G. Michaelides, C. Dewberry, A. Jones, et al. 2022.
+“Uncertainty about Rater Variance and Small Dimension Effects Impact
+Reliability in Supervisor Ratings.” *Human Performance* 35 (3-4):
+278–301. <https://doi.org/10.1080/08959285.2022.2111433>.
+
 Jackson, D. J. R., G. Michaelides, C. Dewberry, and P. Englert. 2023.
 “Clarifying the Scope of Generalizability Theory for Multifaceted
 Assessment.” *New Zealand Journal of Psychology* 51 (2): 53–64.
-
-Jackson, D. J. R., G. Michaelides, C. Dewberry, A. Jones, S. Toms, B.
-Schwencke, and W. N. Yang. 2022. “Uncertainty about Rater Variance and
-Small Dimension Effects Impact Reliability in Supervisor Ratings.”
-*Human Performance* 35 (3-4): 278–301.
-<https://doi.org/10.1080/08959285.2022.2111433>.
 
 Jackson, D. J. R., G. Michaelides, C. Dewberry, and Y. J. Kim. 2016.
 “Everything That You Have Ever Been Told about Assessment Center Ratings
@@ -4820,8 +5363,8 @@ Ratings.” *Journal of Applied Psychology* 105 (3): 312–29.
 Satterthwaite, F. E. 1941. “Synthesis of Variance.” *Psychometrika* 6
 (5): 309–16. <https://doi.org/10.1007/BF02288581>.
 
-———. 1946. “An Approximate Distribution of Estimates of Variance
-Components.” *Biometrics Bulletin* 2 (6): 110–14.
+Satterthwaite, F. E. 1946. “An Approximate Distribution of Estimates of
+Variance Components.” *Biometrics Bulletin* 2 (6): 110–14.
 <https://doi.org/10.2307/3002019>.
 
 Vehtari, A., A. Gelman, D. Simpson, B. Carpenter, and P.-C. Bürkner.

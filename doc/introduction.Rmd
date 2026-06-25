@@ -134,6 +134,46 @@ The variance components are:
 - $\sigma^2_{\tau\alpha}$ (person $\times$ item): Interaction variance
 - $\sigma^2_e$ (residual): Unexplained variance
 
+### Specifying All Possible Variance Components
+
+A well-specified G-study model contains **every main-effect random factor** and **every estimable interaction** between those factors---no more and no less. This is the rule we follow throughout the **facet** package and the rule that every example in this vignette obeys. Two practical subtleties determine which interactions are estimable in a given dataset:
+
+1. **Interactions confounded with the residual must be omitted.** When an interaction has as many unique combinations as observations (i.e., one observation per cell), the interaction is algebraically indistinguishable from the residual error. The `lme4` backend will refuse to fit such a model, and the `mom` and `brms` backends will silently absorb that interaction into the residual. The correct specification is to leave it out of the formula. In every built-in dataset that has one observation per fully crossed cell, the highest-order interaction is therefore omitted from the canonical formula.
+
+2. **Nested random effects can be written either way when labels are unique.** If facet $A$ is nested in facet $B$ and the $A$ labels are already unique within each level of $B$ (e.g., "Item 1" in Subtest 1 is a different item from "Item 1" in Subtest 2), then `(1 | A)` and `(1 | A:B)` produce the same fitted model. We use the un-nested form in canonical formulas because it makes the "all main effects + all estimable interactions" structure more transparent and lets `dstudy()` refer to the facet by a single, unbackticked name.
+
+**Worked example 1 (`brennan` data).** The `brennan` data is a Person $\times$ Task $\times$ (Rater:Task) design with one observation per Person $\times$ Rater:Task cell. The canonical formula is:
+
+```r
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+              (1 | Person:Task),
+            data = brennan)
+```
+
+Each term is interpretable: `Person` is the universe-score variance, `Task` is task-difficulty variance, `Rater` is within-task rater-leniency variance (the 12 `Rater` labels are unique to each task, so `(1 | Rater)` and `(1 | Rater:Task)` are equivalent), and `Person:Task` is the person-by-task interaction. The Person $\times$ Rater:Task interaction is **not** in the formula because each Person $\times$ Rater:Task cell has a single observation, so that effect is confounded with the residual and is absorbed into the error term.
+
+**Worked example 2 (`rajaratnam` data).** The `rajaratnam` data is a Person $\times$ Subtest $\times$ (Item:Subtest) design with one observation per Person $\times$ Item:Subtest cell. The dataset ships with both an `Item` column (the original 4-level Rajaratnam et al. (1965) factor, whose labels are reused across subtests) and an `ItemId` column (an 8-level disambiguated factor, formed as `paste(Subtest, Item, sep = ".")`, e.g. "1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "3.1", "3.2"). The canonical formula uses `ItemId` so the within-subtest nesting of items is visible in the formula:
+
+```r
+g <- gstudy(Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) +
+              (1 | Person:Subtest),
+            data = rajaratnam)
+```
+
+Because `ItemId` is unique within `Subtest`, `(1 | ItemId)` and `(1 | Item:Subtest)` are exactly equivalent random-effect specifications. The Person $\times$ Item:Subtest interaction is **not** in the formula because each Person $\times$ Item:Subtest cell has a single observation, so that effect is confounded with the residual and is absorbed into the error term.
+
+**Worked example 3 (fully crossed Person $\times$ Task $\times$ Rater).** If every rater rates every person on every task (one observation per cell), the canonical formula is:
+
+```r
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+              (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+            data = fully_crossed_data)
+```
+
+All three main effects and all three two-way interactions are estimable; the three-way `Person:Task:Rater` interaction is confounded with the residual and is therefore omitted.
+
+**Why this rule matters.** Under-specifying a G-study (omitting an estimable interaction) is a form of model mis-specification: the omitted variance is silently absorbed by the included terms, biasing the variance-component estimates and the G/Phi coefficients computed from them. Cronbach, Gleser, Nanda, & Rajaratnam (1972) and Brennan (2001) are emphatic on this point---a properly specified G-theory model includes every estimable interaction by design. Over-specifying (adding a confounded interaction) is detected and rejected by `lme4`; with `mom` or `brms` it is silently absorbed into the residual, which is harmless but obscures the model structure. The canonical formulas in this vignette always take the middle path: every estimable interaction is present, and only those.
+
 ### Relative and Absolute Error
 
 G-theory distinguishes between two types of measurement error:
@@ -239,8 +279,9 @@ gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater), data = data_wide)
 
 ```r
 # Long format: single Score column with Subtest indicator
-gstudy(bf(Score ~ 0 + Subtest + (0+Subtest|r|Person), sigma ~ 0 + Subtest), 
-       data = data_long, backend = "brms")
+gstudy(bf(Score ~ 0 + Subtest + (0+Subtest|r|Person), sigma ~ 0 + Subtest),
+       data = data_long, backend = "brms",
+       iter = 2000, cores = 4, refresh = 1000)
 ```
 
 Long-format models are more flexible but require Bayesian estimation.
@@ -485,8 +526,10 @@ Note how wide this CI is — about [1.0, 25.0] — even though the point estimat
 The `backend = "mom"` option uses R's `aov()` function with `Error()` strata:
 
 ```r
-# Method of moments G-study
-g_mom <- gstudy(Score ~ (1|Person) + (1|Task), 
+# Method of moments G-study (canonical brennan formula; see
+# "Specifying All Possible Variance Components")
+g_mom <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                (1|Person:Task),
                 data = brennan, backend = "mom")
 ```
 
@@ -578,16 +621,20 @@ Profile likelihood CIs are faster but may be unreliable for boundary parameters 
 The default `backend = "lme4"` uses `lme4::lmer()` for estimation:
 
 ```r
-# REML G-study (default)
-g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater), 
+# REML G-study (default; canonical brennan formula; see
+# "Specifying All Possible Variance Components")
+g_lme4 <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                 (1|Person:Task),
                  data = brennan)
 
 # With profile likelihood CIs
-g_profile <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater), 
+g_profile <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                    (1|Person:Task),
                     data = brennan, ci_method = "profile")
 
 # With bootstrap CIs
-g_boot <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater), 
+g_boot <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                 (1|Person:Task),
                  data = brennan, ci_method = "boot", nsim = 100)
 ```
 
@@ -614,25 +661,31 @@ Jackson and colleagues applied properly specified Bayesian G-theory models to as
 
 ### Full Crossed Designs with Bayesian Estimation
 
-In crossed designs where all facet combinations are observed, a properly specified G-theory model includes all relevant interaction terms. For example, a fully crossed Person $\times$ Task $\times$ Rater design --- one in which every rater rates every person on every task --- would be specified as:
+In crossed designs where all facet combinations are observed, a properly specified G-theory model includes all *estimable* interaction terms. For example, a fully crossed Person $\times$ Task $\times$ Rater design with multiple observations per Person $\times$ Task $\times$ Rater cell would include all two-way and three-way interactions:
 
 ```{r, eval=FALSE}
+# Fully crossed design with REPLICATION per cell (e.g. each rater rates
+# every person on every task on multiple occasions). The three-way
+# Person:Task:Rater interaction IS estimable here because each cell has
+# more than one observation.
 g_crossed <- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater) +
     (1 | Person:Task:Rater),
   data = crossed_data,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
-The `brennan` dataset is **not** such a design (Rater is nested within Task; see the callout in the "Built-in Datasets" section). For `brennan`, the correct Bayesian specification is the nested form used elsewhere in this vignette:
+The `brennan` dataset is **not** such a design: it is Rater nested within Task with one observation per Person $\times$ Rater:Task cell, so the three-way interaction is confounded with the residual and is absorbed into the error term. For `brennan`, the canonical Bayesian specification (per "Specifying All Possible Variance Components") is:
 
 ```{r, eval=FALSE}
 g_nested <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task),
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -723,24 +776,32 @@ This naturally incorporates uncertainty into coefficient estimates.
 The `backend = "brms"` option uses `brms::brm()` which compiles models to Stan:
 
 ```r
-# Bayesian G-study with default priors
-g_brms <- gstudy(Score ~ (1|Person) + (1|Task), 
-                 data = brennan, backend = "brms")
+# Bayesian G-study with default priors (canonical brennan formula; see
+# "Specifying All Possible Variance Components")
+g_brms <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                 (1|Person:Task),
+                 data = brennan, backend = "brms",
+                 iter = 2000, cores = 4, refresh = 1000)
 
 # With custom priors
 library(brms)
 my_prior <- c(
   set_prior("exponential(1)", class = "sd", group = "Person"),
   set_prior("exponential(0.5)", class = "sd", group = "Task"),
+  set_prior("exponential(1)", class = "sd", group = "Rater"),
+  set_prior("exponential(1)", class = "sd", group = "Person:Task"),
   set_prior("exponential(1)", class = "sigma")
 )
-g_custom <- gstudy(Score ~ (1|Person) + (1|Task), 
-                   data = brennan, backend = "brms", prior = my_prior)
+g_custom <- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
+                   (1|Person:Task),
+                   data = brennan, backend = "brms", prior = my_prior,
+                   iter = 2000, cores = 4, refresh = 1000)
 
 # Multivariate Bayesian G-study (requires a fully crossed design;
 # see the `crossed_wide` data defined in the Multivariate G-Study section)
-g_mv <- gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater), 
-               data = crossed_wide, backend = "brms")
+g_mv <- gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater),
+               data = crossed_wide, backend = "brms",
+               iter = 2000, cores = 4, refresh = 1000)
 ```
 
 The implementation:
@@ -956,21 +1017,25 @@ head(rajaratnam)
 
 The **brennan** dataset contains scores for 10 persons across 3 tasks, with a panel of 4 raters nested within each task (12 raters in total). The design is $p \times t \times (r:t)$: Person is crossed with Task, and Rater is nested within Task (raters 1--4 only see Task 1, raters 5--8 only see Task 2, and raters 9--12 only see Task 3). This is ideal for demonstrating nested designs.
 
-> **Design note (`brennan`).** Because Rater is nested within Task, the random-effects formula must use `(1 | Rater:Task)`, not `(1 | Rater)`. The model
+> **Design note (`brennan`).** The canonical G-study formula for the brennan data (per the rule in "Specifying All Possible Variance Components") is
 > ```
-> Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task)
+> Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task)
 > ```
-> decomposes the observed score into four estimable random-effect variances --- $\sigma^2_{\text{Person}}$ (universe-score variance), $\sigma^2_{\text{Task}}$ (task-difficulty variance), $\sigma^2_{\text{Rater:Task}}$ (within-task rater-leniency variance), and $\sigma^2_{\text{Person:Task}}$ (person-by-task interaction) --- plus a residual that absorbs the person-by-rater:task interaction (each Person $\times$ Rater:Task cell has a single observation, so that effect is confounded with the residual). A crossed formula such as `Score ~ (1 | Person) + (1 | Task) + (1 | Rater)` would treat Rater as if it were crossed with Task, which is not supported by the data.
+> The four estimable random-effect variances are $\sigma^2_{\text{Person}}$ (universe-score variance), $\sigma^2_{\text{Task}}$ (task-difficulty variance), $\sigma^2_{\text{Rater}}$ (within-task rater-leniency variance, equivalent to $\sigma^2_{\text{Rater:Task}}$ because the 12 `Rater` labels are unique within each `Task`), and $\sigma^2_{\text{Person:Task}}$ (person-by-task interaction). The residual absorbs the person-by-rater:task interaction (each Person $\times$ Rater:Task cell has a single observation, so that effect is confounded with the residual). Formally `(1 | Rater)` and `(1 | Rater:Task)` produce the same fitted model here---we use `(1 | Rater)` so the formula reads as "all main effects + the only estimable interaction" and so that downstream `dstudy()` calls can refer to the facet by the simple name `Rater`.
 
-The **rajaratnam** dataset contains scores for 8 persons across 3 subtests, with items nested within subtest. Items are labeled *within* each subtest (e.g., "Item 1" in Subtest 1 is a different item from "Item 1" in Subtest 2), so the random-effects formula uses `Item:Subtest` to capture the unique item-within-subtest factor. This is ideal for demonstrating nested designs.
+The **rajaratnam** dataset contains scores for 8 persons across 3 subtests, with items nested within subtest. The dataset ships with two item-related columns: the original `Item` factor (4 levels, with labels reused across subtests) and a disambiguated `ItemId` factor (8 levels, formed as `paste(Subtest, Item, sep = ".")`). The `ItemId` column is what the canonical G-study formula uses, because it makes the within-subtest nesting of items visible in the formula. Because `ItemId` is unique within `Subtest`, `(1 | ItemId)` and `(1 | Item:Subtest)` are exactly equivalent random-effect specifications---we use `(1 | ItemId)` for the same reason we use `(1 | Rater)` for `brennan`: it makes the "all main effects + the only estimable interaction" structure explicit and lets `dstudy()` refer to the facet as `ItemId = n_items`. This is ideal for demonstrating nested designs.
 
 ## Basic G-Study
 
-A G-study estimates variance components for each facet in the measurement design. The formula syntax follows **lme4** conventions, specifying random effects with `(1 | facet)`.
+A G-study estimates variance components for each facet in the measurement design. The formula syntax follows **lme4** conventions, specifying random effects with `(1 | facet)`. We use the canonical brennan formula (per "Specifying All Possible Variance Components"):
 
 ```{r}
-# Simple G-study with default REML backend
-g <- gstudy(Score ~ (1 | Person) + (1 | Task),
+# Canonical G-study for the brennan data: all main effects plus
+# the only estimable interaction (Person:Task). The Person x Rater:Task
+# interaction is confounded with the residual and absorbed into the
+# error term.
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+              (1 | Person:Task),
             data = brennan)
 
 # Print basic results
@@ -981,7 +1046,9 @@ The output shows the estimated variance components:
 
 - **Person**: Variance attributable to differences between persons (universe score variance)
 - **Task**: Variance attributable to differences in task difficulty
-- **Residual**: Remaining variance (person $\times$ task interaction + error)
+- **Rater**: Variance attributable to differences between raters (within-task rater leniency)
+- **Person:Task**: Person-by-task interaction
+- **Residual**: Remaining variance (person $\times$ rater:task interaction + error)
 
 ### Viewing Results
 
@@ -1031,9 +1098,12 @@ Note: In the Brennan dataset, Raters are nested within Task (each Task has its o
 
 ```{r}
 # G-study with profile likelihood confidence intervals
-# Note: Rater is nested within Task, so we use Rater:Task notation
+# Note: (1 | Rater) and (1 | Rater:Task) are equivalent in the brennan data
+# because the 12 Rater labels are unique within each Task. We use the
+# un-nested form so the formula reads as "all main effects + the only
+# estimable interaction".
 g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -1068,7 +1138,7 @@ The two CI methods answer the same question (where is the true variance componen
 ```{r}
 # Fit the same model with both methods
 g_profile <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -1096,9 +1166,10 @@ bind_rows(profile_ci, boot_ci) %>%
 The Method of Moments backend uses ANOVA-based variance component estimation:
 
 ```{r}
-# Method of moments G-study with nested design (Rater nested in Task)
+# Method of moments G-study with nested design (Rater nested in Task;
+# (1 | Rater) and (1 | Rater:Task) are equivalent here)
 g_mom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "mom"
@@ -1111,12 +1182,13 @@ MOM automatically provides asymptotic confidence intervals. This approach works 
 
 ### Nested Designs with MOM
 
-For nested designs, specify the nesting structure using `:` notation:
+For nested designs, the canonical formula uses the un-nested form when the nested-factor labels are already unique within the nesting factor. For `rajaratnam`, items are uniquely labelled within each subtest via the new `ItemId` column (formed as `paste(Subtest, Item, sep = ".")`), so `(1 | ItemId)` and `(1 | Item:Subtest)` are exactly equivalent (we use `(1 | ItemId)`):
 
 ```{r}
 # Items nested within subtests (rajaratnam dataset)
+# (1 | ItemId) and (1 | Item:Subtest) are exactly equivalent here.
 g_nested <- gstudy(
-  Score ~ (1 | Person) + (1 | Subtest) + (1 | Item:Subtest) +
+  Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) +
     (1 | Person:Subtest),
   data = rajaratnam,
   backend = "mom"
@@ -1152,15 +1224,16 @@ str(brennan)
 
 ### Default Bayesian G-Study
 
-The simplest Bayesian G-study uses default priors. Because Rater is nested within Task, the formula uses `(1 | Rater:Task)` and `(1 | Person:Task)` (see the callout in the "Built-in Datasets" section):
+The simplest Bayesian G-study uses default priors. The canonical brennan formula uses `(1 | Rater)` (equivalent to `(1 | Rater:Task)` because the 12 Rater labels are unique within each Task) and `(1 | Person:Task)`:
 
 ```{r, eval=FALSE}
 # Bayesian G-study with default priors
 g_bayes <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 print(g_bayes)
@@ -1203,15 +1276,16 @@ Control MCMC sampling with additional arguments:
 
 ```{r, eval=FALSE}
 g_full <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "brms",
   chains = 4,        # Number of chains
-  iter = 4000,       # Total iterations per chain
+  iter = 2000,       # Total iterations per chain
   warmup = 1000,     # Warmup iterations
   thin = 1,          # Thinning interval
   cores = 4,         # Parallel processing
+  refresh = 1000,    # Progress message frequency
   seed = 123         # Reproducibility
 )
 ```
@@ -1230,7 +1304,7 @@ View and modify default priors:
 ```{r, eval=FALSE}
 # View default priors for a model
 library(brms)
-default_prior(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+default_prior(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
                 (1 | Person:Task),
               data = brennan)
 
@@ -1242,8 +1316,8 @@ my_prior <- c(
   # Task variance: exponential with rate 1
   set_prior("exponential(1)", class = "sd", group = "Task"),
 
-  # Rater-within-Task variance: exponential with rate 0.5 (more spread)
-  set_prior("exponential(0.5)", class = "sd", group = "Rater:Task"),
+  # Rater variance: exponential with rate 0.5 (more spread)
+  set_prior("exponential(0.5)", class = "sd", group = "Rater"),
 
   # Person:Task interaction: exponential with rate 1
   set_prior("exponential(1)", class = "sd", group = "Person:Task"),
@@ -1253,11 +1327,12 @@ my_prior <- c(
 )
 
 g_custom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "brms",
-  prior = my_prior
+  prior = my_prior,
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -1272,7 +1347,8 @@ g_weak <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
   backend = "brms",
-  prior = prior_weak
+  prior = prior_weak,
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # More informative prior
@@ -1281,7 +1357,8 @@ g_info <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
   backend = "brms",
-  prior = prior_info
+  prior = prior_info,
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Compare posterior means
@@ -1289,7 +1366,7 @@ g_weak$variance_components$estimate
 g_info$variance_components$estimate
 ```
 
-**A worked sensitivity analysis.** The chunk below actually runs two Bayesian G-studies with different priors on the standard deviation parameters and shows how the posteriors respond. We use small `chains`, `iter`, and `warmup` here so the example builds quickly; for a real sensitivity analysis use the defaults.
+**A worked sensitivity analysis.** The chunk below actually runs two Bayesian G-studies with different priors on the standard deviation parameters and shows how the posteriors respond.
 
 ```{r, eval=TRUE}
 # Fit two models with contrasting priors
@@ -1299,7 +1376,7 @@ g_weak_run <- gstudy(
   data = brennan,
   backend = "brms",
   prior = prior_weak_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
 
 prior_info_run <- set_prior("exponential(1)", class = "sd")
@@ -1308,7 +1385,7 @@ g_info_run <- gstudy(
   data = brennan,
   backend = "brms",
   prior = prior_info_run,
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
 
 # Side-by-side comparison
@@ -1615,7 +1692,8 @@ For Bayesian G-studies, you can compute credible intervals for coefficients:
 g_brms <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # D-study with 95% credible intervals
@@ -1693,7 +1771,8 @@ head(crossed_wide)
 g_mv <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 summary(g_mv)
@@ -1779,7 +1858,8 @@ By default, `dstudy()` uses equal weights (1 for each dimension):
 g_mv <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # D-study with default equal weights
@@ -1892,7 +1972,8 @@ head(crossed_wide)
 g_mv_wide <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -1912,10 +1993,11 @@ head(rajaratnam)
 g_mv_long <- gstudy(
   bf(Score ~ 0 + Subtest +
          (0 + Subtest | r | Person) +
-         (0 + Subtest || Item)),
+         (0 + Subtest || ItemId)),
   sigma ~ 0 + Subtest,
   data = rajaratnam,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -1997,7 +2079,7 @@ g_wide_run <- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
   backend = "brms",
-  chains = 2, iter = 1000, warmup = 500, seed = 123, cores = 1
+  chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
 
 # Print the wide-format variance components
@@ -2051,6 +2133,11 @@ Where:
 > **Note on Vispoel et al. (2023) Equation 38.** The formula above is the Haberman (2008) correct form. The equation labeled "Equation 38" in Vispoel et al. (2023, p. 9) contains a typesetting error in the denominator (using $\hat\sigma^2(S_i) \cdot \mathrm{Rel}(C)$ instead of $\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C)$); the implementation in `facet::prmse()` uses the corrected form, which matches the numerical values reported in their Table 8.
 
 **Key insight**: When subscales are positively correlated, the covariance terms ($\mathrm{Cov}(\tau_i, \tau_j)$) increase $|\mathrm{Cov}(\tau_i, C)|$, making it more likely that the composite provides useful information for estimating the subscale's universe score. This is why VAR can be less than 1 even when subscale reliability is high—strong correlations with other subscales mean the composite "borrows strength" from these relationships.
+
+> **Experimental.** The `facet::prmse()` function is experimental. Testing
+> has been limited, and its API and output columns may change before the
+> function graduates to stable. Verify results against an independent
+> implementation before citing them in published work.
 
 ### Three Types of PRMSE in facet::prmse()
 
@@ -2147,14 +2234,16 @@ library(facet)
 library(brms)
 
 # Multivariate G-study with items nested within subtests
-# Note: This uses long-format specification
+# Note: This uses long-format specification with the ItemId column
 g_mv <- gstudy(
-  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
+  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
      sigma ~ 0 + Subtest),
   data = rajaratnam,
   backend = "brms",
   chains = 2,
-  iter = 1000
+  iter = 2000,
+  cores = 4,
+  refresh = 1000
 )
 
 # D-study computing VAR
@@ -2277,10 +2366,11 @@ For unbalanced designs where dimensions have different sample sizes, use long-fo
 library(brms)
 
 g_long <- gstudy(
-  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || Item),
+  bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
      sigma ~ 0 + Subtest),
   data = rajaratnam,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Check detection
@@ -2295,7 +2385,7 @@ summary(g_long)
 
 - `0 + Subtest`: Estimates separate intercepts per dimension
 - `(0 + Subtest | r | Person)`: Correlated random effects (use `|r|` for correlation)
-- `(0 + Subtest || Item)`: Independent random effects (use `||` for no correlation)
+- `(0 + Subtest || ItemId)`: Independent random effects (use `||` for no correlation)
 - `sigma ~ 0 + Subtest`: Dimension-specific residual variances
 
 ### When to Use Long-Format
@@ -2476,7 +2566,7 @@ g_bayes$estimation_issues
 ## Complete Workflow Example
 
 Here is an end-to-end analysis using the `brennan` dataset.
-Note: In the Brennan dataset, Raters are nested within Task, so we use the nested notation `Rater:Task`:
+The canonical G-study formula (per "Specifying All Possible Variance Components") uses `(1 | Rater)`—equivalent to `(1 | Rater:Task)` because the 12 Rater labels are unique within each Task:
 
 ```{r}
 library(facet)
@@ -2496,9 +2586,9 @@ brennan %>%
     n_raters = n_distinct(Rater)
   )
 
-# 2. Conduct G-study with profile CIs (using nested design)
+# 2. Conduct G-study with profile CIs (canonical formula)
 g_full <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   ci_method = "profile"
@@ -2517,7 +2607,7 @@ tidy(g_full) %>%
 
 # 4. Conduct D-study to optimize design
 # Current design: 3 tasks, 4 raters per task
-d_current <- dstudy(g_full, n = list(Task = 3, `Rater:Task` = 4))
+d_current <- dstudy(g_full, n = list(Task = 3, Rater = 4))
 cat("Current design G:", d_current$coefficients$g, "\n")
 cat("Current design Phi:", d_current$coefficients$phi, "\n")
 
@@ -2526,7 +2616,7 @@ d_explore <- dstudy(
   g_full,
   n = list(
     Task = c(1, 2, 3, 5, 10),
-    `Rater:Task` = c(1, 2, 4, 8, 12)
+    Rater = c(1, 2, 4, 8, 12)
   )
 )
 
@@ -2542,7 +2632,7 @@ plot(d_explore, type = "sweep")
 # Optimal design: minimum resources for G >= 0.80
 optimal <- tidy(d_explore) %>%
   filter(g >= 0.80) %>%
-  arrange(Task * `Rater:Task`) %>%
+  arrange(Task * Rater) %>%
   slice(1)
 
 print(optimal)
@@ -2550,12 +2640,12 @@ print(optimal)
 
 ## Three-Facet Design Example
 
-A complete example with a nested design (Raters nested within Task):
+A complete example with a nested design (Raters nested within Task; the canonical formula uses `(1 | Rater)` for the within-task rater effect):
 
 ```{r}
-# G-study with nested design (Raters nested within Task)
+# G-study with the canonical brennan formula
 g_3f <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan
 )
@@ -2563,19 +2653,18 @@ g_3f <- gstudy(
 summary(g_3f)
 
 # D-study: what if we used 5 tasks with 2 raters each?
-# Note: Use backticks for nested facet names in dstudy
-d_3f <- dstudy(g_3f, n = list(Task = 5, `Rater:Task` = 2))
+d_3f <- dstudy(g_3f, n = list(Task = 5, Rater = 2))
 
 summary(d_3f)
 
 # Compare with original design
-d_orig <- dstudy(g_3f, n = list(Task = 3, `Rater:Task` = 4))
+d_orig <- dstudy(g_3f, n = list(Task = 3, Rater = 4))
 
 cat("Original (3 tasks, 4 raters/task): G =", d_orig$coefficients$g, "\n")
 cat("Alternative (5 tasks, 2 raters/task): G =", d_3f$coefficients$g, "\n")
 ```
 
-**Reading this comparison.** A 5-task × 2-rater design achieves comparable or higher G than a 3-task × 4-rater design (10 total observation cells vs 12), with one fewer level per task and one more task overall. The reason: in this dataset, the Task facet has more variance than the Rater:Task facet, so adding tasks reduces error faster than adding raters does. The general lesson: when a sweep shows that one facet contributes disproportionately to error, investing in more levels of that facet is more cost-effective than investing in the facets with small variance components. Always inspect `tidy(d_sweep)` and look for the facet with the largest ratio of variance to current n before deciding where to spend your next round of data collection.
+**Reading this comparison.** A 5-task × 2-rater design achieves comparable or higher G than a 3-task × 4-rater design (10 total observation cells vs 12), with one fewer level per task and one more task overall. The reason: in this dataset, the Task facet has more variance than the Rater facet (the within-task rater-leniency effect), so adding tasks reduces error faster than adding raters does. The general lesson: when a sweep shows that one facet contributes disproportionately to error, investing in more levels of that facet is more cost-effective than investing in the facets with small variance components. Always inspect `tidy(d_sweep)` and look for the facet with the largest ratio of variance to current n before deciding where to spend your next round of data collection.
 
 ## Weight Optimization for Composite Scores
 
@@ -2713,10 +2802,12 @@ library(loo)
 
 # Fit alternative models
 g_simple <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                   data = brennan, backend = "brms")
-g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+                   data = brennan, backend = "brms",
+                   iter = 2000, cores = 4, refresh = 1000)
+g_full <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
                    (1 | Person:Task),
-                 data = brennan, backend = "brms")
+                 data = brennan, backend = "brms",
+                 iter = 2000, cores = 4, refresh = 1000)
 
 # LOO comparison
 loo_simple <- loo(g_simple$model)
@@ -2743,7 +2834,8 @@ Bayesian methods handle missing data through multiple imputation:
 g_missing <- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = data_with_missing,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -2757,7 +2849,8 @@ g_robust <- gstudy(
   bf(Score ~ (1 | Person) + (1 | Task),
      family = student()),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 ```
 
@@ -2928,9 +3021,9 @@ Use the `rajaratnam` dataset to conduct a G-study and D-study. How many items pe
 
 ### Basic Bayesian G-Study
 
-Using the `brennan` dataset (Rater nested within Task):
+Using the `brennan` dataset (Rater nested within Task; canonical formula uses `(1 | Rater)`):
 
-a) Fit a Bayesian G-study with Person, Task, and Rater:Task facets using default priors.
+a) Fit a Bayesian G-study with Person, Task, and Rater facets using default priors.
 
 b) Report posterior means, 95% credible intervals, and convergence diagnostics.
 
@@ -2942,10 +3035,11 @@ data(brennan)
 
 # a) Bayesian G-study
 g_bayes <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = "brms"
+  backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # b) Posterior summaries
@@ -2953,7 +3047,7 @@ print(g_bayes)
 
 # c) Compare to REML
 g_reml <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "lme4"
@@ -2981,18 +3075,19 @@ library(brms)
 custom_prior <- c(
   set_prior("cauchy(0, 1)", class = "sd", group = "Person"),
   set_prior("cauchy(0, 2)", class = "sd", group = "Task"),
-  set_prior("cauchy(0, 2)", class = "sd", group = "Rater:Task"),
+  set_prior("cauchy(0, 2)", class = "sd", group = "Rater"),
   set_prior("cauchy(0, 2)", class = "sd", group = "Person:Task"),
   set_prior("cauchy(0, 2)", class = "sigma")
 )
 
 # b) Fit with custom priors
 g_custom <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "brms",
-  prior = custom_prior
+  prior = custom_prior,
+  iter = 2000, cores = 4, refresh = 1000
 )
 
 # Compare
@@ -3026,18 +3121,20 @@ d) Visualize the relationship between design and reliability.
 ```{r, eval=FALSE}
 # a) G-study
 g_ex3 <- gstudy(
-  Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) +
+  Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
   backend = "brms",
   chains = 4,
-  iter = 4000
+  iter = 2000,
+  cores = 4,
+  refresh = 1000
 )
 
 # b) D-study sweep
 d_ex3 <- dstudy(
   g_ex3,
-  n = list(Task = 2:5, `Rater:Task` = 1:3),
+  n = list(Task = 2:5, Rater = 1:3),
   ci = c("g", "phi")
 )
 
@@ -3068,12 +3165,14 @@ data(rajaratnam)
 g_mv_ex4 <- gstudy(
   bf(Score ~ 0 + Subtest +
          (0 + Subtest | r | Person) +
-         (0 + Subtest || Item)),
+         (0 + Subtest || ItemId)),
   sigma ~ 0 + Subtest,
   data = rajaratnam,
   backend = "brms",
   chains = 2,
-  iter = 2000
+  iter = 2000,
+  cores = 4,
+  refresh = 1000
 )
 
 # b) VAR with credible intervals
@@ -3105,12 +3204,18 @@ prior_weak <- set_prior("cauchy(0, 5)", class = "sd")
 prior_mod <- set_prior("cauchy(0, 1)", class = "sd")
 prior_strong <- set_prior("exponential(2)", class = "sd")
 
-g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                 data = brennan, backend = "brms", prior = prior_weak)
-g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                data = brennan, backend = "brms", prior = prior_mod)
-g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task),
-                   data = brennan, backend = "brms", prior = prior_strong)
+g_weak <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                 (1 | Person:Task),
+                 data = brennan, backend = "brms", prior = prior_weak,
+                 iter = 2000, cores = 4, refresh = 1000)
+g_mod <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task),
+                data = brennan, backend = "brms", prior = prior_mod,
+                iter = 2000, cores = 4, refresh = 1000)
+g_strong <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                   (1 | Person:Task),
+                   data = brennan, backend = "brms", prior = prior_strong,
+                   iter = 2000, cores = 4, refresh = 1000)
 
 # b) Compare posteriors
 library(ggplot2)

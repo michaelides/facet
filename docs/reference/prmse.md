@@ -1,7 +1,7 @@
 # Tidy PRMSE and VAR Results
 
-**Experimental.** `prmse()` is experimental: testing has been limited and
-results should be verified before being cited in published work. The
+**Experimental.** `prmse()` is experimental: testing has been limited
+and results should be verified before being cited in published work. The
 function and its outputs may change in future releases.
 
 Extract PRMSE(C→S_i) and VAR results as a data frame from a dstudy
@@ -16,8 +16,6 @@ prmse(
   include_composite = FALSE,
   include_profile = TRUE,
   ci = NULL,
-  ci_method = c("delta", "bootstrap"),
-  n_bootstrap = 1000,
   probs = c(0.025, 0.975),
   weights = NULL,
   optimize = NULL,
@@ -53,14 +51,6 @@ prmse(
   "prmse", "var", or both. Default NULL (no CIs). **Note:** Credible
   intervals are only available for brms backend with posterior
   estimation. For mom backend, this parameter is ignored with a warning.
-
-- ci_method:
-
-  Unused. Kept for backward compatibility.
-
-- n_bootstrap:
-
-  Unused. Kept for backward compatibility.
 
 - probs:
 
@@ -172,7 +162,8 @@ When `include_composite = TRUE`, a Composite row is added with:
 - var_rel/abs: 1.0
 
 When `optimize` is specified, returns a list with optimization results
-(see `viable()` for details).
+containing the optimal weights, eigenvalue/value, and recomputed
+metrics.
 
 ## Details
 
@@ -209,29 +200,37 @@ isolation.
 #### PRMSE_C (Composite Prediction)
 
 How well the weighted composite score predicts each subscale's true
-scores (Equation 38 from Brennan, 2001):
+scores. This is the Haberman (2008) formula:
 
-\$\$\text{PRMSE}\_{(C)} =
-\frac{\left(\hat{\sigma}^2\_{(\text{Subscale}\_i)} \cdot
-\text{Rel}\_{(\text{Subscale}\_i)} + \sum\_{j \neq i}
-\hat{\sigma}\_{(\text{Subscale}\_i,\\
-\text{Subscale}\_j)}\right)^2}{\hat{\sigma}^2\_{(\text{Subscale}\_i)}
-\cdot \text{Rel}\_{(C)} \cdot \hat{\sigma}^2\_{(C)}}\$\$
+\$\$\mathrm{PRMSE}(C \to S_i) = \frac{\[\mathrm{Cov}(\tau_i, C)\]^2}
+{\mathrm{Var}(\tau_i) \cdot \mathrm{Rel}(C) \cdot \mathrm{Var}(C)}\$\$
 
-where:
+where
 
-- \\\hat{\sigma}^2\_{(\text{Subscale}\_i)}\\: Observed score variance of
-  subscale i
+- \\\mathrm{Cov}(\tau_i, C) = \sum_j w_j \\ \mathrm{Cov}(\tau_i,
+  \tau_j)\\ is the weighted covariance between subscale \\i\\'s true
+  score and the composite true score, computed from the universe-score
+  (disattenuated) covariance matrix, not from observed-score sample
+  covariances.
 
-- \\\text{Rel}\_{(\text{Subscale}\_i)}\\: Reliability of subscale i (G
-  coefficient)
+- \\\mathrm{Var}(\tau_i) = \Sigma\_{\tau,ii}\\ is the universe-score
+  variance of subscale \\i\\.
 
-- \\\hat{\sigma}\_{(\text{Subscale}\_i, \text{Subscale}\_j)}\\: Observed
-  covariance between subscales i and j
+- \\\mathrm{Rel}(C) = \mathrm{Var}(\tau_C) / \mathrm{Var}(C)\\ is the
+  composite reliability (G coefficient for relative, \\\Phi\\ for
+  absolute).
 
-- \\\text{Rel}\_{(C)}\\: Reliability of the composite score
+- \\\mathrm{Var}(C) = \mathbf{w}^\top \Sigma\_{\mathrm{obs}}
+  \mathbf{w}\\ is the D-study observed variance of the composite (scaled
+  for the decision study sample sizes).
 
-- \\\hat{\sigma}^2\_{(C)}\\: Observed score variance of the composite
+**Note on Vispoel et al. (2023) Equation 38:** Vispoel et al. (2023, p.
+9) label this quantity as "Equation 38", but the printed equation
+contains a typesetting error (the denominator uses \\\hat\sigma^2(S_i)
+\cdot \mathrm{Rel}(C)\\ where it should be \\\mathrm{Var}(\tau_i) \cdot
+\mathrm{Rel}(C)\\). This implementation uses the corrected Haberman
+(2008) form, which matches the numerical results reported in Vispoel et
+al.'s Table 8.
 
 **Viability Analysis:** Subscale viability is supported when
 \\\text{PRMSE}\_S \> \text{PRMSE}\_C\\, meaning the subscale predicts
@@ -247,10 +246,25 @@ potentially improve prediction accuracy by borrowing information from
 correlated dimensions:
 
 \$\$\text{PRMSE}\_P\[d\] = \frac{\[\Sigma\_\tau
-\Sigma\_{\text{obs}}^{-1} \Sigma\_\tau\]\_{dd}}{\sigma^2\_{\tau,d}}\$\$
+\Sigma\_{\text{obs}}^{-1} \Sigma\_\tau\]\_{dd}}{\Sigma\_{\tau,dd}}\$\$
 
-where \\\Sigma\_\tau\\ is the true-score covariance matrix and
-\\\Sigma\_{\text{obs}}\\ is the observed covariance matrix.
+where \\\Sigma\_\tau\\ is the universe-score covariance matrix and
+\\\Sigma\_{\text{obs}}\\ is the D-study observed covariance matrix.
+
+**Diagonal slice vs. trace:** `prmse_p_rel` returns the *diagonal slice*
+of the matrix \\\Sigma\_\tau \Sigma\_{\text{obs}}^{-1} \Sigma\_\tau\\
+(one value per dimension). The companion attribute
+`attr(result, "prmse_mv_rel")` returns the *trace* of the same matrix,
+normalized by the trace of \\\Sigma\_\tau\\, which is a single global
+multivariate profile reliability:
+
+\$\$\text{PRMSE}\_{MV} = \frac{\mathrm{tr}(\Sigma\_\tau
+\Sigma\_{\text{obs}}^{-1} \Sigma\_\tau)}{\mathrm{tr}(\Sigma\_\tau)}\$\$
+
+This trace equals the matrix analog of a squared canonical correlation
+and always satisfies \\\text{PRMSE}\_{MV} \geq \text{PRMSE}\_P\[d\]\\
+for any dimension \\d\\ (by Cauchy-Schwarz on the Cholesky factor of
+\\\Sigma\_{\text{obs}}^{-1/2}\Sigma\_\tau\\).
 
 **Relationship to PRMSE_S:** When dimensions are uncorrelated (all
 off-diagonal covariances = 0), the matrices become diagonal and PRMSE_P
@@ -320,9 +334,15 @@ available because the method produces only point estimates without a
 posterior distribution. If credible intervals are needed, consider using
 the brms backend:
 
+
     g_mv <- gstudy(formula, data, backend = "brms")
     d_mv <- dstudy(g_mv, n = ...)
     prmse(d_mv, ci = "prmse") # CIs from posterior draws
+
+## Experimental
+
+This function is experimental. Testing has been limited, and results
+should be verified before being cited in published work.
 
 ## See also
 
@@ -369,7 +389,8 @@ prmse(d_mv, optimize = "subscale")
 library(brms)
 g_mv <- gstudy(
   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person)),
-  data = data, backend = "brms"
+  data = data, backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 d_mv <- dstudy(g_mv, n = list(Person = 5))
 prmse(d_mv, ci = "prmse") # Returns point estimates with credible intervals

@@ -70,10 +70,13 @@ NULL
 #'
 #' @export
 #' @rdname fit_mom
-fit_mom <- function(formula, data, unbalanced = FALSE, ...) {
+fit_mom <- function(formula, data, unbalanced = FALSE, nested = NULL, ...) {
   # Check if formula is multivariate
   if (is_multivariate(formula)) {
-    return(fit_mom_multivariate(formula, data, unbalanced = unbalanced, ...))
+    return(fit_mom_multivariate(formula, data,
+      unbalanced = unbalanced,
+      nested = nested, ...
+    ))
   }
 
   # Parse the formula
@@ -90,14 +93,17 @@ fit_mom <- function(formula, data, unbalanced = FALSE, ...) {
     )
   }
 
-  # Fit using the aovlist approach to get all variance components
-  # Build formula with all random effects as Error strata
-  aov_formula <- build_aov_formula(formula, data)
+  # Adapt the aov Error() strata for nested facets (e.g. Rater nested in Task
+  # in the brennan dataset). The "Error() model is singular" warning that aov()
+  # raises for these designs is spurious - the variance components are still
+  # computed correctly - and is suppressed here.
+  adapted <- adapt_mom_aov_formula(formula, data, nested = nested)
+  aov_formula <- adapted$aov_formula
+  name_mapping <- adapted$name_mapping
 
-  # Fit the ANOVA model
   aov_model <- tryCatch(
     {
-      aov(as.formula(aov_formula), data = data)
+      suppressWarnings(aov(as.formula(aov_formula), data = data))
     },
     error = function(e) {
       stop("Error fitting model with method of moments: ", e$message,
@@ -109,8 +115,13 @@ fit_mom <- function(formula, data, unbalanced = FALSE, ...) {
   # Extract variance components from the aovlist object
   anova_results <- extract_anova_from_aovlist(aov_model, random_facets)
 
-  # Compute variance components from ANOVA results
-  vc <- compute_mom_vc_from_results(anova_results, data, response, random_facets, random_facet_specs)
+  # Compute variance components from ANOVA results, applying the
+  # rewrites from adapt_mom_aov_formula() so the user-supplied component
+  # names are preserved (e.g. "Rater" instead of "Rater:Task").
+  vc <- compute_mom_vc_from_results(
+    anova_results, data, response, random_facets, random_facet_specs,
+    name_mapping = name_mapping
+  )
 
   # Create the momfit object
   result <- structure(
@@ -122,7 +133,8 @@ fit_mom <- function(formula, data, unbalanced = FALSE, ...) {
       variance_components = vc,
       response = response,
       random_facets = random_facets,
-      random_facet_specs = random_facet_specs
+      random_facet_specs = random_facet_specs,
+      mom_name_mapping = name_mapping
     ),
     class = "momfit"
   )
@@ -195,6 +207,137 @@ build_aov_formula <- function(formula, data = NULL) {
   }
 
   aov_formula
+}
+
+#' Adapt aov Formula for the Method-of-Moments Backend
+#'
+#' Inspects the formula and data to detect facets that are nested within other
+#' facets in the data, and rewrites the aov Error() strata so the canonical
+#' G-study specification works without spurious rank-deficiency warnings. This
+#' is only used by the mom backend; lme4 and brms are unaffected.
+#'
+#' Behaviour:
+#' * Parses the formula with [parse_g_formula()] to obtain the user-supplied
+#'   random-effect specifications.
+#' * Calls [detect_nesting_patterns()] (in R/sample-sizes.R) to find facets
+#'   that are nested in other facets in the data. The user may override
+#'   auto-detection by passing `nested` (the same argument accepted by
+#'   [gstudy()]).
+#' * For each detected nested pair (A nested in B):
+#'   - If the user wrote the explicit nested form `A:B` in the formula, the
+#'     helper leaves the spec alone and records the identity mapping
+#'     `A:B -> A:B` so downstream code can label the variance component.
+#'   - If the user wrote the un-nested main effect `A` (the canonical
+#'     G-study shorthand for the A-within-B effect when labels are already
+#'     unique within B), the helper substitutes `A` with `A:B` in the
+#'     Error() term and records the mapping `A:B -> A` so the variance
+#'     component is labelled with the user-supplied name even though the
+#'     Error() decomposition uses the nested form.
+#' * Returns the rewritten aov formula string and a name mapping that
+#'   [compute_mom_vc_from_results()] applies to the resulting ANOVA table.
+#'
+#' Any `Error() model is singular` warning from [aov()] is suppressed by
+#' the caller; for these designs the warning is spurious — the variance
+#' components are still computed correctly, matching lme4 to several
+#' decimals.
+#'
+#' @param formula A formula object.
+#' @param data A data frame.
+#' @param nested Optional named list overriding auto-detected nesting
+#'   (e.g., `list(Rater = "Task")`).
+#' @return A list with components:
+#'   \item{aov_formula}{The rewritten aov() formula string.}
+#'   \item{name_mapping}{Named list mapping the rewritten ANOVA source name
+#'     to the user-supplied component name.}
+#'   \item{nested_info}{The (possibly user-overridden) nesting relationships.}
+#'   \item{random_facet_specs}{The (possibly rewritten) random-effect specs.}
+#' @keywords internal
+adapt_mom_aov_formula <- function(formula, data, nested = NULL) {
+  parsed <- parse_g_formula(formula)
+  random_facets <- parsed$random_facets
+  random_facet_specs <- parsed$random_facet_specs
+
+  if (length(random_facets) < 2) {
+    return(list(
+      aov_formula = build_aov_formula(formula, data),
+      name_mapping = list(),
+      nested_info = list(),
+      random_facet_specs = random_facet_specs
+    ))
+  }
+
+  all_facets <- unique(random_facets)
+
+  nesting_info <- detect_nesting_patterns(data, all_facets)
+
+  if (!is.null(nested) && length(nested) > 0) {
+    nesting_info <- override_nesting_detection(nesting_info, nested, all_facets)
+  }
+
+  name_mapping <- list()
+  rewritten_specs <- random_facet_specs
+
+  for (key in names(nesting_info)) {
+    rel <- nesting_info[[key]]
+    nested_facet <- rel$nested_facet
+    nesting_facet <- rel$nesting_facet
+
+    if (!nested_facet %in% all_facets || !nesting_facet %in% all_facets) {
+      next
+    }
+
+    nested_spec <- paste(nested_facet, nesting_facet, sep = ":")
+    alt_spec <- paste(nesting_facet, nested_facet, sep = ":")
+
+    if (nested_spec %in% rewritten_specs) {
+      name_mapping[[nested_spec]] <- nested_spec
+      name_mapping[[alt_spec]] <- nested_spec
+      next
+    }
+
+    if (alt_spec %in% rewritten_specs) {
+      name_mapping[[alt_spec]] <- alt_spec
+      name_mapping[[nested_spec]] <- alt_spec
+      next
+    }
+
+    if (nested_facet %in% rewritten_specs) {
+      name_mapping[[nested_spec]] <- nested_facet
+      name_mapping[[alt_spec]] <- nested_facet
+      rewritten_specs <- rewritten_specs[rewritten_specs != nested_facet]
+      rewritten_specs <- c(rewritten_specs, nested_spec)
+    }
+  }
+
+  rewritten_specs <- unique(rewritten_specs)
+
+  needs_rewrite <- !identical(rewritten_specs, random_facet_specs)
+
+  aov_formula <- if (needs_rewrite) {
+    response_char <- sub(
+      "~.+",
+      "",
+      paste(deparse(formula), collapse = " ")
+    )
+    response_char <- sub("\\s+$", "", response_char)
+
+    random_terms <- paste0(
+      "(1|", rewritten_specs, ")",
+      collapse = " + "
+    )
+
+    synthetic <- paste(response_char, "~", random_terms)
+    build_aov_formula(stats::as.formula(synthetic), data)
+  } else {
+    build_aov_formula(formula, data)
+  }
+
+  list(
+    aov_formula = aov_formula,
+    name_mapping = name_mapping,
+    nested_info = nesting_info,
+    random_facet_specs = rewritten_specs
+  )
 }
 
 #' Extract ANOVA Results from aovlist Object
@@ -413,8 +556,22 @@ compute_n_effective <- function(source, n_total, facet_n, random_facets, crossin
 
 #' Compute Variance Components from ANOVA Results
 #'
+#' @param anova_results List of ANOVA results per stratum.
+#' @param data The data frame used to fit the model.
+#' @param response Name of the response variable.
+#' @param random_facets Character vector of individual facet names from
+#'   random effects.
+#' @param random_facet_specs Character vector of facet specifications as user
+#'   specified (e.g., "Rater:Task").
+#' @param name_mapping Optional named list mapping rewritten ANOVA source
+#'   names (e.g. "Rater:Task") to user-supplied component names
+#'   (e.g. "Rater"), as produced by [adapt_mom_aov_formula()].
+#'
 #' @keywords internal
-compute_mom_vc_from_results <- function(anova_results, data, response, random_facets, random_facet_specs = NULL) {
+compute_mom_vc_from_results <- function(anova_results, data, response,
+                                         random_facets,
+                                         random_facet_specs = NULL,
+                                         name_mapping = NULL) {
   if (length(anova_results) == 0) {
     stop("No ANOVA results to extract variance components from", call. = FALSE)
   }
@@ -444,6 +601,16 @@ compute_mom_vc_from_results <- function(anova_results, data, response, random_fa
   # Build mapping from ANOVA source names to user-specified names
   # ANOVA may alphabetize interaction terms (e.g., "Task:Rater" instead of "Rater:Task")
   facet_name_mapping <- build_facet_name_mapping(random_facet_specs, anova_results)
+
+  # Merge the user-overridden name mapping (from adapt_mom_aov_formula) on
+  # top of the alphabetic-order mapping so a user-supplied component name
+  # like "Rater" is preserved even when the Error() term was rewritten
+  # to "Rater:Task".
+  if (!is.null(name_mapping) && length(name_mapping) > 0) {
+    for (aov_source in names(name_mapping)) {
+      facet_name_mapping[[aov_source]] <- name_mapping[[aov_source]]
+    }
+  }
 
   # Detect crossing patterns from the data
   crossing_info <- detect_crossing_patterns_from_data(data, random_facet_specs)
@@ -692,9 +859,9 @@ find_residual_item <- function(anova_results) {
 #' @param unbalanced Logical. If TRUE, uses Henderson's Method III for unbalanced designs
 #' @param ... Additional arguments
 #' @keywords internal
-fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, ...) {
+fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, nested = NULL, ...) {
   if (unbalanced) {
-    return(fit_mom_multivariate_unbalanced(formula, data, ...))
+    return(fit_mom_multivariate_unbalanced(formula, data, nested = nested, ...))
   }
 
   # Parse the formula to get responses
@@ -733,8 +900,11 @@ fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, ...) {
     )
   }
 
-  # Build aov formula using the same approach as univariate
-  aov_formula <- build_aov_formula(formula, data)
+  # Adapt aov Error() strata for nested facets (see adapt_mom_aov_formula).
+  # The mvbind() response placeholder is replaced per response below.
+  adapted <- adapt_mom_aov_formula(formula, data, nested = nested)
+  aov_formula <- adapted$aov_formula
+  name_mapping <- adapted$name_mapping
 
   # We'll fit each response separately using aov
   # and then combine the results
@@ -746,15 +916,15 @@ fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, ...) {
 
   for (resp in responses) {
     # Build formula for this response: y ~ facets + Error(facets)
-    # The aov_formula already has the response, we need to swap it
+    # Replace the placeholder response with the actual response name.
     rhs_formula <- sub("^[^~]+~", "", aov_formula)
-    rhs_formula <- sub("^\\s+", "", rhs_formula) # Remove leading whitespace
+    rhs_formula <- sub("^\\s+", "", rhs_formula)
     resp_aov_formula <- paste(resp, "~", rhs_formula)
 
     # Fit ANOVA model for this response
     aov_model <- tryCatch(
       {
-        aov(as.formula(resp_aov_formula), data = data)
+        suppressWarnings(aov(as.formula(resp_aov_formula), data = data))
       },
       error = function(e) {
         stop("Error fitting model with method of moments for response ", resp, ": ",
@@ -774,7 +944,8 @@ fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, ...) {
 
     # Compute variance components
     vc <- compute_mom_vc_from_results(
-      anova_results, data, resp, random_facets, random_facet_specs
+      anova_results, data, resp, random_facets, random_facet_specs,
+      name_mapping = name_mapping
     )
 
     # Add dimension column
@@ -820,6 +991,7 @@ fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, ...) {
       correlations = correlations,
       rescor_used = rescor_used,
       random_effect_cors = random_effect_cors,
+      mom_name_mapping = name_mapping,
       is_multivariate = TRUE
     ),
     class = "momfit"
@@ -840,7 +1012,7 @@ fit_mom_multivariate <- function(formula, data, unbalanced = FALSE, ...) {
 #' @param ... Additional arguments
 #' @return A momfit object with unbalanced estimation
 #' @keywords internal
-fit_mom_multivariate_unbalanced <- function(formula, data, ...) {
+fit_mom_multivariate_unbalanced <- function(formula, data, nested = NULL, ...) {
   # Parse the formula to get responses
   formula_char <- deparse(formula)
 
@@ -873,7 +1045,9 @@ fit_mom_multivariate_unbalanced <- function(formula, data, ...) {
   }
 
   # Build aov formula template
-  aov_formula_template <- build_aov_formula(formula, data)
+  adapted <- adapt_mom_aov_formula(formula, data, nested = nested)
+  aov_formula_template <- adapted$aov_formula
+  name_mapping <- adapted$name_mapping
   rhs_formula <- sub("^[^~]+~", "", aov_formula_template)
   rhs_formula <- sub("^\\s+", "", rhs_formula)
 
@@ -893,12 +1067,14 @@ fit_mom_multivariate_unbalanced <- function(formula, data, ...) {
     data_per_dim[[resp]] <- dim_data
 
     # Build formula for this response
-    resp_aov_formula <- paste(resp, "~", rhs_formula)
+    rhs_formula_resp <- sub("^[^~]+~", "", aov_formula_template)
+    rhs_formula_resp <- sub("^\\s+", "", rhs_formula_resp)
+    resp_aov_formula <- paste(resp, "~", rhs_formula_resp)
 
     # Fit ANOVA model for this response using its available data
     aov_model <- tryCatch(
       {
-        aov(as.formula(resp_aov_formula), data = dim_data)
+        suppressWarnings(aov(as.formula(resp_aov_formula), data = dim_data))
       },
       error = function(e) {
         stop("Error fitting model with method of moments for response ", resp, ": ",
@@ -914,7 +1090,8 @@ fit_mom_multivariate_unbalanced <- function(formula, data, ...) {
 
     # Compute variance components using this dimension's data
     vc <- compute_mom_vc_from_results(
-      anova_results, dim_data, resp, random_facets, random_facet_specs
+      anova_results, dim_data, resp, random_facets, random_facet_specs,
+      name_mapping = name_mapping
     )
 
     # Add dimension column
@@ -951,6 +1128,7 @@ fit_mom_multivariate_unbalanced <- function(formula, data, ...) {
       rescor_used = rescor_setting,
       random_effect_cors = random_effect_cors,
       n_per_dim = n_per_dim,
+      mom_name_mapping = name_mapping,
       is_unbalanced = TRUE,
       is_multivariate = TRUE
     ),
@@ -1715,11 +1893,11 @@ extract_vc_mom <- function(model, conf_level = 0.95, formula = NULL) {
 
   vc_out <- vc[, output_cols, drop = FALSE]
 
-  # Round numeric columns to 3 decimal places for consistent display
+  # Round numeric columns to 4 decimal places for consistent display
   numeric_cols <- c("var", "pct", "lower", "upper", "se")
   for (col in numeric_cols) {
     if (col %in% names(vc_out)) {
-      vc_out[[col]] <- round(vc_out[[col]], 3)
+      vc_out[[col]] <- round(vc_out[[col]], 4)
     }
   }
 

@@ -9,7 +9,7 @@ Summary Method for mgstudy Objects
 summary(
   object,
   scale = c("variance", "sd"),
-  digits = 3,
+  digits = 4,
   cor_format = c("long", "matrix"),
   vc_format = c("dimension", "facet"),
   type = c("correlation", "covariance"),
@@ -29,7 +29,7 @@ summary(
 
 - digits:
 
-  Number of digits to display (default 3).
+  Number of digits to display (default 4).
 
 - cor_format:
 

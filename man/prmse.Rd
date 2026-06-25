@@ -318,7 +318,8 @@ prmse(d_mv, optimize = "subscale")
 library(brms)
 g_mv <- gstudy(
   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person)),
-  data = data, backend = "brms"
+  data = data, backend = "brms",
+  iter = 2000, cores = 4, refresh = 1000
 )
 d_mv <- dstudy(g_mv, n = list(Person = 5))
 prmse(d_mv, ci = "prmse") # Returns point estimates with credible intervals

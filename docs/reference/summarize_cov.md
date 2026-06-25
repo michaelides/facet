@@ -5,7 +5,7 @@ Formats a covariance tibble for printing with rounded values.
 ## Usage
 
 ``` r
-summarize_cov(cov_tibble, digits = 3)
+summarize_cov(cov_tibble, digits = 4)
 ```
 
 ## Arguments
@@ -16,7 +16,7 @@ summarize_cov(cov_tibble, digits = 3)
 
 - digits:
 
-  Number of digits to round to.
+  Number of digits to round to (default 4).
 
 ## Value
 

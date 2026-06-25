@@ -4,7 +4,7 @@
 \alias{fit_mom}
 \title{Fit a Model Using Method of Moments}
 \usage{
-fit_mom(formula, data, unbalanced = FALSE, ...)
+fit_mom(formula, data, unbalanced = FALSE, nested = NULL, ...)
 }
 \arguments{
 \item{formula}{A formula for the model (lme4 style), e.g., \code{y ~ (1 | facet1) + (1 | facet2)}.}

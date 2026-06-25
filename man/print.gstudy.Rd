@@ -4,12 +4,12 @@
 \alias{print.gstudy}
 \title{Print Method for gstudy Objects}
 \usage{
-\method{print}{gstudy}(x, digits = 3, scale = c("variance", "sd"), ...)
+\method{print}{gstudy}(x, digits = 4, scale = c("variance", "sd"), ...)
 }
 \arguments{
 \item{x}{A gstudy object.}
 
-\item{digits}{Number of digits to display.}
+\item{digits}{Number of digits to display (default 4).}
 
 \item{scale}{Scale for displaying results: "variance" (default) or "sd".}
 

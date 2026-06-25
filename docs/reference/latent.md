@@ -85,16 +85,17 @@ dimension.
 
 ``` r
 # Basic usage - object of measurement only
-g <- gstudy(Score ~ (1 | Person) + (1 | Rater), data = brennan)
+g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+  (1 | Person:Task), data = brennan)
 latent_scores <- latent(g)
 head(latent_scores)
 #>   Person        latent
-#> 1      1  3.559172e-15
-#> 2      2  7.292988e-01
-#> 3      3 -6.077490e-01
-#> 4      4 -6.077490e-01
-#> 5      5  6.685239e-01
-#> 6      6 -9.116235e-01
+#> 1      1 -7.895482e-15
+#> 2      2  5.513730e-01
+#> 3      3 -4.594775e-01
+#> 4      4 -4.594775e-01
+#> 5      5  5.054252e-01
+#> 6      6 -6.892162e-01
 
 # With interaction in universe
 if (FALSE) { # \dontrun{

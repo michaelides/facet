@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -97,30 +97,37 @@ D-study.</p>
 has one row per observation: 10 persons × 3 tasks × 4 raters per task =
 120 rows. Each row records one rater’s score for one person on one task.
 This is a <em>nested</em> design: the same four raters do not rate every
-task; rather, each task has its own panel of raters (so
-<code>Rater:Task</code> is the right way to write the random effect, not
-just <code>Rater</code>). The <code>Score</code> column is the observed
-rating; the other three columns identify which cell of the design the
-row belongs to.</p>
+task; rather, each task has its own panel of raters. Because the
+<code>Rater</code> factor in the data has 12 uniquely labelled levels (4
+per task), <code>(1 | Rater)</code> and <code>(1 | Rater:Task)</code>
+are mathematically equivalent random-effect specifications; the
+canonical form uses <code>(1 | Rater)</code>. The <code>Score</code>
+column is the observed rating; the other three columns identify which
+cell of the design the row belongs to.</p>
 </div>
 <div class="section level3">
 <h3 id="conduct-a-g-study">2. Conduct a G-Study<a class="anchor" aria-label="anchor" href="#conduct-a-g-study"></a>
 </h3>
 <p>Use the <code><a href="../reference/gstudy.html">gstudy()</a></code> function to estimate variance
 components. By default, <code>facet</code> uses <code>lme4</code>
-(Restricted Maximum Likelihood) under the hood.</p>
+(Restricted Maximum Likelihood) under the hood. The canonical “all
+possible variance components” formula for the brennan data includes the
+three main effects (Person, Task, Rater) plus the only estimable
+interaction (Person:Task); the Person × Rater:Task interaction is
+confounded with the residual because there is one observation per
+cell.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">g_obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span> <span class="op">+</span></span>
+<code class="sourceCode R"><span><span class="va">g_obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># View the variance components</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">g_obj</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Generalizability Study (G-Study)</span></span>
+<span><span class="co">#&gt; Generalizability Study (G Study)</span></span>
 <span><span class="co">#&gt; ================================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Backend: lme4 </span></span>
-<span><span class="co">#&gt; Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater:Task) + (1 | Person:Task) </span></span>
+<span><span class="co">#&gt; Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt; Number of observations: 120 </span></span>
 <span><span class="co">#&gt; Multivariate: No </span></span>
 <span><span class="co">#&gt; </span></span>
@@ -133,7 +140,7 @@ components. By default, <code>facet</code> uses <code>lme4</code>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Person             main           10</span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Task               main            3</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Rater:Task         interaction    12</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Rater              main           12</span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> Person:Task        interaction    30</span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Person:Rater (res) residual      120</span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> Rater per Task     nested          4</span></span>
@@ -143,22 +150,23 @@ components. By default, <code>facet</code> uses <code>lme4</code>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Variance Components:</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 5 × 3</span></span></span>
-<span><span class="co">#&gt;   component   estimate   pct</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Person         0.473 10.8 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Task           0.325  7.42</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Rater:Task     0.647 14.8 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> Person:Task    0.56  12.8 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Residual       2.38  54.3</span></span></code></pre></div>
+<span><span class="co">#&gt;   component   estimate     pct</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Person        0.473  10.785<span style="text-decoration: underline;">6</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Task          0.325<span style="text-decoration: underline;">3</span>  7.418 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Rater         0.647<span style="text-decoration: underline;">5</span> 14.763<span style="text-decoration: underline;">7</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> Person:Task   0.559<span style="text-decoration: underline;">6</span> 12.758<span style="text-decoration: underline;">6</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Residual      2.380<span style="text-decoration: underline;">3</span> 54.274<span style="text-decoration: underline;">1</span></span></span></code></pre></div>
 <p><strong>Interpreting the variance components.</strong> The output
 shows four variance components: <code>Person</code> (universe score
 variance — true differences between persons), <code>Task</code>
-(differences in average difficulty across tasks),
-<code>Rater:Task</code> (differences in leniency/severity between raters
-within a task), and <code>Person:Task</code> (the interaction — whether
-a person performs better on some tasks than others). The “pct” column
-shows what fraction of total variance each component accounts for. A
-healthy measurement has a large <code>Person</code> component (typically
+(differences in average difficulty across tasks), <code>Rater</code>
+(differences in leniency/severity between raters, which here are
+within-task rater effects because the 12 Rater labels are unique to each
+task), and <code>Person:Task</code> (the interaction — whether a person
+performs better on some tasks than others). The “pct” column shows what
+fraction of total variance each component accounts for. A healthy
+measurement has a large <code>Person</code> component (typically
 &gt;30%) and a small <code>Person:Task</code> interaction (the test is
 fair across tasks). If a facet is taking up a large fraction of
 variance, that is the facet to invest more levels in (more tasks, more
@@ -197,11 +205,11 @@ impacts reliability.</p>
 <span><span class="co">#&gt; Decision Study (D-Study)</span></span>
 <span><span class="co">#&gt; ========================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Based on G-Study with lme4 backend</span></span>
+<span><span class="co">#&gt; Based on G Study with lme4 backend</span></span>
 <span><span class="co">#&gt; Object of measurement: Person </span></span>
 <span><span class="co">#&gt; Universe components: Person </span></span>
 <span><span class="co">#&gt; Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span></span>
-<span><span class="co">#&gt; Error components for absolute error (sigma2_delta_abs): Task, Rater:Task, Person:Task, Person:Rater (Residual) </span></span>
+<span><span class="co">#&gt; Error components for absolute error (sigma2_delta_abs): Task, Rater, Person:Task, Person:Rater (Residual) </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Sample Sizes:</span></span>
 <span><span class="co">#&gt;  Task: 3</span></span>
@@ -211,15 +219,15 @@ impacts reliability.</p>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 5 × 6</span></span></span>
 <span><span class="co">#&gt;   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Person      Score        0.473        10.8       0.473      33.4 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Task        Score        0.325         7.41      0.108       7.65</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Rater:Task  Score        0.647        14.8       0.054       3.80</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> Person:Task Score        0.56         12.8       0.187      13.2 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Residual    Score        2.38         54.3       0.595      42.0 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Person      Score       0.473       10.785<span style="text-decoration: underline;">1</span>     0.473     31.018<span style="text-decoration: underline;">1</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Task        Score       0.325<span style="text-decoration: underline;">3</span>       7.417<span style="text-decoration: underline;">3</span>     0.108<span style="text-decoration: underline;">4</span>     7.110<span style="text-decoration: underline;">8</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Rater       Score       0.647<span style="text-decoration: underline;">5</span>      14.763<span style="text-decoration: underline;">9</span>     0.161<span style="text-decoration: underline;">9</span>    10.615<span style="text-decoration: underline;">3</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> Person:Task Score       0.559<span style="text-decoration: underline;">6</span>      12.759<span style="text-decoration: underline;">7</span>     0.186<span style="text-decoration: underline;">5</span>    12.232<span style="text-decoration: underline;">4</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Residual    Score       2.380<span style="text-decoration: underline;">3</span>      54.274<span style="text-decoration: underline;">1</span>     0.595<span style="text-decoration: underline;">1</span>    39.023<span style="text-decoration: underline;">4</span></span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Coefficients:</span></span>
-<span><span class="co">#&gt;    dim   uni sigma2_delta sigma2_delta_abs     g   phi</span></span>
-<span><span class="co">#&gt;  Score 0.473        0.782            0.944 0.377 0.334</span></span></code></pre></div>
+<span><span class="co">#&gt;    dim   uni sigma2_delta sigma2_delta_abs     g    phi</span></span>
+<span><span class="co">#&gt;  Score 0.473       0.7816            1.052 0.377 0.3102</span></span></code></pre></div>
 <p><strong>Interpreting the D-study output.</strong> Two coefficients
 are reported: <strong>G</strong> (generalizability coefficient, for
 relative decisions like “rank these persons”) and <strong>Phi</strong>

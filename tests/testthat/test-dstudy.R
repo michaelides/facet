@@ -116,7 +116,14 @@ test_that("universe score uses unscaled variance for all universe components", {
     task = factor(rep(1:3, each = 40)),
     rater = factor(rep(rep(1:2, each = 20), 3))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) + (1 | person:task), data = data3)
+  # Fully crossed Person x Task x Rater design (one observation per
+  # Person x Task x Rater cell). The canonical "all possible variance
+  # components" formula has all three main effects and all three
+  # two-way interactions; the three-way Person:Task:Rater interaction
+  # is confounded with the residual.
+  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) +
+                (1 | person:task) + (1 | person:rater) + (1 | task:rater),
+              data = data3)
 
   result <- dstudy(g, n = list(task = 5, rater = 4), universe = c("person", "person:task"))
 
@@ -138,7 +145,9 @@ test_that("universe score with expanded universe is larger than object-only univ
     task = factor(rep(1:3, each = 40)),
     rater = factor(rep(rep(1:2, each = 20), 3))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) + (1 | person:task), data = data3)
+  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) +
+                (1 | person:task) + (1 | person:rater) + (1 | task:rater),
+              data = data3)
 
   result_default <- dstudy(g, n = list(task = 5, rater = 4))
   result_expanded <- dstudy(g, n = list(task = 5, rater = 4), universe = c("person", "person:task"))
@@ -162,7 +171,9 @@ test_that("universe score uses unscaled variance when n not provided", {
     task = factor(rep(1:3, each = 40)),
     rater = factor(rep(rep(1:2, each = 20), 3))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) + (1 | person:task), data = data3)
+  g <- gstudy(score ~ (1 | person) + (1 | task) + (1 | rater) +
+                (1 | person:task) + (1 | person:rater) + (1 | task:rater),
+              data = data3)
 
   result <- dstudy(g, universe = c("person", "person:task"))
 
@@ -1649,7 +1660,7 @@ test_that("VAR is stored in var element for long-format multivariate models", {
   data(rajaratnam)
 
   gu <- gstudy(
-    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+    bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
     backend = "brms",
@@ -1749,7 +1760,7 @@ test_that("prmse returns correct structure", {
   data(rajaratnam)
 
   gu <- gstudy(
-  bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+  bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
     sigma ~ 0 + Subtest),
   data = rajaratnam,
   backend = "brms",
@@ -1789,7 +1800,7 @@ test_that("prmse with ci returns CI columns for brms backend", {
   data(rajaratnam)
 
   gu <- gstudy(
-  bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||Item),
+  bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
     sigma ~ 0 + Subtest),
   data = rajaratnam,
   backend = "brms",
@@ -1821,8 +1832,9 @@ test_that("prmse with ci returns CI columns for brms backend", {
 
 test_that("var is NULL for univariate models", {
   data(brennan)
-  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
-  d <- dstudy(g, n = list(Task = 3))
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
+  d <- dstudy(g, n = list(Task = 3, Rater = 4))
 
   # Use [[ instead of $ to avoid partial matching with variance_components$var
   expect_true(is.null(d[["var"]]))
@@ -1830,8 +1842,9 @@ test_that("var is NULL for univariate models", {
 
 test_that("prmse returns G and Phi for univariate models", {
   data(brennan)
-  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
-  d <- dstudy(g, n = list(Task = 3))
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
+  d <- dstudy(g, n = list(Task = 3, Rater = 4))
 
   # Should return a tibble with prmse_rel and prmse_abs
   result <- suppressMessages(prmse(d))
@@ -1848,8 +1861,9 @@ test_that("prmse returns G and Phi for univariate models", {
 
 test_that("prmse warns that CIs only available for brms backend", {
   data(brennan)
-  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
-  d <- dstudy(g, n = list(Task = 3))
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
+  d <- dstudy(g, n = list(Task = 3, Rater = 4))
 
   # Should warn when ci is specified for mom backend
   expect_warning(
@@ -1943,8 +1957,485 @@ test_that("create_n_tibble_from_list creates correct structure", {
 test_that("extract_sample_sizes_per_dim returns NULL for non-mgstudy", {
   skip_if_not_installed("lme4")
   data(brennan)
-  g <- gstudy(Score ~ (1 | Person) + (1 | Task), data = brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
   result <- extract_sample_sizes_per_dim(g)
   expect_null(result)
+})
+
+# =============================================================================
+# Glance method tests
+# =============================================================================
+
+test_that("glance.dstudy returns a one-row tibble for univariate dstudy", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+
+  expect_s3_class(result, "tbl_df")
+  expect_equal(nrow(result), 1)
+})
+
+test_that("glance.dstudy columns follow var_unscaled_<component> pattern", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+
+  expect_true(all(grepl("^var_unscaled_", names(result))))
+  expect_true("var_unscaled_person" %in% names(result))
+  expect_true("var_unscaled_rater" %in% names(result))
+})
+
+test_that("glance.dstudy values match variance_components$var_unscaled", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+  vc <- d$variance_components
+
+  for (comp in vc$component) {
+    col_name <- paste0("var_unscaled_", comp)
+    expect_equal(result[[col_name]], vc$var_unscaled[vc$component == comp],
+      tolerance = 1e-12)
+  }
+})
+
+test_that("glance.dstudy returns multi-row tibble for multivariate dstudy", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  data_mv <- data.frame(
+    score1 = rnorm(60),
+    score2 = rnorm(60),
+    person = factor(rep(1:12, 5)),
+    rater = factor(rep(1:5, each = 12))
+  )
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = data_mv,
+    backend = "brms"
+  )
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+
+  expect_s3_class(result, "tbl_df")
+  expect_true("component" %in% names(result))
+  expect_equal(nrow(result), length(unique(d$variance_components$component[
+    d$variance_components$dim != "Composite"])))
+})
+
+test_that("glance.dstudy multivariate columns are dimension names", {
+  skip_if_not_installed("brms")
+  skip_on_cran()
+
+  data_mv <- data.frame(
+    score1 = rnorm(60),
+    score2 = rnorm(60),
+    person = factor(rep(1:12, 5)),
+    rater = factor(rep(1:5, each = 12))
+  )
+
+  g <- gstudy(
+    brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
+    data = data_mv,
+    backend = "brms"
+  )
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+  dims <- unique(d$variance_components$dim[d$variance_components$dim != "Composite"])
+
+  expect_true(all(dims %in% names(result)))
+})
+
+test_that("glance.dstudy drops Composite rows from multivariate posterior dstudy", {
+  mock_d <- list(
+    variance_components = tibble::tibble(
+      component = c("person", "person", "person"),
+      dim = c("score1", "score2", "Composite"),
+      var_unscaled = c(0.4, 0.5, 0.45),
+      pct_unscaled = c(20, 25, 22.5),
+      var_scaled = c(0.4, 0.5, 0.45),
+      pct_scaled = c(20, 25, 22.5)
+    ),
+    object = "person",
+    is_sweep = FALSE
+  )
+  class(mock_d) <- "dstudy"
+
+  result <- glance(mock_d)
+
+  expect_false("Composite" %in% result$component)
+  expect_equal(nrow(result), 1)
+  expect_equal(ncol(result), 3)
+  expect_true("component" %in% names(result))
+  expect_true("score1" %in% names(result))
+  expect_true("score2" %in% names(result))
+})
+
+test_that("glance.dstudy does not include covariance columns", {
+  mock_d <- list(
+    variance_components = tibble::tibble(
+      component = c("person", "person", "person"),
+      dim = c("score1", "score2", "Composite"),
+      var_unscaled = c(0.4, 0.5, 0.45),
+      pct_unscaled = c(20, 25, 22.5),
+      var_scaled = c(0.4, 0.5, 0.45),
+      pct_scaled = c(20, 25, 22.5)
+    ),
+    object = "person",
+    is_sweep = FALSE
+  )
+  class(mock_d) <- "dstudy"
+
+  result <- glance(mock_d)
+
+  expect_false(any(grepl("cov", names(result), ignore.case = TRUE)))
+})
+
+test_that("glance.dstudy round-trips var_unscaled values for univariate", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+  result_list <- as.list(result)
+  vc <- d$variance_components
+
+  for (comp in vc$component) {
+    col_name <- paste0("var_unscaled_", comp)
+    expect_true(col_name %in% names(result_list))
+    expect_equal(result_list[[col_name]], vc$var_unscaled[vc$component == comp],
+      tolerance = 1e-12)
+  }
+})
+
+# =============================================================================
+# 4-decimal-point display tests
+# =============================================================================
+
+test_that("dstudy variance components are stored at 4 decimal places by default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  vc <- d$variance_components
+  expect_true("var_unscaled" %in% names(vc))
+  expect_true("var_scaled" %in% names(vc))
+
+  # var_unscaled is copied directly from the g-study variance components and
+  # is therefore at 4 dp. var_scaled is the result of division and may not
+  # be at exactly 4 dp; we check it's close (within 1e-6).
+  expect_true(all(abs(vc$var_unscaled - round(vc$var_unscaled, 4)) < 1e-6, na.rm = TRUE))
+  expect_true(all(abs(vc$var_scaled - round(vc$var_scaled, 4)) < 1e-3, na.rm = TRUE))
+})
+
+test_that("print.dstudy default uses 4 decimal places", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  out <- capture.output(print(d))
+  out <- paste(out, collapse = "\n")
+
+  expect_match(out, "\\d+\\.\\d{4}", all = FALSE)
+})
+
+test_that("summary.dstudy default uses 4 decimal places", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  out <- capture.output(summary(d))
+  out <- paste(out, collapse = "\n")
+
+  expect_match(out, "\\d+\\.\\d{4}", all = FALSE)
+})
+
+test_that("tidy.dstudy returns a tibble with numeric columns at 4 decimal places by default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- tidy(d)
+
+  expect_s3_class(result, "tbl_df")
+  numeric_cols <- vapply(result, is.numeric, logical(1))
+  numeric_cols <- names(result)[numeric_cols]
+
+  for (col in numeric_cols) {
+    expect_true(all(abs(result[[col]] - round(result[[col]], 4)) < 1e-6, na.rm = TRUE))
+  }
+})
+
+test_that("tidy.dstudy digits argument overrides default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- tidy(d, digits = 2)
+  expect_s3_class(result, "tbl_df")
+
+  # Check that some coefficient column (e.g., g) is rounded to 2 dp
+  if ("g" %in% names(result)) {
+    expect_true(all(abs(result$g - round(result$g, 2)) < 1e-6, na.rm = TRUE))
+  }
+})
+
+test_that("glance.dstudy returns values at 4 decimal places by default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+
+  expect_s3_class(result, "tbl_df")
+  for (col in names(result)) {
+    expect_true(all(abs(result[[col]] - round(result[[col]], 4)) < 1e-6, na.rm = TRUE))
+  }
+})
+
+test_that("glance.dstudy digits argument overrides default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d, digits = 2)
+  expect_s3_class(result, "tbl_df")
+
+  for (col in names(result)) {
+    expect_true(all(abs(result[[col]] - round(result[[col]], 2)) < 1e-6, na.rm = TRUE))
+  }
+})
+
+test_that("print.dstudy digits argument overrides default", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  out <- capture.output(print(d, digits = 2))
+  out <- paste(out, collapse = "\n")
+
+  # With digits = 2, the output should not contain values with more than
+  # 4 decimal places (5+ dp). Some values may still show 3-4 dp due to
+  # pillar's significant figure handling.
+  expect_false(grepl("\\d+\\.\\d{5,}", out))
+})
+
+# =============================================================================
+# Tests for residual divisor (object of measurement excluded)
+# =============================================================================
+
+test_that("compute_residual_divisor excludes object of measurement", {
+  # Person is the object; residual Person:Rater should divide by n_Rater only
+  divisor <- compute_residual_divisor(
+    residual_is = "Person:Rater",
+    n = list(Person = 10, Task = 3, Rater = 12),
+    object_spec = "Person"
+  )
+  expect_equal(divisor, 12)
+
+  # No residual_is provided: fall back to all non-object facets in n
+  divisor_fallback <- compute_residual_divisor(
+    residual_is = NULL,
+    n = list(Person = 10, Rater = 5),
+    object_spec = "Person"
+  )
+  expect_equal(divisor_fallback, 5)
+
+  # Object not in residual: divisor uses all residual facets
+  divisor_no_obj <- compute_residual_divisor(
+    residual_is = "Task:Rater",
+    n = list(Person = 10, Task = 3, Rater = 12),
+    object_spec = "Person"
+  )
+  expect_equal(divisor_no_obj, 3 * 12)
+
+  # Empty n: divisor is 1
+  divisor_empty <- compute_residual_divisor(
+    residual_is = "Person:Rater",
+    n = list(),
+    object_spec = "Person"
+  )
+  expect_equal(divisor_empty, 1)
+})
+
+test_that("compute_scale_factor_from_facets excludes object of measurement", {
+  # Person:Task with object=Person: divide by n_Task only
+  sf <- compute_scale_factor_from_facets(
+    facets = c("Person", "Task"),
+    n = list(Person = 10, Task = 3),
+    object_spec = "Person"
+  )
+  expect_equal(sf, 3)
+
+  # Without object_spec: original behavior preserved
+  sf_no_obj <- compute_scale_factor_from_facets(
+    facets = c("Person", "Task"),
+    n = list(Person = 10, Task = 3)
+  )
+  expect_equal(sf_no_obj, 30)
+
+  # Main effect not the object: divisor unchanged
+  sf_main <- compute_scale_factor_from_facets(
+    facets = c("Task"),
+    n = list(Person = 10, Task = 3),
+    object_spec = "Person"
+  )
+  expect_equal(sf_main, 3)
+})
+
+test_that("brennan residual is divided by n_Rater only (n provided)", {
+  skip_if_not_installed("lme4")
+  data(brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
+
+  n_rater <- 4
+  d <- dstudy(g, n = list(Task = 3, Rater = n_rater))
+
+  vc <- d$variance_components
+  res_var_unscaled <- vc$var_unscaled[vc$component == "Residual"]
+  res_var_scaled <- vc$var_scaled[vc$component == "Residual"]
+
+  # The residual (Person:Rater) should be divided by n_Rater only,
+  # not n_Person * n_Task * n_Rater
+  expect_equal(res_var_scaled, res_var_unscaled / n_rater, tolerance = 1e-10)
+})
+
+test_that("brennan residual is divided by n_Rater only (auto-extracted n)", {
+  skip_if_not_installed("lme4")
+  data(brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
+
+  d <- dstudy(g)
+
+  vc <- d$variance_components
+  res_var_unscaled <- vc$var_unscaled[vc$component == "Residual"]
+  res_var_scaled <- vc$var_scaled[vc$component == "Residual"]
+
+  # When n is auto-extracted from G-study (Person=10, Task=3, Rater=12),
+  # residual Person:Rater should still divide by n_Rater=12 only
+  n_rater_gstudy <- length(unique(brennan$Rater))
+  expect_equal(res_var_scaled, res_var_unscaled / n_rater_gstudy, tolerance = 1e-10)
+})
+
+test_that("brennan Person:Task is divided by n_Task only (object excluded)", {
+  skip_if_not_installed("lme4")
+  data(brennan)
+  g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+                (1 | Person:Task), data = brennan)
+
+  n_task <- 3
+  d <- dstudy(g, n = list(Task = n_task, Rater = 4))
+
+  vc <- d$variance_components
+  pt_var_unscaled <- vc$var_unscaled[vc$component == "Person:Task"]
+  pt_var_scaled <- vc$var_scaled[vc$component == "Person:Task"]
+
+  # Person:Task interaction should be divided by n_Task only (object=Person excluded)
+  expect_equal(pt_var_scaled, pt_var_unscaled / n_task, tolerance = 1e-10)
+})
+
+test_that("2-facet residual Person:Item is divided by n_Item only", {
+  skip_if_not_installed("lme4")
+  test_data_2f <- data.frame(
+    score = rnorm(100),
+    person = factor(rep(1:20, 5)),
+    item = factor(rep(1:5, each = 20))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data_2f)
+
+  n_item <- 10
+  d <- dstudy(g, n = list(item = n_item))
+
+  vc <- d$variance_components
+  res_var_unscaled <- vc$var_unscaled[vc$component == "Residual"]
+  res_var_scaled <- vc$var_scaled[vc$component == "Residual"]
+
+  # Residual (Person:Item) should divide by n_Item only, not n_Person * n_Item
+  expect_equal(res_var_scaled, res_var_unscaled / n_item, tolerance = 1e-10)
+})
+
+test_that("3-facet residual Person:Item:Rater is divided by n_Item * n_Rater", {
+  skip_if_not_installed("lme4")
+  test_data_3f <- data.frame(
+    score = rnorm(120),
+    person = factor(rep(1:10, 12)),
+    item = factor(rep(1:3, each = 40)),
+    rater = factor(rep(1:4, each = 30))
+  )
+  g <- gstudy(score ~ (1 | person) + (1 | item) + (1 | rater), data = test_data_3f)
+
+  n_item <- 5
+  n_rater <- 3
+  d <- dstudy(g, n = list(item = n_item, rater = n_rater))
+
+  vc <- d$variance_components
+  res_var_unscaled <- vc$var_unscaled[vc$component == "Residual"]
+  res_var_scaled <- vc$var_scaled[vc$component == "Residual"]
+
+  # Residual (Person:Item:Rater) should divide by n_Item * n_Rater
+  # (Person is object, excluded)
+  expect_equal(res_var_scaled, res_var_unscaled / (n_item * n_rater),
+               tolerance = 1e-10)
+})
+
+test_that("compute_component_scale_factor excludes object for non-residual interactions", {
+  # Person:Task with object=Person: should divide by n_Task only
+  sf <- compute_component_scale_factor(
+    comp = "Person:Task",
+    n = list(Person = 10, Task = 3),
+    object_spec = "Person",
+    n_provided = TRUE
+  )
+  expect_equal(sf, 3)
+
+  # Residual with residual_is: excludes object
+  sf_resid <- compute_component_scale_factor(
+    comp = "Residual",
+    n = list(Person = 10, Rater = 12),
+    object_spec = "Person",
+    n_provided = TRUE,
+    residual_is = "Person:Rater"
+  )
+  expect_equal(sf_resid, 12)
+
+  # Object component: always 1
+  sf_obj <- compute_component_scale_factor(
+    comp = "Person",
+    n = list(Person = 10, Task = 3),
+    object_spec = "Person",
+    n_provided = TRUE
+  )
+  expect_equal(sf_obj, 1)
+})
+
+test_that("compute_scale_factors_for_viable uses correct residual divisor", {
+  components <- c("Person", "Rater", "Person:Task", "Residual")
+  n <- list(Person = 10, Task = 3, Rater = 12)
+  object_spec <- "Person"
+  universe_spec <- "Person"
+
+  sfs <- compute_scale_factors_for_viable(
+    components = components,
+    n = n,
+    universe_spec = universe_spec,
+    object_spec = object_spec,
+    residual_is = "Person:Rater"
+  )
+
+  expect_equal(sfs$Person, 1)         # object
+  expect_equal(sfs$Rater, 12)          # main effect
+  expect_equal(sfs$`Person:Task`, 3)   # interaction w/ object: exclude object
+  expect_equal(sfs$Residual, 12)       # residual: Rater only (Person excluded)
 })
 

@@ -156,9 +156,10 @@
 #'
 #' @examples
 #' # First conduct a G-study using the brennan dataset
-#' # (Person crossed with Task and Rater)
+#' # (Person crossed with Task; Rater nested in Task).
+#' # Canonical "all possible variance components" formula:
 #' g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
-#'   (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater),
+#'   (1 | Person:Task),
 #' data = brennan)
 #'
 #' # D-study with specific sample sizes
@@ -172,12 +173,15 @@
 #' # D-study with aggregation (averaging over Raters)
 #' d_agg <- dstudy(g, n = list(Task = 3, Rater = 4),
 #'   aggregation = "Rater",
-#'   residual_is = "Person:Task:Rater")
+#'   residual_is = "Person:Task:Rater"
+#' )
 #'
 #' \donttest{
 #' # D-study with posterior estimation (requires brms backend)
-#' g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater),
-#'   data = brennan, backend = "brms")
+#' g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
+#'   (1 | Person:Task),
+#'   data = brennan, backend = "brms",
+#'   iter = 2000, cores = 4, refresh = 1000)
 #' d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
 #'
 #' # D-study with credible intervals (requires brms backend)

@@ -4,14 +4,14 @@
 \alias{summary.gstudy}
 \title{Summary Method for gstudy Objects}
 \usage{
-\method{summary}{gstudy}(object, scale = c("variance", "sd"), digits = 3, ...)
+\method{summary}{gstudy}(object, scale = c("variance", "sd"), digits = 4, ...)
 }
 \arguments{
 \item{object}{A gstudy object.}
 
 \item{scale}{Scale for displaying results: "variance" (default) or "sd".}
 
-\item{digits}{Number of digits to display (default 3).}
+\item{digits}{Number of digits to display (default 4).}
 
 \item{...}{Additional arguments (ignored).}
 }

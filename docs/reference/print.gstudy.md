@@ -6,7 +6,7 @@ Print Method for gstudy Objects
 
 ``` r
 # S3 method for class 'gstudy'
-print(x, digits = 3, scale = c("variance", "sd"), ...)
+print(x, digits = 4, scale = c("variance", "sd"), ...)
 ```
 
 ## Arguments
@@ -17,7 +17,7 @@ print(x, digits = 3, scale = c("variance", "sd"), ...)
 
 - digits:
 
-  Number of digits to display.
+  Number of digits to display (default 4).
 
 - scale:
 
