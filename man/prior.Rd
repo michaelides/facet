@@ -22,7 +22,7 @@ See \code{\link[brms:prior]{brms::prior()}} for full documentation.
 \examples{
 \dontrun{
 prior <- prior(normal(0, 1), class = sd)
-g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000)
 }
 }

@@ -13,7 +13,7 @@ generate_mom_variance_and_covariance_draws(gstudy_obj, n_draws = 1000)
 
 - gstudy_obj:
 
-  A gstudy object with mom backend
+  A gstudy object with mom estimator
 
 - n_draws:
 

@@ -1,8 +1,8 @@
 #' Caterpillar Plot for Random Effects
 #'
 #' Creates a caterpillar (dot plot with error bars) to display random effects
-#' from a gstudy object. Works with both lme4 and brms backends, providing a
-#' unified interface regardless of backend used.
+#' from a gstudy object. Works with both lme4 and brms estimators, providing a
+#' unified interface regardless of estimator used.
 #'
 #' @param x A gstudy object.
 #' @param which Which random effect(s) to plot. If NULL (default), plots all
@@ -34,7 +34,7 @@
 #' g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #'   (1 | Person:Task),
 #'   data = brennan,
-#'   backend = "brms",
+#'   estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000
 #' )
 #'
@@ -57,19 +57,19 @@ plot_ranef.gstudy <- function(x, which = NULL, ci_level = 0.95,
     stop("x must be a gstudy object", call. = FALSE)
   }
 
-  if (x$backend == "mom") {
-    message("Caterpillar plots are not available for the method of moments backend.")
+  if (x$estimator == "aov") {
+    message("Caterpillar plots are not available for the method of moments estimator.")
     return(invisible(NULL))
   }
 
   model <- x$model
 
-  if (x$backend == "lme4") {
+  if (x$estimator == "lme4") {
     ranef_data <- prepare_ranef_lme4(model, ci_level = ci_level)
-  } else if (x$backend == "brms") {
+  } else if (x$estimator == "brms") {
     ranef_data <- prepare_ranef_brms(model, ci_level = ci_level)
   } else {
-    stop("Unknown backend: ", x$backend, call. = FALSE)
+    stop("Unknown estimator: ", x$estimator, call. = FALSE)
   }
 
   if (is.null(ranef_data) || nrow(ranef_data) == 0) {

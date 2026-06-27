@@ -9,7 +9,7 @@ new_gstudy(
   variance_components,
   facets,
   object,
-  backend,
+  estimator,
   is_multivariate,
   formula,
   data
@@ -24,7 +24,7 @@ new_gstudy(
 
 \item{object}{Character string naming the object of measurement.}
 
-\item{backend}{Character string indicating the backend used.}
+\item{estimator}{Character string indicating the estimator used.}
 
 \item{is_multivariate}{Logical indicating if the model is multivariate.}
 

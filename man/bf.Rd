@@ -16,6 +16,6 @@ A brmsformula object.
 }
 \description{
 This function is a wrapper around \code{\link[brms:bf]{brms::bf()}} to allow specifying
-formulas for Bayesian models fit via the brms backend in gstudy.
+formulas for Bayesian models fit via the brms estimator in gstudy.
 See \code{\link[brms:bf]{brms::bf()}} for full documentation.
 }

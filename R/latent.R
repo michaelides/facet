@@ -77,7 +77,7 @@ latent.gstudy <- function(x, universe = NULL, ...) {
 
   universe_spec <- parse_universe_spec(universe, object)
 
-  if (x$backend == "brms") {
+  if (x$estimator == "brms") {
     re <- ranef(x, summary = FALSE)
   } else {
     re <- ranef(x)
@@ -116,7 +116,7 @@ parse_universe_spec <- function(universe, object) {
 }
 
 build_latent_univariate <- function(x, re, object, universe_spec) {
-  re_object <- extract_object_random_effects(re, object, is_multivariate = FALSE, backend = x$backend)
+  re_object <- extract_object_random_effects(re, object, is_multivariate = FALSE, estimator = x$estimator)
 
   if (is.null(re_object) || length(re_object) == 0) {
     warning("No random effects found for object '", object, "'", call. = FALSE)
@@ -145,7 +145,7 @@ build_latent_univariate <- function(x, re, object, universe_spec) {
   interaction_specs <- universe_spec[grepl(":", universe_spec)]
 
   for (spec in interaction_specs) {
-    result <- add_interaction_latent(result, re, spec, object, x$data, is_multivariate = FALSE, dimension = NULL, backend = x$backend)
+    result <- add_interaction_latent(result, re, spec, object, x$data, is_multivariate = FALSE, dimension = NULL, estimator = x$estimator)
   }
 
   result
@@ -163,7 +163,7 @@ build_latent_multivariate <- function(x, re, object, universe_spec) {
   object_levels <- NULL
 
   for (dim in dimensions) {
-    re_dim <- extract_object_random_effects(re, object, is_multivariate = TRUE, dimension = dim, backend = x$backend)
+    re_dim <- extract_object_random_effects(re, object, is_multivariate = TRUE, dimension = dim, estimator = x$estimator)
 
     if (is.null(re_dim) || length(re_dim) == 0) {
       warning("No random effects found for object '", object, "' in dimension '", dim, "'", call. = FALSE)
@@ -207,15 +207,15 @@ build_latent_multivariate <- function(x, re, object, universe_spec) {
 
   for (spec in interaction_specs) {
     for (dim in dimensions) {
-      result <- add_interaction_latent(result, re, spec, object, x$data, is_multivariate = TRUE, dimension = dim, backend = x$backend)
+      result <- add_interaction_latent(result, re, spec, object, x$data, is_multivariate = TRUE, dimension = dim, estimator = x$estimator)
     }
   }
 
   result
 }
 
-extract_object_random_effects <- function(re, object, is_multivariate, dimension = NULL, backend = "lme4") {
-  if (backend == "brms") {
+extract_object_random_effects <- function(re, object, is_multivariate, dimension = NULL, estimator = "lme4") {
+  if (estimator == "brms") {
     if (!object %in% names(re)) {
       return(NULL)
     }
@@ -259,7 +259,7 @@ extract_object_random_effects <- function(re, object, is_multivariate, dimension
   re[[object]]
 }
 
-add_interaction_latent <- function(result, re, spec, object, data, is_multivariate, dimension, backend = "lme4") {
+add_interaction_latent <- function(result, re, spec, object, data, is_multivariate, dimension, estimator = "lme4") {
   parts <- strsplit(spec, ":")[[1]]
   parts <- trimws(parts)
 
@@ -295,7 +295,7 @@ add_interaction_latent <- function(result, re, spec, object, data, is_multivaria
 
   re_interaction <- NULL
 
-  if (backend == "brms") {
+  if (estimator == "brms") {
     if (spec %in% names(re)) {
       re_interaction <- re[[spec]]
     } else {
@@ -337,7 +337,7 @@ add_interaction_latent <- function(result, re, spec, object, data, is_multivaria
 
   object_levels <- result[[object]]
 
-  if (backend == "brms") {
+  if (estimator == "brms") {
     if (is_multivariate && !is.null(dimension)) {
       param_name <- paste0(dimension, "_Intercept")
       if (!param_name %in% dimnames(re_interaction)[[3]]) {

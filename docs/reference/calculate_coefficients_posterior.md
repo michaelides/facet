@@ -32,7 +32,7 @@ calculate_coefficients_posterior(
 
 - gstudy_obj:
 
-  A gstudy object fitted with backend = "brms".
+  A gstudy object fitted with estimator = "brms".
 
 - n:
 

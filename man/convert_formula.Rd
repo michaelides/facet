@@ -2,20 +2,20 @@
 % Please edit documentation in R/formula-helpers.R
 \name{convert_formula}
 \alias{convert_formula}
-\title{Convert Formula to Backend-Specific Format}
+\title{Convert Formula to Estimator-Specific Format}
 \usage{
-convert_formula(formula, backend)
+convert_formula(formula, estimator)
 }
 \arguments{
 \item{formula}{A formula object.}
 
-\item{backend}{Character string indicating the target backend.}
+\item{estimator}{Character string indicating the target estimator.}
 }
 \value{
-A formula object in the backend-specific format.
+A formula object in the estimator-specific format.
 }
 \description{
-Converts a G-study formula to the format required by a specific backend.
+Converts a G-study formula to the format required by a specific estimator.
 For lme4, this removes any brms-specific syntax.
 }
 \keyword{internal}

@@ -1,7 +1,7 @@
 #' Posterior Coefficient Functions
 #'
-#' Functions for computing coefficients from posterior draws (Bayesian/MOM).
-#' Used when gstudy backend is 'brms' or 'mom'.
+#' Functions for computing coefficients from posterior draws (Bayesian/aov).
+#' Used when gstudy estimator is 'brms' or 'mom'.
 #' @name coefficients-posterior
 #' @keywords internal
 NULL
@@ -12,7 +12,7 @@ NULL
 #' distributions from a brms model. This provides proper uncertainty quantification
 #' for D-study coefficients.
 #'
-#' @param gstudy_obj A gstudy object fitted with backend = "brms".
+#' @param gstudy_obj A gstudy object fitted with estimator = "brms".
 #' @param n Named list of sample sizes for each facet.
 #' @param object Specification for object of measurement.
 #' @param error Specification for error components.
@@ -345,7 +345,7 @@ calculate_coefficients_posterior <- function(gstudy_obj, n, object = NULL, unive
 #' Extracts posterior draws of variance components (SD^2) from a brms model.
 #' For multivariate models, returns a nested list structure by dimension.
 #'
-#' @param gstudy_obj A gstudy object with brms backend.
+#' @param gstudy_obj A gstudy object with brms estimator.
 #' @param draws A posterior draws_matrix object (e.g., from brms::as_draws_matrix()).
 #'
 #' @return A named list. For univariate: list of variance draws per component.

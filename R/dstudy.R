@@ -42,21 +42,21 @@
 #' three-way interaction. Required when aggregation is specified and you want
 #' the residual to be rescaled. Default is NULL (residual is not rescaled).
 #' @param estimation Character string specifying how to calculate coefficients:
-#' - "simple": uses point estimates from variance components (for lme4/mom backends)
-#' - "posterior": uses full posterior distributions (for brms backend)
-#' For brms backend, posterior estimation is always used to ensure consistency
+#' - "simple": uses point estimates from variance components (for lme4/aov estimators)
+#' - "posterior": uses full posterior distributions (for brms estimator)
+#' For brms estimator, posterior estimation is always used to ensure consistency
 #' between variance component estimates and coefficient calculations. This avoids
 #' Jensen's inequality bias that would occur if variance estimates were computed
 #' as mean(SD)^2 rather than mean(SD^2).
-#' When estimation = "posterior" is requested with non-brms backend,
-#' a warning is issued and the gstudy model is refit with backend = "brms".
+#' When estimation = "posterior" is requested with non-brms estimator,
+#' a warning is issued and the gstudy model is refit with estimator = "brms".
 #' @param cut_score Optional numeric value specifying a cutoff score for criterion-referenced
 #' decisions. When provided, calculates phi-cut coefficient (phi_cut) in addition to standard
 #' phi coefficient. For multivariate models, can be a single value applied to all dimensions.
 #' Default is NULL (no phi-cut calculation).
 #' @param ci Character vector specifying which coefficients to compute credible intervals for.
 #' Options: "g", "phi", "phi-cut". Can specify multiple: `ci = c("g", "phi")`.
-#' Credible intervals are only available when using the brms backend.
+#' Credible intervals are only available when using the brms estimator.
 #' Default is NULL (no credible intervals computed).
 #' @param probs Numeric vector of length 2 specifying the quantiles for credible interval
 #' calculation. Default is `c(0.025, 0.975)` for a 95% credible interval.
@@ -151,7 +151,7 @@
 #' - Default: `NULL` uses equal weights (1 for each dimension)
 #' - Custom: Provide a numeric vector with length matching the number of dimensions
 #'
-#' For posterior estimation with brms backend, composite coefficients are computed
+#' For posterior estimation with brms estimator, composite coefficients are computed
 #' for each posterior draw, properly propagating uncertainty to the final estimates.
 #'
 #' @examples
@@ -177,14 +177,14 @@
 #' )
 #'
 #' \donttest{
-#' # D-study with posterior estimation (requires brms backend)
+#' # D-study with posterior estimation (requires brms estimator)
 #' g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #'   (1 | Person:Task),
-#'   data = brennan, backend = "brms",
+#'   data = brennan, estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000)
 #' d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
 #'
-#' # D-study with credible intervals (requires brms backend)
+#' # D-study with credible intervals (requires brms estimator)
 #' d_ci <- dstudy(g_brms, n = list(Task = 3, Rater = 4), ci = c("g", "phi"))
 #' print(d_ci)
 #'
@@ -442,7 +442,7 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
     # inside calculate_coefficients_posterior() and included in coefficients
 
     # For posterior, calculate variance components with both scaled and unscaled
-    # Remove diagnostic columns from brms backend
+    # Remove diagnostic columns from brms estimator
     # But only if NOT in sweep mode (sweep mode uses base variance components)
     if (!is_sweep) {
       d_vc <- calculate_dstudy_variance(vc, n, object, aggregation, TRUE, residual_is_effective, facet_n = gstudy_obj$facet_n)
@@ -547,7 +547,7 @@ dstudy <- function(gstudy_obj, n = list(), universe = NULL,
     }
 
     # For sweeping, variance_components is the base (unscaled) version (sweep handles scaling separately)
-    # Remove diagnostic columns if present (brms, mom backends)
+    # Remove diagnostic columns if present (brms, aov estimators)
     d_vc <- vc %>%
       select(-dplyr::any_of(c("error", "se", "lower", "upper", "sd", "Rhat", "Bulk_ESS", "Tail_ESS")))
   } else {

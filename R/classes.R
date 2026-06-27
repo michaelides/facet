@@ -16,14 +16,14 @@ NULL
 #' @param variance_components A tibble of variance components.
 #' @param facets Character vector of facet names.
 #' @param object Character string naming the object of measurement.
-#' @param backend Character string indicating the backend used.
+#' @param estimator Character string indicating the estimator used.
 #' @param is_multivariate Logical indicating if the model is multivariate.
 #' @param formula The formula used for fitting.
 #' @param data The original data.
 #' @return An object of class "gstudy".
 #'
 #' @keywords internal
-new_gstudy <- function(model, variance_components, facets, object, backend,
+new_gstudy <- function(model, variance_components, facets, object, estimator,
                        is_multivariate, formula, data) {
   structure(
     list(
@@ -31,7 +31,7 @@ new_gstudy <- function(model, variance_components, facets, object, backend,
       variance_components = variance_components,
       facets = facets,
       object = object,
-      backend = backend,
+      estimator = estimator,
       is_multivariate = is_multivariate,
       formula = formula,
       data = data,
@@ -84,7 +84,7 @@ validate_gstudy <- function(x) {
   }
 
   required <- c(
-    "model", "variance_components", "facets", "backend",
+    "model", "variance_components", "facets", "estimator",
     "is_multivariate", "formula", "data", "n_obs"
   )
   missing <- setdiff(required, names(x))
@@ -128,9 +128,9 @@ validate_gstudy <- function(x) {
     )
   }
 
-  # Validate backend
-  if (!x$backend %in% c("lme4", "brms", "mom")) {
-    stop("backend must be 'lme4', 'brms', or 'mom'", call. = FALSE)
+  # Validate estimator
+  if (!x$estimator %in% c("lme4", "brms", "aov")) {
+    stop("estimator must be 'lme4', 'brms', or 'aov'", call. = FALSE)
   }
 
   # Validate facet_n if present
@@ -199,14 +199,14 @@ is.gstudy <- function(x) {
 #' @param variance_components A tibble of variance components with 'dim' column.
 #' @param facets Character vector of facet names.
 #' @param object Character string naming the object of measurement.
-#' @param backend Character string indicating the backend used.
+#' @param estimator Character string indicating the estimator used.
 #' @param formula The formula used for fitting.
 #' @param data The original data.
 #' @param dimensions Character vector of dimension (response variable) names.
 #' @return An object of class "mgstudy".
 #'
 #' @keywords internal
-new_mgstudy <- function(model, variance_components, facets, object, backend,
+new_mgstudy <- function(model, variance_components, facets, object, estimator,
                         formula, data, dimensions) {
   structure(
     list(
@@ -214,7 +214,7 @@ new_mgstudy <- function(model, variance_components, facets, object, backend,
       variance_components = variance_components,
       facets = facets,
       object = object,
-      backend = backend,
+      estimator = estimator,
       is_multivariate = TRUE,
       formula = formula,
       data = data,
@@ -239,7 +239,7 @@ validate_mgstudy <- function(x) {
   }
 
   required <- c(
-    "model", "variance_components", "facets", "backend",
+    "model", "variance_components", "facets", "estimator",
     "formula", "data", "n_obs", "dimensions"
   )
   missing <- setdiff(required, names(x))
@@ -262,8 +262,8 @@ validate_mgstudy <- function(x) {
       call. = FALSE)
   }
 
-  if (!x$backend %in% c("lme4", "brms", "mom")) {
-    stop("backend must be 'lme4', 'brms', or 'mom'", call. = FALSE)
+  if (!x$estimator %in% c("lme4", "brms", "aov")) {
+    stop("estimator must be 'lme4', 'brms', or 'aov'", call. = FALSE)
   }
 
   if (!is.character(x$dimensions) || length(x$dimensions) < 2) {

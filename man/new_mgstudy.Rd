@@ -9,7 +9,7 @@ new_mgstudy(
   variance_components,
   facets,
   object,
-  backend,
+  estimator,
   formula,
   data,
   dimensions
@@ -24,7 +24,7 @@ new_mgstudy(
 
 \item{object}{Character string naming the object of measurement.}
 
-\item{backend}{Character string indicating the backend used.}
+\item{estimator}{Character string indicating the estimator used.}
 
 \item{formula}{The formula used for fitting.}
 

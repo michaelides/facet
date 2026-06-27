@@ -1,16 +1,18 @@
 # facet: facet: framework for Generalizability Theory
 
 Conduct generalizability theory analyses using variance component models
-estimated with various methods (including ANOVA method of moments, REML
-with lme4, and NUTS with brms). Provides functions for G-studies
-(estimating variance components) and D-studies (computing
-generalizability and dependability coefficients).
+estimated with various methods (including the aov estimator for
+ANOVA-based estimation, also known as the method of moments; REML with
+lme4; and NUTS with brms). Provides functions for G-studies (estimating
+variance components) and D-studies (computing generalizability and
+dependability coefficients).
 
 ## Details
 
 The facet package provides tools for conducting generalizability theory
-analyses using variance component models. It supports multiple backends
-including lme4 for frequentist analyses and brms for Bayesian analyses.
+analyses using variance component models. It supports multiple
+estimators including lme4 for frequentist analyses and brms for Bayesian
+analyses.
 
 Key functions:
 

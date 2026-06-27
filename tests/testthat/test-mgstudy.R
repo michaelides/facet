@@ -26,7 +26,7 @@ test_that("is.mgstudy returns TRUE for mgstudy objects", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   expect_true(is.mgstudy(result))
 })
@@ -38,7 +38,7 @@ test_that("is.gstudy returns FALSE for mgstudy objects", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   expect_false(is.gstudy(result))
 })
@@ -54,7 +54,7 @@ test_that("mgstudy object has correct structure", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_s3_class(result, "mgstudy")
@@ -72,7 +72,7 @@ test_that("mgstudy stores dimensions correctly", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_equal(sort(result$dimensions), c("score1", "score2"))
@@ -89,7 +89,7 @@ test_that("mgstudy variance_components has dim column", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_true("dim" %in% names(result$variance_components))
@@ -102,7 +102,7 @@ test_that("mgstudy variance_components has rows for each dimension", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   vc <- result$variance_components
@@ -123,7 +123,7 @@ test_that("mgstudy variance_components component names are consistent", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   vc <- result$variance_components
@@ -165,7 +165,7 @@ test_that("print.mgstudy works", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_output(print(result), "Multivariate Generalizability Study")
@@ -179,7 +179,7 @@ test_that("summary.mgstudy works", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_output(summary(result), "Multivariate G Study Summary")
@@ -193,7 +193,7 @@ test_that("print.mgstudy displays residual correlations in long format by defaul
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_output(print(result), "Correlated Residuals")
@@ -207,7 +207,7 @@ test_that("print.mgstudy can display correlations in matrix format", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_output(print(result, cor_format = "matrix"), "Residual Correlations:")
@@ -220,7 +220,7 @@ test_that("summary.mgstudy displays residual correlations in long format by defa
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_output(summary(result), "Correlated Residuals")
@@ -233,7 +233,7 @@ test_that("summary.mgstudy can display correlations in matrix format", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_output(summary(result, cor_format = "matrix"), "Residual Correlations:")
@@ -246,7 +246,7 @@ test_that("mgstudy correlations include full statistics", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_true(!is.null(result$correlations$residual_cor))
@@ -260,7 +260,7 @@ test_that("mgstudy stores both tibble and matrix correlation formats", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_true(!is.null(result$correlations$residual_cor))
@@ -280,7 +280,7 @@ test_that("dstudy accepts mgstudy objects", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_s3_class(g, "mgstudy")
@@ -297,7 +297,7 @@ test_that("dstudy coefficients have dim column for mgstudy", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   d <- dstudy(g, n = list(rater = 3))
@@ -312,7 +312,7 @@ test_that("dstudy computes coefficients per dimension", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   d <- dstudy(g, n = list(rater = 3))
@@ -329,7 +329,7 @@ test_that("dstudy is_multivariate field is set correctly", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   d <- dstudy(g, n = list(rater = 3))
@@ -344,7 +344,7 @@ test_that("dstudy handles multivariate sweep mode", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   d <- dstudy(g, n = list(rater = c(2, 3, 4)))
@@ -363,7 +363,7 @@ test_that("print.dstudy separates tables by dimension for sweep", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   d <- dstudy(g, n = list(rater = c(2, 3, 4)))
@@ -381,7 +381,7 @@ test_that("summary.dstudy separates tables by dimension for sweep", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   d <- dstudy(g, n = list(rater = c(2, 3, 4)))
@@ -402,7 +402,7 @@ test_that("plot.dstudy facets by dimension for multivariate sweep", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   d <- dstudy(g, n = list(rater = c(2, 3, 4)))
@@ -422,7 +422,7 @@ test_that("plot.dstudy facets by dimension for single coefficient", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   d <- dstudy(g, n = list(rater = c(2, 3, 4)))
@@ -443,7 +443,7 @@ test_that("posterior estimation produces separate results per dimension", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   d_post <- dstudy(g, n = list(rater = 3), estimation = "posterior")
@@ -461,7 +461,7 @@ test_that("posterior sweep produces separate results per dimension", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   d_post <- dstudy(g, n = list(rater = c(2, 3, 4)), estimation = "posterior")
@@ -478,7 +478,7 @@ test_that("posterior results are consistent with simple estimation", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 1000
   )
@@ -505,7 +505,7 @@ test_that("no deprecated posterior_samples warning", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   # Should not produce deprecated method warning
@@ -523,7 +523,7 @@ test_that("extract_variance_draws returns correct structure for multivariate", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   
   draws <- brms::as_draws_matrix(g$model)
@@ -554,7 +554,7 @@ test_that("mgstudy object of measurement is single value", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_equal(result$object, "person")
@@ -567,7 +567,7 @@ test_that("mgstudy object of measurement defaults to first facet", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_equal(result$object, "person")
@@ -585,7 +585,7 @@ test_that("plot.mgstudy returns ggplot for variance type", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   p <- plot(result, type = "variance")
@@ -602,7 +602,7 @@ test_that("plot.mgstudy returns ggplot for proportion type", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   p <- plot(result, type = "proportion")
@@ -619,7 +619,7 @@ test_that("plot.mgstudy returns ggplot for forest type with CIs", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   p <- plot(result, type = "forest")
@@ -636,7 +636,7 @@ test_that("plot.mgstudy falls back to variance for forest without CIs", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_warning(
@@ -647,7 +647,7 @@ test_that("plot.mgstudy falls back to variance for forest without CIs", {
   expect_s3_class(p, "ggplot")
 })
 
-test_that("plot.mgstudy works with mom backend", {
+test_that("plot.mgstudy works with mom estimator", {
   skip_if_not_installed("ggplot2")
 
   test_data_mv_mom <- data.frame(
@@ -660,7 +660,7 @@ test_that("plot.mgstudy works with mom backend", {
   result <- gstudy(
     mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv_mom,
-    backend = "mom"
+    estimator = "mom"
   )
 
   p <- plot(result, type = "variance")
@@ -675,7 +675,7 @@ test_that("plot.mgstudy works with mom backend", {
 
 test_that("print.mgstudy handles long_format_multivariate flag", {
   mock_mgstudy <- list(
-    backend = "brms",
+    estimator = "brms",
     long_format_multivariate = TRUE,
     dimension_var = "Subtest",
     dimensions = c("A", "B"),
@@ -712,7 +712,7 @@ test_that("print.mgstudy handles long_format_multivariate flag", {
 
 test_that("print.mgstudy shows per-dimension sample sizes", {
   mock_mgstudy <- list(
-    backend = "brms",
+    estimator = "brms",
     long_format_multivariate = TRUE,
     dimension_var = "Subtest",
     dimensions = c("A", "B"),
@@ -744,7 +744,7 @@ test_that("print.mgstudy shows per-dimension sample sizes", {
 
 test_that("summary.mgstudy handles long_format_multivariate flag", {
   mock_mgstudy <- list(
-    backend = "brms",
+    estimator = "brms",
     long_format_multivariate = TRUE,
     dimension_var = "Subtest",
     dimensions = c("A", "B"),
@@ -784,7 +784,7 @@ test_that("mgstudy stores both correlations and covariances for brms models", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500
   )
@@ -802,7 +802,7 @@ test_that("mgstudy stores random effect correlations for correlated effects", {
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500
   )
@@ -820,7 +820,7 @@ test_that("summary.mgstudy displays random effect correlations for correlated ef
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500
   )
@@ -837,7 +837,7 @@ test_that("summary.mgstudy displays random effect correlations with vc_format = 
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500
   )
@@ -854,7 +854,7 @@ test_that("summary.mgstudy displays random effect correlations with vc_format = 
   result <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | pr | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500
   )
@@ -865,7 +865,7 @@ test_that("summary.mgstudy displays random effect correlations with vc_format = 
 })
 
 # =============================================================================
-# Mom backend with unbalanced designs (Henderson's Method III)
+# Mom estimator with unbalanced designs (Henderson's Method III)
 # =============================================================================
 
 test_data_mv_unbalanced <- data.frame(
@@ -876,16 +876,16 @@ test_data_mv_unbalanced <- data.frame(
 )
 test_data_mv_unbalanced$B[sample(1:100, 20)] <- NA
 
-test_that("gstudy with mom backend and unbalanced = TRUE sets is_unbalanced and n_per_dim", {
+test_that("gstudy with mom estimator and unbalanced = TRUE sets is_unbalanced and n_per_dim", {
   result <- gstudy(
     brms::mvbind(A, B) ~ (1 | id) + (1 | item),
     data = test_data_mv_unbalanced,
-    backend = "mom",
+    estimator = "mom",
     unbalanced = TRUE
   )
 
   expect_true(isTRUE(result$is_unbalanced))
-  expect_equal(result$backend, "mom")
+  expect_equal(result$estimator, "mom")
   expect_equal(result$dimensions, c("A", "B"))
   expect_false(is.null(result$n_per_dim))
   expect_equal(result$n_per_dim$A, 100)
@@ -903,7 +903,7 @@ test_that("gstudy with mom balanced (default) does not set is_unbalanced", {
   result <- gstudy(
     brms::mvbind(A, B) ~ (1 | id) + (1 | item),
     data = balanced_data,
-    backend = "mom"
+    estimator = "mom"
   )
 
   expect_false(isTRUE(result$is_unbalanced))
@@ -914,7 +914,7 @@ test_that("print.mgstudy surfaces the unbalanced banner and per-dim totals", {
   result <- gstudy(
     brms::mvbind(A, B) ~ (1 | id) + (1 | item),
     data = test_data_mv_unbalanced,
-    backend = "mom",
+    estimator = "mom",
     unbalanced = TRUE
   )
 
@@ -929,7 +929,7 @@ test_that("dstudy with per-dim n tibble uses per-dim sample sizes in non-posteri
   result <- gstudy(
     brms::mvbind(A, B) ~ (1 | id) + (1 | item),
     data = test_data_mv_unbalanced,
-    backend = "mom",
+    estimator = "mom",
     unbalanced = TRUE
   )
 
@@ -961,7 +961,7 @@ test_that("dstudy with n as a per-dim tibble keeps the coefficients tibble free 
   result <- gstudy(
     brms::mvbind(A, B) ~ (1 | id) + (1 | item),
     data = test_data_mv_unbalanced,
-    backend = "mom",
+    estimator = "mom",
     unbalanced = TRUE
   )
 
@@ -1008,7 +1008,7 @@ test_that("mgstudy variance components are stored at 4 decimal places by default
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   expect_s3_class(g, "mgstudy")
@@ -1026,7 +1026,7 @@ test_that("print.mgstudy default uses 4 decimal places", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   out <- capture.output(print(g))
@@ -1042,7 +1042,7 @@ test_that("summary.mgstudy default uses 4 decimal places", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   out <- capture.output(summary(g))
@@ -1058,7 +1058,7 @@ test_that("tidy.mgstudy returns a tibble with numeric columns at 4 decimal place
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   result <- tidy(g)
@@ -1079,7 +1079,7 @@ test_that("tidy.mgstudy digits argument overrides default", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   result <- tidy(g, digits = 2)
@@ -1097,7 +1097,7 @@ test_that("print.mgstudy digits argument overrides default", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   out <- capture.output(print(g, digits = 2))

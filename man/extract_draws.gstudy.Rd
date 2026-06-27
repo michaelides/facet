@@ -15,6 +15,6 @@ extract_draws.gstudy(object, ...)
 A posterior draws_matrix object containing posterior draws for all model parameters.
 }
 \description{
-Extract posterior draws from a gstudy object that was fit with the brms backend.
+Extract posterior draws from a gstudy object that was fit with the brms estimator.
 This is a wrapper around brms::as_draws_matrix.
 }

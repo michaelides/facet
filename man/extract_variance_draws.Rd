@@ -7,7 +7,7 @@
 extract_variance_draws(gstudy_obj, draws)
 }
 \arguments{
-\item{gstudy_obj}{A gstudy object with brms backend.}
+\item{gstudy_obj}{A gstudy object with brms estimator.}
 
 \item{draws}{A posterior draws_matrix object (e.g., from brms::as_draws_matrix()).}
 }

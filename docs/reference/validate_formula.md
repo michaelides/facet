@@ -6,7 +6,7 @@ should have a response variable and at least one random effect term.
 ## Usage
 
 ``` r
-validate_formula(formula, backend = "auto")
+validate_formula(formula, estimator = "auto")
 ```
 
 ## Arguments
@@ -15,10 +15,10 @@ validate_formula(formula, backend = "auto")
 
   A formula object.
 
-- backend:
+- estimator:
 
-  Character string indicating the backend to use ("auto", "lme4",
-  "brms", or "mom").
+  Character string indicating the estimator to use ("auto", "lme4",
+  "brms", or "aov").
 
 ## Value
 

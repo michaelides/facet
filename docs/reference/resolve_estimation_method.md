@@ -1,8 +1,8 @@
 # Resolve Estimation Method
 
-Determines the appropriate estimation method based on the backend. Warns
-and refits if posterior requested with non-brms backend. Warns and
-overrides if simple requested with brms backend.
+Determines the appropriate estimation method based on the estimator.
+Warns and refits if posterior requested with non-brms estimator. Warns
+and overrides if simple requested with brms estimator.
 
 ## Usage
 

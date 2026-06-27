@@ -1,7 +1,7 @@
 #' @keywords internal
 #' @details
 #' The facet package provides tools for conducting generalizability theory analyses
-#' using variance component models. It supports multiple backends including lme4
+#' using variance component models. It supports multiple estimators including lme4
 #' for frequentist analyses and brms for Bayesian analyses.
 #'
 #' Key functions:

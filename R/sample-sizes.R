@@ -579,31 +579,31 @@ calculate_sample_size_info_per_dimension <- function(formula, data, dimension_va
 
 #' Build Per-Dimension Sample Size Info from a mom Unbalanced Fit
 #'
-#' For wide-format mom fits with `unbalanced = TRUE`, the per-response N is
-#' stored as a named list on the momfit object. This adapter reconstructs a
+#' For wide-format aov fits with `unbalanced = TRUE`, the per-response N is
+#' stored as a named list on the aovfit object. This adapter reconstructs a
 #' `sample_size_info` object for each dimension by re-running
 #' [calculate_sample_size_info()] on the non-NA subset of the original data
 #' for that response. The result has the same shape as the long-format
 #' `sample_size_info_per_dim`, so downstream code can consume it uniformly.
 #'
-#' @param mom_model A `momfit` object produced by `fit_mom_multivariate_unbalanced()`.
+#' @param aov_model An `aovfit` object produced by `fit_aov_multivariate_unbalanced()`.
 #'   Must have `$n_per_dim`, `$data`, `$formula`, and `$responses`.
 #' @return A named list of `sample_size_info` objects, one per dimension.
-#'   Returns `NULL` if `mom_model` is not an unbalanced momfit.
+#'   Returns `NULL` if `aov_model` is not an unbalanced aovfit.
 #'
 #' @keywords internal
-build_sample_size_info_per_dim_from_mom <- function(mom_model) {
-  if (is.null(mom_model) || !isTRUE(mom_model$is_unbalanced)) {
+build_sample_size_info_per_dim_from_aov <- function(aov_model) {
+  if (is.null(aov_model) || !isTRUE(aov_model$is_unbalanced)) {
     return(NULL)
   }
-  if (is.null(mom_model$n_per_dim) || is.null(mom_model$data) ||
-      is.null(mom_model$formula) || is.null(mom_model$responses)) {
+  if (is.null(aov_model$n_per_dim) || is.null(aov_model$data) ||
+      is.null(aov_model$formula) || is.null(aov_model$responses)) {
     return(NULL)
   }
 
-  responses <- mom_model$responses
-  data <- mom_model$data
-  formula <- mom_model$formula
+  responses <- aov_model$responses
+  data <- aov_model$data
+  formula <- aov_model$formula
 
   result <- list()
   for (resp in responses) {

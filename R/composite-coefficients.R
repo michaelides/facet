@@ -577,7 +577,7 @@ compute_composite_error_variance <- function(vc, dimensions, weights, correlatio
 #'
 #' Computes composite reliability coefficients from posterior draws of
 #' variance components and covariances. This ensures proper uncertainty
-#' propagation for multivariate D-studies with brms backend.
+#' propagation for multivariate D-studies with brms estimator.
 #'
 #' @param vc_draws Named list (by dimension) of named lists (by component) of variance draws
 #' @param cov_draws Named list from extract_covariance_draws()

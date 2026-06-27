@@ -1,7 +1,7 @@
 # Validate Cut Score and Credible Interval Parameters
 
 Extracts grand mean if cut_score provided, validates ci parameter
-against backend, validates probs, and warns if phi-cut CI requested
+against estimator, validates probs, and warns if phi-cut CI requested
 without cut_score.
 
 ## Usage

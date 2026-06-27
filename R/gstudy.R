@@ -2,60 +2,60 @@
 #'
 #' Estimate variance components for a generalizability theory analysis using
 #' mixed effects models. Supports frequentist (lme4), Bayesian (brms), and
-#' method of moments (mom) backends.
+#' method of moments (aov) estimators.
 #'
 #' @param formula A formula specifying the G-study model. The left-hand side
 #'   should be the outcome variable, and the right-hand side should specify
 #'   the variance components using lme4-style syntax (e.g., `y ~ (1|person) + (1|item)`).
 #'   For multivariate models, use brms syntax: `mvbind(y1, y2) ~ (1|person)`.
 #' @param data A data frame containing the variables in the formula.
-#' @param backend Character string specifying the backend to use. One of
-#'   "auto" (default, chooses based on formula type), "lme4", "brms", or "mom".
-#'   "mom" uses the method of moments (ANOVA-based) for variance component estimation.
+#' @param estimator Character string specifying the estimator to use. One of
+#'   "auto" (default, chooses based on formula type), "lme4", "brms", or "aov".
+#'   "aov" uses the method of moments (ANOVA-based) for variance component estimation.
 #' @param facets Character vector of facet names (optional, auto-detected from formula if NULL).
 #' @param nested Optional named list specifying nesting relationships.
 #' Names are nested facets and values are nesting facets.
 #' For example, `list(task = "rater")` means task is nested within rater.
 #' If NULL (default), nesting is auto-detected from the data structure.
-#' For the mom backend, this is used by [adapt_mom_aov_formula()] to rewrite
+#' For the aov estimator, this is used by [adapt_aov_formula()] to rewrite
 #' the aov Error() decomposition so designs with nested facets (e.g. the
 #' brennan dataset, where Rater is nested within Task) fit without spurious
 #' "Error() model is singular" warnings from [stats::aov()]. The lme4 and
-#' brms backends do not require this adaptation.
+#' brms estimators do not require this adaptation.
 #' @param ci_method Character string specifying the method for confidence intervals
-#' for the lme4 backend. One of "none" (default, no CIs), "profile" (more accurate,
+#' for the lme4 estimator. One of "none" (default, no CIs), "profile" (more accurate,
 #' slower), or "boot" (bootstrap, most accurate, slowest).
-#' Only applicable for lme4 backend; brms and mom provide CIs automatically.
+#' Only applicable for lme4 estimator; brms and mom provide CIs automatically.
 #' @param nsim Integer: number of bootstrap simulations (only for ci_method = "boot").
 #'   Default is 1000.
 #' @param boot.type Character: bootstrap type, "perc" (percentile), "basic",
 #' or "norm" (normal-theory) (only for ci_method = "boot"). Default is "perc".
 #' @param prior A brmsprior object or list of priors created by [set_prior()]
-#' or related functions. Only applicable when using brms backend.
+#' or related functions. Only applicable when using brms estimator.
 #' Use [default_prior()] to see available parameters for priors.
 #' @family model fitting
 #' @param unbalanced Logical indicating whether to enable unbalanced multivariate
 #' estimation. Default is FALSE. When TRUE:
 #' \itemize{
-#' \item For \strong{mom backend}: Each dimension is analyzed with its available
+#' \item For \strong{aov estimator}: Each dimension is analyzed with its available
 #' data using Henderson's Method III for variance component estimation.
 #' Correlations are computed using pairwise complete cases.
-#' \item For \strong{brms backend}: Not implemented. Use long-format specification
+#' \item For \strong{brms estimator}: Not implemented. Use long-format specification
 #' with \code{bf(Score ~ 0 + Dimension + (0+Dimension|Facet), sigma ~ 0 + Dimension)}
 #' for sparse multivariate data.
-#' \item For \strong{lme4 backend}: Not applicable (lme4 does not support
+#' \item For \strong{lme4 estimator}: Not applicable (lme4 does not support
 #' multivariate models).
 #' }
-#' @param ... Additional arguments passed to the backend fitting function
+#' @param ... Additional arguments passed to the estimator fitting function
 #' (e.g., `lmer()` or `brm()`) and to `confint.merMod` for confidence intervals.
 #'
 #' @return An object of class "gstudy" containing:
-#' \item{model}{The fitted model object from the backend}
+#' \item{model}{The fitted model object from the estimator}
 #' \item{variance_components}{A tibble of estimated variance components}
 #' \item{facets}{Character vector of facet names}
 #' \item{facet_n}{Named numeric vector of sample sizes for each main effect facet}
 #' \item{sample_size_info}{Comprehensive sample size information including main effects, interactions, residual, and nested effects}
-#' \item{backend}{The backend used for fitting}
+#' \item{estimator}{The estimator used for fitting}
 #' \item{is_multivariate}{Logical indicating if the model is multivariate}
 #' \item{is_unbalanced}{Logical indicating if the multivariate model was fit
 #'   with \code{unbalanced = TRUE}. Only set for multivariate models. When
@@ -100,7 +100,7 @@
 #' g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #'   (1 | Person:Task),
 #' data = brennan,
-#' backend = "mom"
+#' estimator = "aov"
 #' )
 #'
 #' \donttest{
@@ -108,7 +108,7 @@
 #' g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 #'   (1 | Person:Task),
 #'   data = brennan,
-#'   backend = "brms",
+#'   estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000
 #' )
 #'
@@ -118,7 +118,7 @@
 #'   (1 | Person:Task),
 #'   data = brennan,
 #'   prior = my_prior,
-#'   backend = "brms",
+#'   estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000
 #' )
 #'
@@ -131,13 +131,13 @@
 #'   iter = 2000, cores = 4, refresh = 1000
 #' )
 #' }
-gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
+gstudy <- function(formula, data, estimator = c("auto", "lme4", "brms", "aov"),
                    facets = NULL, nested = NULL, unbalanced = FALSE,
                    ci_method = c("none", "profile", "boot"),
                    nsim = 1000, boot.type = c("perc", "basic", "norm"),
                    prior = NULL, ...) {
-  # 1. Match backend argument
-  backend <- match.arg(backend)
+  # 1. Match estimator argument
+  estimator <- match.arg(estimator)
 
   # 2. Match ci_method argument
   ci_method <- match.arg(ci_method)
@@ -151,7 +151,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
   }
 
   # 4. Validate formula
-  validate_formula(formula, backend)
+  validate_formula(formula, estimator)
 
   # 5. Detect if multivariate
   is_mv <- is_multivariate(formula)
@@ -178,16 +178,16 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
     }
   }
 
-  # 6. Select backend
-  selected_backend <- select_backend(formula, backend)
+  # 6. Select estimator
+  selected_estimator <- select_estimator(formula, estimator)
 
-  # 6.1. Validate unbalanced parameter for selected backend
+  # 6.1. Validate unbalanced parameter for selected estimator
   if (unbalanced) {
-    if (selected_backend == "lme4") {
+    if (selected_estimator == "lme4") {
       if (is_mv) {
         stop(
-          "Multivariate models are not supported by lme4 backend. ",
-          "Use backend = 'brms' or backend = 'mom'.",
+          "Multivariate models are not supported by lme4 estimator. ",
+          "Use estimator = 'brms' or estimator = 'aov'.",
           call. = FALSE
         )
       } else {
@@ -197,9 +197,9 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
           call. = FALSE
         )
       }
-    } else if (selected_backend == "brms") {
+    } else if (selected_estimator == "brms") {
       warning(
-        "unbalanced = TRUE is not implemented for brms backend. ",
+        "unbalanced = TRUE is not implemented for brms estimator. ",
         "For sparse/unbalanced multivariate data, use long-format specification:\n",
         "  bf(Score ~ 0 + Dimension + (0+Dimension|Facet), sigma ~ 0 + Dimension)\n",
         "See ?gstudy for long-format multivariate examples.",
@@ -208,47 +208,47 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
     }
   }
 
-  # 6.5. Validate interaction levels for lme4 backend
-  validate_interaction_levels(formula, data, selected_backend)
+  # 6.5. Validate interaction levels for lme4 estimator
+  validate_interaction_levels(formula, data, selected_estimator)
 
-  # 7. Warn if ci_method specified for brms backend
-  if (ci_method != "none" && selected_backend == "brms") {
+  # 7. Warn if ci_method specified for brms estimator
+  if (ci_method != "none" && selected_estimator == "brms") {
     warning(
-      "ci_method is only applicable for lme4 backend. ",
+      "ci_method is only applicable for lme4 estimator. ",
       "brms provides CIs automatically from posterior samples.",
       call. = FALSE
     )
   }
 
-  # 7b. Warn if ci_method specified for mom backend (has its own CIs)
-  if (ci_method != "none" && selected_backend == "mom") {
+  # 7b. Warn if ci_method specified for aov estimator (has its own CIs)
+  if (ci_method != "none" && selected_estimator == "aov") {
     warning(
-      "ci_method is only applicable for lme4 backend. ",
+      "ci_method is only applicable for lme4 estimator. ",
       "Method of moments provides CIs automatically using asymptotic approximations.",
       call. = FALSE
     )
   }
 
-  # 7d. Validate prior is only used with brms backend
-  if (!is.null(prior) && selected_backend != "brms") {
+  # 7d. Validate prior is only used with brms estimator
+  if (!is.null(prior) && selected_estimator != "brms") {
     stop(
-      "prior is only supported with brms backend. ",
-      "Use backend = 'brms' to use custom priors.",
+      "prior is only supported with brms estimator. ",
+      "Use estimator = 'brms' to use custom priors.",
       call. = FALSE
     )
   }
 
   # 8. Fit model
-  model <- if (selected_backend == "lme4") {
+  model <- if (selected_estimator == "lme4") {
     fit_lme4(formula, data, ...)
-  } else if (selected_backend == "mom") {
-    fit_mom(formula, data, unbalanced = unbalanced, ...)
+  } else if (selected_estimator == "aov") {
+    fit_aov(formula, data, unbalanced = unbalanced, ...)
   } else {
     fit_brms(formula, data, prior = prior, ...)
   }
 
   # 8.5. Handle long-format multivariate extraction
-  if (long_format_info$is_long && selected_backend == "brms") {
+  if (long_format_info$is_long && selected_estimator == "brms") {
     dimension_var <- long_format_info$dimension_var
     dimensions <- unique(data[[dimension_var]])
 
@@ -296,7 +296,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
       sample_size_info = calculate_sample_size_info(formula, data),
       sample_size_info_per_dim = sample_size_info_per_dim,
       sample_size_tibble = sample_size_tibble,
-      backend = selected_backend,
+      estimator = selected_estimator,
       is_multivariate = TRUE,
       long_format_multivariate = TRUE,
       dimension_var = dimension_var,
@@ -315,7 +315,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
   # 9. Extract variance components
   vc <- extract_variance_components(
     model,
-    selected_backend,
+    selected_estimator,
     ci_method = ci_method,
     nsim = nsim,
     boot.type = boot.type,
@@ -327,7 +327,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
   facet_specs <- extract_facet_specs(formula)
 
   # 9.6. Reorder variance components to match formula specification
-  # This ensures consistent ordering across different backends
+  # This ensures consistent ordering across different estimators
   if (length(facet_specs) > 0) {
     vc <- reorder_variance_components(vc, facet_specs)
   }
@@ -361,14 +361,14 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
   # 13. Extract correlations and covariances for multivariate models
   # Covariances are needed for composite coefficient calculation
   # Correlations are needed for display in summary()
-  # Also propagate per-dimension sample-size metadata from mom fits so that
+  # Also propagate per-dimension sample-size metadata from aov fits so that
   # unbalanced designs can be honored by downstream D-study paths.
   correlations <- NULL
   is_unbalanced <- FALSE
   n_per_dim <- NULL
   sample_size_info_per_dim_mom <- NULL
   if (is_mv) {
-    if (selected_backend == "brms") {
+    if (selected_estimator == "brms") {
       cov_result <- extract_covariances_brms(model)
       cor_result <- extract_correlations_brms(model)
 
@@ -382,25 +382,25 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
         random_effect_cor = cor_result$random_effect_cor,
         random_effect_cor_matrix = cor_result$random_effect_cor_matrix
       )
-    } else if (selected_backend == "mom") {
+    } else if (selected_estimator == "aov") {
       if (!is.null(model$correlations)) {
         correlations <- model$correlations
       }
       if (isTRUE(model$is_unbalanced)) {
         is_unbalanced <- TRUE
         n_per_dim <- model$n_per_dim
-        sample_size_info_per_dim_mom <- build_sample_size_info_per_dim_from_mom(model)
+        sample_size_info_per_dim_mom <- build_sample_size_info_per_dim_from_aov(model)
       }
     }
   }
 
   # 13.5. Detect and store estimation issues
   estimation_issues <- NULL
-  if (selected_backend == "lme4") {
+  if (selected_estimator == "lme4") {
     estimation_issues <- detect_lme4_issues(model)
-  } else if (selected_backend == "mom") {
-    estimation_issues <- detect_mom_issues(model)
-  } else if (selected_backend == "brms") {
+  } else if (selected_estimator == "aov") {
+    estimation_issues <- detect_aov_issues(model)
+  } else if (selected_estimator == "brms") {
     estimation_issues <- detect_brms_issues(model, vc)
   }
 
@@ -415,7 +415,7 @@ gstudy <- function(formula, data, backend = c("auto", "lme4", "brms", "mom"),
     sample_size_tibble = sample_size_tibble,
     sample_size_info_per_dim = sample_size_info_per_dim_mom,
     object = object,
-    backend = selected_backend,
+    estimator = selected_estimator,
     is_multivariate = is_mv,
     is_unbalanced = is_unbalanced,
     n_per_dim = n_per_dim,

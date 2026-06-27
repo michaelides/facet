@@ -2,8 +2,8 @@
 
 This function is a wrapper around
 [`brms::set_prior()`](https://paulbuerkner.com/brms/reference/set_prior.html)
-to allow specifying priors for Bayesian models fit via the brms backend
-in gstudy. See
+to allow specifying priors for Bayesian models fit via the brms
+estimator in gstudy. See
 [`brms::set_prior()`](https://paulbuerkner.com/brms/reference/set_prior.html)
 for full documentation on parameter specifications.
 
@@ -96,7 +96,7 @@ prior <- set_prior("normal(0, 1)", class = "sd", group = "person")
 g <- gstudy(score ~ (1 | person) + (1 | item),
   data = mydata,
   prior = prior,
-  backend = "brms",
+  estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 } # }

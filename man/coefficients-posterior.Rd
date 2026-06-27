@@ -4,7 +4,7 @@
 \alias{coefficients-posterior}
 \title{Posterior Coefficient Functions}
 \description{
-Functions for computing coefficients from posterior draws (Bayesian/MOM).
-Used when gstudy backend is 'brms' or 'mom'.
+Functions for computing coefficients from posterior draws (Bayesian/aov).
+Used when gstudy estimator is 'brms' or 'mom'.
 }
 \keyword{internal}

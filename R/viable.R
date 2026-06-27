@@ -9,7 +9,7 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
   error_spec <- dstudy_obj$error
   object_spec <- dstudy_obj$object
 
-  is_mom <- inherits(gstudy_obj$model, "momfit")
+  is_aov <- inherits(gstudy_obj$model, "aovfit")
 
   if (is.null(n)) {
     if (isTRUE(dstudy_obj$is_sweep)) {
@@ -19,8 +19,8 @@ recalculate_var_with_weights <- function(dstudy_obj, weights, dims, ci, probs, n
     }
   }
 
-  if (is_mom) {
-    mom_draws <- generate_mom_variance_and_covariance_draws(gstudy_obj)
+  if (is_aov) {
+    mom_draws <- generate_aov_variance_and_covariance_draws(gstudy_obj)
     vc_draws <- mom_draws$vc_draws
     cov_draws <- mom_draws$cov_draws
     n_draws <- mom_draws$n_draws
@@ -223,20 +223,20 @@ compute_scale_factors_for_viable <- function(components, n, universe_spec, objec
 #' Extract Variance Draws from G-Study for Viable Recalculation
 #'
 #' @param gstudy_obj A gstudy object
-#' @param n_draws Number of pseudo-draws to generate for mom backend
+#' @param n_draws Number of pseudo-draws to generate for aov estimator
 #' @keywords internal
 extract_variance_draws_from_gstudy <- function(gstudy_obj, n_draws = 1000) {
 
   if (inherits(gstudy_obj$model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
-      stop("Package 'brms' is required for brms backend.", call. = FALSE)
+      stop("Package 'brms' is required for brms estimator.", call. = FALSE)
     }
     draws <- brms::as_draws_matrix(gstudy_obj$model)
     extract_variance_draws(gstudy_obj, draws)
-  } else if (inherits(gstudy_obj$model, "momfit")) {
-    stop("mom backend should use generate_mom_variance_and_covariance_draws() directly", call. = FALSE)
+  } else if (inherits(gstudy_obj$model, "aovfit")) {
+    stop("aov estimator should use generate_aov_variance_and_covariance_draws() directly", call. = FALSE)
   } else {
-    stop("Unsupported backend. Weight optimization requires brms or mom backend.", call. = FALSE)
+    stop("Unsupported estimator. Weight optimization requires brms or aov estimator.", call. = FALSE)
   }
 }
 
@@ -245,11 +245,11 @@ extract_variance_draws_from_gstudy <- function(gstudy_obj, n_draws = 1000) {
 #' Uses variance estimates and SEs to generate normal pseudo-posterior draws,
 #' and converts correlation draws to covariance draws.
 #'
-#' @param gstudy_obj A gstudy object with mom backend
+#' @param gstudy_obj A gstudy object with aov estimator
 #' @param n_draws Number of pseudo-draws to generate (default 1000)
 #'
 #' @keywords internal
-generate_mom_variance_and_covariance_draws <- function(gstudy_obj, n_draws = 1000) {
+generate_aov_variance_and_covariance_draws <- function(gstudy_obj, n_draws = 1000) {
   model <- gstudy_obj$model
   vc <- model$variance_components
   dimensions <- gstudy_obj$dimensions

@@ -69,14 +69,14 @@ the residual to be rescaled. Default is NULL (residual is not rescaled).}
 
 \item{estimation}{Character string specifying how to calculate coefficients:
 \itemize{
-\item "simple": uses point estimates from variance components (for lme4/mom backends)
-\item "posterior": uses full posterior distributions (for brms backend)
-For brms backend, posterior estimation is always used to ensure consistency
+\item "simple": uses point estimates from variance components (for lme4/aov estimators)
+\item "posterior": uses full posterior distributions (for brms estimator)
+For brms estimator, posterior estimation is always used to ensure consistency
 between variance component estimates and coefficient calculations. This avoids
 Jensen's inequality bias that would occur if variance estimates were computed
 as mean(SD)^2 rather than mean(SD^2).
-When estimation = "posterior" is requested with non-brms backend,
-a warning is issued and the gstudy model is refit with backend = "brms".
+When estimation = "posterior" is requested with non-brms estimator,
+a warning is issued and the gstudy model is refit with estimator = "brms".
 }}
 
 \item{cut_score}{Optional numeric value specifying a cutoff score for criterion-referenced
@@ -86,7 +86,7 @@ Default is NULL (no phi-cut calculation).}
 
 \item{ci}{Character vector specifying which coefficients to compute credible intervals for.
 Options: "g", "phi", "phi-cut". Can specify multiple: \code{ci = c("g", "phi")}.
-Credible intervals are only available when using the brms backend.
+Credible intervals are only available when using the brms estimator.
 Default is NULL (no credible intervals computed).}
 
 \item{probs}{Numeric vector of length 2 specifying the quantiles for credible interval
@@ -189,7 +189,7 @@ The \code{weights} parameter controls the contribution of each dimension:
 \item Custom: Provide a numeric vector with length matching the number of dimensions
 }
 
-For posterior estimation with brms backend, composite coefficients are computed
+For posterior estimation with brms estimator, composite coefficients are computed
 for each posterior draw, properly propagating uncertainty to the final estimates.
 }
 }
@@ -216,14 +216,14 @@ d_agg <- dstudy(g, n = list(Task = 3, Rater = 4),
 )
 
 \donttest{
-# D-study with posterior estimation (requires brms backend)
+# D-study with posterior estimation (requires brms estimator)
 g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
-  data = brennan, backend = "brms",
+  data = brennan, estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000)
 d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
 
-# D-study with credible intervals (requires brms backend)
+# D-study with credible intervals (requires brms estimator)
 d_ci <- dstudy(g_brms, n = list(Task = 3, Rater = 4), ci = c("g", "phi"))
 print(d_ci)
 

@@ -57,7 +57,7 @@ print(g_obj)
 #> Generalizability Study (G Study)
 #> ================================
 #> 
-#> Backend: lme4 
+#> Estimator: lme4 
 #> Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #> Number of observations: 120 
 #> Multivariate: No 
@@ -140,7 +140,7 @@ print(d_obj)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G Study with lme4 backend
+#> Based on G Study with lme4 estimator
 #> Object of measurement: Person 
 #> Universe components: Person 
 #> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
@@ -185,7 +185,7 @@ For comprehensive documentation, see
 which covers:
 
 - Historical foundations of generalizability theory
-- All three estimation backends (MOM, REML, Bayesian)
+- All three estimation estimators (aov, REML, Bayesian)
 - Univariate and multivariate G-studies and D-studies
 - Value Added Ratios and composite score optimization
 - Advanced topics, reporting guidelines, and exercises

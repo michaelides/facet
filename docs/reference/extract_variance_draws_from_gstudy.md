@@ -16,4 +16,4 @@ extract_variance_draws_from_gstudy(gstudy_obj, n_draws = 1000)
 
 - n_draws:
 
-  Number of pseudo-draws to generate for mom backend
+  Number of pseudo-draws to generate for aov estimator

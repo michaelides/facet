@@ -7,7 +7,7 @@
 gstudy(
   formula,
   data,
-  backend = c("auto", "lme4", "brms", "mom"),
+  estimator = c("auto", "lme4", "brms", "aov"),
   facets = NULL,
   nested = NULL,
   unbalanced = FALSE,
@@ -26,9 +26,9 @@ For multivariate models, use brms syntax: \code{mvbind(y1, y2) ~ (1|person)}.}
 
 \item{data}{A data frame containing the variables in the formula.}
 
-\item{backend}{Character string specifying the backend to use. One of
-"auto" (default, chooses based on formula type), "lme4", "brms", or "mom".
-"mom" uses the method of moments (ANOVA-based) for variance component estimation.}
+\item{estimator}{Character string specifying the estimator to use. One of
+"auto" (default, chooses based on formula type), "lme4", "brms", or "aov".
+"aov" uses the method of moments (ANOVA-based) for variance component estimation.}
 
 \item{facets}{Character vector of facet names (optional, auto-detected from formula if NULL).}
 
@@ -36,29 +36,29 @@ For multivariate models, use brms syntax: \code{mvbind(y1, y2) ~ (1|person)}.}
 Names are nested facets and values are nesting facets.
 For example, \code{list(task = "rater")} means task is nested within rater.
 If NULL (default), nesting is auto-detected from the data structure.
-For the mom backend, this is used by \code{\link[=adapt_mom_aov_formula]{adapt_mom_aov_formula()}} to rewrite
+For the aov estimator, this is used by \code{\link[=adapt_aov_formula]{adapt_aov_formula()}} to rewrite
 the aov Error() decomposition so designs with nested facets (e.g. the
 brennan dataset, where Rater is nested within Task) fit without spurious
 "Error() model is singular" warnings from \code{\link[stats:aov]{stats::aov()}}. The lme4 and
-brms backends do not require this adaptation.}
+brms estimators do not require this adaptation.}
 
 \item{unbalanced}{Logical indicating whether to enable unbalanced multivariate
 estimation. Default is FALSE. When TRUE:
 \itemize{
-\item For \strong{mom backend}: Each dimension is analyzed with its available
+\item For \strong{aov estimator}: Each dimension is analyzed with its available
 data using Henderson's Method III for variance component estimation.
 Correlations are computed using pairwise complete cases.
-\item For \strong{brms backend}: Not implemented. Use long-format specification
+\item For \strong{brms estimator}: Not implemented. Use long-format specification
 with \code{bf(Score ~ 0 + Dimension + (0+Dimension|Facet), sigma ~ 0 + Dimension)}
 for sparse multivariate data.
-\item For \strong{lme4 backend}: Not applicable (lme4 does not support
+\item For \strong{lme4 estimator}: Not applicable (lme4 does not support
 multivariate models).
 }}
 
 \item{ci_method}{Character string specifying the method for confidence intervals
-for the lme4 backend. One of "none" (default, no CIs), "profile" (more accurate,
+for the lme4 estimator. One of "none" (default, no CIs), "profile" (more accurate,
 slower), or "boot" (bootstrap, most accurate, slowest).
-Only applicable for lme4 backend; brms and mom provide CIs automatically.}
+Only applicable for lme4 estimator; brms and mom provide CIs automatically.}
 
 \item{nsim}{Integer: number of bootstrap simulations (only for ci_method = "boot").
 Default is 1000.}
@@ -67,20 +67,20 @@ Default is 1000.}
 or "norm" (normal-theory) (only for ci_method = "boot"). Default is "perc".}
 
 \item{prior}{A brmsprior object or list of priors created by \code{\link[=set_prior]{set_prior()}}
-or related functions. Only applicable when using brms backend.
+or related functions. Only applicable when using brms estimator.
 Use \code{\link[=default_prior]{default_prior()}} to see available parameters for priors.}
 
-\item{...}{Additional arguments passed to the backend fitting function
+\item{...}{Additional arguments passed to the estimator fitting function
 (e.g., \code{lmer()} or \code{brm()}) and to \code{confint.merMod} for confidence intervals.}
 }
 \value{
 An object of class "gstudy" containing:
-\item{model}{The fitted model object from the backend}
+\item{model}{The fitted model object from the estimator}
 \item{variance_components}{A tibble of estimated variance components}
 \item{facets}{Character vector of facet names}
 \item{facet_n}{Named numeric vector of sample sizes for each main effect facet}
 \item{sample_size_info}{Comprehensive sample size information including main effects, interactions, residual, and nested effects}
-\item{backend}{The backend used for fitting}
+\item{estimator}{The estimator used for fitting}
 \item{is_multivariate}{Logical indicating if the model is multivariate}
 \item{is_unbalanced}{Logical indicating if the multivariate model was fit
 with \code{unbalanced = TRUE}. Only set for multivariate models. When
@@ -99,7 +99,7 @@ facet/component, mirroring the structure of \code{sample_size_info}.}
 \description{
 Estimate variance components for a generalizability theory analysis using
 mixed effects models. Supports frequentist (lme4), Bayesian (brms), and
-method of moments (mom) backends.
+method of moments (aov) estimators.
 }
 \examples{
 # Basic univariate G-study with lme4 (default).
@@ -126,7 +126,7 @@ g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
 data = brennan,
-backend = "mom"
+estimator = "aov"
 )
 
 \donttest{
@@ -134,7 +134,7 @@ backend = "mom"
 g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
   data = brennan,
-  backend = "brms",
+  estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 
@@ -144,7 +144,7 @@ g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
   data = brennan,
   prior = my_prior,
-  backend = "brms",
+  estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 

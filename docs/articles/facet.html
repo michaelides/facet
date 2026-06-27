@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -126,7 +126,7 @@ cell.</p>
 <span><span class="co">#&gt; Generalizability Study (G Study)</span></span>
 <span><span class="co">#&gt; ================================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Backend: lme4 </span></span>
+<span><span class="co">#&gt; Estimator: lme4 </span></span>
 <span><span class="co">#&gt; Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt; Number of observations: 120 </span></span>
 <span><span class="co">#&gt; Multivariate: No </span></span>
@@ -205,7 +205,7 @@ impacts reliability.</p>
 <span><span class="co">#&gt; Decision Study (D-Study)</span></span>
 <span><span class="co">#&gt; ========================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Based on G Study with lme4 backend</span></span>
+<span><span class="co">#&gt; Based on G Study with lme4 estimator</span></span>
 <span><span class="co">#&gt; Object of measurement: Person </span></span>
 <span><span class="co">#&gt; Universe components: Person </span></span>
 <span><span class="co">#&gt; Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span></span>
@@ -248,7 +248,7 @@ that achieves the reliability you need.</p>
 <code><a href="../articles/introduction.html">vignette("introduction")</a></code>, which covers:</p>
 <ul>
 <li>Historical foundations of generalizability theory</li>
-<li>All three estimation backends (MOM, REML, Bayesian)</li>
+<li>All three estimation estimators (aov, REML, Bayesian)</li>
 <li>Univariate and multivariate G-studies and D-studies</li>
 <li>Value Added Ratios and composite score optimization</li>
 <li>Advanced topics, reporting guidelines, and exercises</li>

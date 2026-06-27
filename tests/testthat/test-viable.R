@@ -20,7 +20,7 @@ test_that("prmse with include_composite returns tibble with correct columns (no 
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -51,7 +51,7 @@ test_that("prmse with include_composite returns CIs for prmse when ci='prmse'", 
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -82,7 +82,7 @@ test_that("prmse with include_composite returns CIs for var when ci='var'", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -113,7 +113,7 @@ test_that("prmse with include_composite returns both metric CIs when both specif
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -141,7 +141,7 @@ test_that("prmse with include_composite CI values are ordered correctly", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -173,7 +173,7 @@ test_that("prmse recalculates with alternative weights", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -202,7 +202,7 @@ test_that("prmse with custom weights uses posterior draws", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -235,7 +235,7 @@ test_that("prmse with include_composite works with sweep dstudy objects", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -266,7 +266,7 @@ test_that("prmse sweep uses actual sample sizes from gstudy", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -301,7 +301,7 @@ test_that("prmse sweep with CIs produces CI columns", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -331,7 +331,7 @@ test_that("prmse works with custom probs", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -363,7 +363,7 @@ test_that("prmse returns positive VAR values", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -395,7 +395,7 @@ test_that("prmse validates optimize parameter", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -421,7 +421,7 @@ test_that("prmse validates optimize_target parameter", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -448,7 +448,7 @@ test_that("prmse validates grid_resolution parameter", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -479,7 +479,7 @@ test_that("prmse composite optimization returns valid structure", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -513,7 +513,7 @@ test_that("prmse composite weights improve reliability", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -598,7 +598,7 @@ test_that("mom viable draws convert correlations to covariances", {
         )
       )
     ),
-    class = "momfit"
+    class = "aovfit"
   )
 
   gstudy_obj <- structure(
@@ -606,7 +606,7 @@ test_that("mom viable draws convert correlations to covariances", {
     class = "gstudy"
   )
 
-  draws <- facet:::generate_mom_variance_and_covariance_draws(gstudy_obj, n_draws = 5)
+  draws <- facet:::generate_aov_variance_and_covariance_draws(gstudy_obj, n_draws = 5)
 
   expect_equal(as.numeric(draws$cov_draws$residual[["A_B"]]), rep(3, 5), tolerance = 1e-12)
   expect_equal(as.numeric(draws$cov_draws$random_effect$Person[["A_B"]]), rep(16, 5), tolerance = 1e-12)
@@ -628,7 +628,7 @@ test_that("prmse subscale optimization returns valid structure", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -660,7 +660,7 @@ test_that("prmse subscale with target returns single optimization", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -692,7 +692,7 @@ test_that("prmse tuning optimization returns valid structure", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -726,7 +726,7 @@ test_that("prmse tuning grid_resolution affects grid size", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -755,7 +755,7 @@ test_that("prmse optimize_target affects subscale results", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -789,7 +789,7 @@ test_that("Bug 1: grid_resolution boundary validation", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -823,7 +823,7 @@ test_that("Bug 2: composite row CI uses multivariate draws (brms)", {
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -864,7 +864,7 @@ test_that("Bug 9/10: prmse drops dead ci_method/n_bootstrap parameters", {
 #
 # These tests verify that prmse() computes the Haberman (2008) PRMSE_C,
 # PRMSE_S, PRMSE_P, and VAR quantities correctly. We construct a synthetic
-# dataset with known variance components, fit it using the mom backend, and
+# dataset with known variance components, fit it using the mom estimator, and
 # compare the package's output to the closed-form Haberman formulas computed
 # from the *true* data-generating parameters.
 #
@@ -887,14 +887,14 @@ test_that("Bug 9/10: prmse drops dead ci_method/n_bootstrap parameters", {
 #   Item variance = 0.1, residual (Person:Item) variance = 0.9 per subscale.
 #
 # We use UNC correlated Person effects as the default fixture because the
-# default mom backend estimates only the DIAGONAL of the Person covariance
+# default mom estimator estimates only the DIAGONAL of the Person covariance
 # matrix (no `set_rescor(TRUE)` is passed). With uncorrelated true effects,
 # the diagonal is the correct Σ_τ and the test reference is exact. For
 # tests that require off-diagonal Person covariances, we switch to the
-# brms backend (H11) which estimates the full covariance matrix.
+# brms estimator (H11) which estimates the full covariance matrix.
 #
 # Sample sizes (n_persons = 500, n_items = 10) are chosen as a balance
-# between estimate stability and runtime (mom-backend gstudy scales
+# between estimate stability and runtime (aov-estimator gstudy scales
 # roughly as n_persons^2 on this 3-dimension design).
 build_haberman_fixture <- function(seed = 123, n_persons = 500, n_items = 10) {
   set.seed(seed)
@@ -1021,7 +1021,7 @@ test_that("H1: prmse_s_rel equals G coefficient for each subscale", {
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 
@@ -1044,7 +1044,7 @@ test_that("H2: prmse_c_rel equals Haberman closed form (PRMSE_C)", {
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 
@@ -1067,7 +1067,7 @@ test_that("H3: prmse_p_rel equals diagonal slice of Sigma_tau Sigma_obs^-1 Sigma
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 
@@ -1086,7 +1086,7 @@ test_that("H3: prmse_p_rel equals diagonal slice of Sigma_tau Sigma_obs^-1 Sigma
 
 # --- H4: PRMSE_MV equals trace formula --------------------------------------
 #
-# Note: the mom backend does not populate prmse_mv_rel (it requires
+# Note: the mom estimator does not populate prmse_mv_rel (it requires
 # posterior draws). The H4 check uses brms so the trace is actually
 # computed. For mom, we verify only that the attribute is set (with NA)
 # and document the asymmetry.
@@ -1095,7 +1095,7 @@ test_that("H4a: mom prmse_mv_rel attribute is set (NA for mom)", {
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 
@@ -1114,7 +1114,7 @@ test_that("H4b: brms prmse_mv_rel equals trace formula (when draws available)", 
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -1144,7 +1144,7 @@ test_that("H5: var_rel equals prmse_s_rel / prmse_c_rel", {
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 
@@ -1171,7 +1171,7 @@ test_that("H6: prmse_p_rel approx equals prmse_s_rel for uncorrelated subscales"
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = data_uncorr,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
   result <- suppressWarnings(prmse(d))
@@ -1185,7 +1185,7 @@ test_that("H6: prmse_p_rel approx equals prmse_s_rel for uncorrelated subscales"
 
 # --- H7: Custom weights at dstudy() time produce distinct VAR values -------
 #
-# Note: with the mom backend, prmse() uses pre-computed VAR values from
+# Note: with the mom estimator, prmse() uses pre-computed VAR values from
 # d$var (computed at dstudy() time with the dstudy's weights). The
 # weights= argument in prmse() triggers a recompute only when d$var is
 # NULL (sweep or brms draws path). So we test the dstudy-time weight
@@ -1195,7 +1195,7 @@ test_that("H7: prmse with dstudy() custom weights produces distinct VAR values",
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d_equal <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
   d_unequal <- dstudy(g, n = list(item = 10), weights = c(A = 3, B = 1, C = 1))
@@ -1218,7 +1218,7 @@ test_that("H8: composite row prmse_c == 1, var == 1, prmse_s == composite G", {
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 
@@ -1248,7 +1248,7 @@ test_that("H9: prmse_p_rel >= prmse_s_rel (Cauchy-Schwarz invariant)", {
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d <- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 
@@ -1264,7 +1264,7 @@ test_that("H9: prmse_p_rel >= prmse_s_rel (Cauchy-Schwarz invariant)", {
 
 # --- H10: PRMSE_MV >= PRMSE_P (trace >= diagonal slice) --------------------
 #
-# Uses brms backend because the mom backend does not compute
+# Uses brms estimator because the mom estimator does not compute
 # prmse_mv_rel (it requires posterior draws).
 test_that("H10: prmse_mv_rel (trace) >= prmse_p_rel (diagonal slice) [brms]", {
   skip_if_not_installed("brms")
@@ -1274,7 +1274,7 @@ test_that("H10: prmse_mv_rel (trace) >= prmse_p_rel (diagonal slice) [brms]", {
   g <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -1292,18 +1292,18 @@ test_that("H10: prmse_mv_rel (trace) >= prmse_p_rel (diagonal slice) [brms]", {
   }
 })
 
-# --- H11: Cross-backend consistency (mom vs brms) --------------------------
-test_that("H11: mom and brms backends give consistent prmse_c_rel", {
+# --- H11: Cross-estimator consistency (mom vs brms) --------------------------
+test_that("H11: mom and brms estimators give consistent prmse_c_rel", {
   skip_if_not_installed("brms")
   skip_on_cran()
 
-  # Use a smaller fixture for the cross-backend comparison so brms is fast enough
+  # Use a smaller fixture for the cross-estimator comparison so brms is fast enough
   fixture <- build_haberman_fixture(seed = 789, n_persons = 300, n_items = 4)
 
   g_mom <- gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "mom"
+    estimator = "mom"
   )
   d_mom <- dstudy(g_mom, n = list(item = 4), weights = c(A = 1, B = 1, C = 1))
   r_mom <- suppressWarnings(prmse(d_mom))
@@ -1311,7 +1311,7 @@ test_that("H11: mom and brms backends give consistent prmse_c_rel", {
   g_brms <- suppressWarnings(suppressMessages(gstudy(
     mvbind(A, B, C) ~ (1 | person) + (1 | item),
     data = fixture$data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0

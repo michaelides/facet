@@ -31,11 +31,11 @@ If FALSE, these columns are omitted for a more compact output.}
 
 \item{ci}{Character vector specifying which metrics to compute CIs for.
 Options: "prmse", "var", or both. Default NULL (no CIs).
-\strong{Note:} Credible intervals are only available for brms backend with posterior
-estimation. For mom backend, this parameter is ignored with a warning.}
+\strong{Note:} Credible intervals are only available for brms estimator with posterior
+estimation. For aov estimator, this parameter is ignored with a warning.}
 
 \item{probs}{Numeric vector of length 2 specifying the quantile probabilities
-for credible intervals (brms backend only). Default is \code{c(0.025, 0.975)} for 95\% CI.}
+for credible intervals (brms estimator only). Default is \code{c(0.025, 0.975)} for 95\% CI.}
 
 \item{weights}{Numeric vector of weights for computing composite coefficients.
 Length must match the number of dimensions. Default NULL uses weights from dstudy.
@@ -259,16 +259,16 @@ Useful for diagnostic purposes and understanding weight-VAR relationships.
 
 \subsection{Confidence Intervals}{
 
-Credible intervals are only available when using the brms backend with posterior
+Credible intervals are only available when using the brms estimator with posterior
 estimation. These are computed directly from the posterior draws of the variance
 components and PRMSE metrics.
 
-For the mom backend (method of moments), credible intervals are not available
+For the aov estimator (method of moments), credible intervals are not available
 because the method produces only point estimates without a posterior distribution.
-If credible intervals are needed, consider using the brms backend:
+If credible intervals are needed, consider using the brms estimator:
 
 \preformatted{
-g_mv <- gstudy(formula, data, backend = "brms")
+g_mv <- gstudy(formula, data, estimator = "brms")
 d_mv <- dstudy(g_mv, n = ...)
 prmse(d_mv, ci = "prmse") # CIs from posterior draws
 }
@@ -287,9 +287,9 @@ g_uni <- gstudy(Score ~ (1 | Person) + (1 | Item), data = mydata)
 d_uni <- dstudy(g_uni, n = list(Item = 5))
 prmse(d_uni) # Returns G and Phi as prmse_rel and prmse_abs
 
-# Multivariate model with mom backend (no CIs available)
+# Multivariate model with aov estimator (no CIs available)
 g_mv <- gstudy(Score ~ 0 + Subtest + (0 + Subtest | Person),
-  data = data, dimension_var = "Subtest", backend = "mom")
+  data = data, dimension_var = "Subtest", estimator = "aov")
 d_mv <- dstudy(g_mv, n = list(Person = 5))
 prmse(d_mv)
 
@@ -314,11 +314,11 @@ if (all(abs(diff) < 0.01)) {
 prmse(d_mv, optimize = "composite")
 prmse(d_mv, optimize = "subscale")
 
-# Multivariate model with brms backend (credible intervals available)
+# Multivariate model with brms estimator (credible intervals available)
 library(brms)
 g_mv <- gstudy(
   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person)),
-  data = data, backend = "brms",
+  data = data, estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 d_mv <- dstudy(g_mv, n = list(Person = 5))

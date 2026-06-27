@@ -61,7 +61,7 @@ test_that("empty_prior returns empty brmsprior object", {
 # gstudy prior integration tests (require brms)
 # =============================================================================
 
-test_that("gstudy accepts prior argument with brms backend", {
+test_that("gstudy accepts prior argument with brms estimator", {
   skip_if_not_installed("brms")
   my_prior <- set_prior("normal(0, 1)", class = "sd", group = "person")
   
@@ -69,17 +69,17 @@ test_that("gstudy accepts prior argument with brms backend", {
     score ~ (1 | person) + (1 | rater),
     data = test_data,
     prior = my_prior,
-    backend = "brms",
+    estimator = "brms",
     chains = 1,
     iter = 500,
     refresh = 0
   )
   
   expect_s3_class(result, "gstudy")
-  expect_equal(result$backend, "brms")
+  expect_equal(result$estimator, "brms")
 })
 
-test_that("gstudy errors when prior used with lme4 backend", {
+test_that("gstudy errors when prior used with lme4 estimator", {
   skip_if_not_installed("lme4")
   skip_if_not_installed("brms")
   my_prior <- set_prior("normal(0, 1)", class = "sd")
@@ -89,13 +89,13 @@ test_that("gstudy errors when prior used with lme4 backend", {
       score ~ (1 | person) + (1 | rater),
       data = test_data,
       prior = my_prior,
-      backend = "lme4"
+      estimator = "lme4"
     ),
-    "prior is only supported with brms backend"
+    "prior is only supported with brms estimator"
   )
 })
 
-test_that("gstudy errors when prior used with mom backend", {
+test_that("gstudy errors when prior used with mom estimator", {
   skip_if_not_installed("brms")
   my_prior <- set_prior("normal(0, 1)", class = "sd")
   
@@ -104,9 +104,9 @@ test_that("gstudy errors when prior used with mom backend", {
       score ~ (1 | person) + (1 | rater),
       data = test_data,
       prior = my_prior,
-      backend = "mom"
+      estimator = "mom"
     ),
-    "prior is only supported with brms backend"
+    "prior is only supported with brms estimator"
   )
 })
 
@@ -121,7 +121,7 @@ test_that("gstudy works with prior for multiple random effects", {
     score ~ (1 | person) + (1 | rater),
     data = test_data,
     prior = my_prior,
-    backend = "brms",
+    estimator = "brms",
     chains = 1,
     iter = 500,
     refresh = 0
@@ -138,7 +138,7 @@ test_that("gstudy works with empty_prior", {
     score ~ (1 | person) + (1 | rater),
     data = test_data,
     prior = my_prior,
-    backend = "brms",
+    estimator = "brms",
     chains = 1,
     iter = 500,
     refresh = 0

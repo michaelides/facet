@@ -12,7 +12,7 @@ test_that("gstudy works with rajaratnam long-format model", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -52,7 +52,7 @@ test_that("dstudy works with long-format multivariate", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -75,7 +75,7 @@ test_that("print and summary work for long-format multivariate", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -101,7 +101,7 @@ test_that("dstudy posterior estimation works with long-format multivariate", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -125,7 +125,7 @@ test_that("dstudy sweep mode works with long-format multivariate", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -149,7 +149,7 @@ test_that("dstudy composite coefficients work with long-format multivariate", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -173,7 +173,7 @@ test_that("extract_variance_draws works with long-format models", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -207,7 +207,7 @@ test_that("dstudy dimension_var is passed through from gstudy", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -228,7 +228,7 @@ test_that("long-format multivariate coefficients are valid", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -256,7 +256,7 @@ test_that("dstudy works with long-format multivariate", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -279,7 +279,7 @@ test_that("print and summary work for long-format multivariate", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0

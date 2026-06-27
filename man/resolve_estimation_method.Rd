@@ -15,8 +15,8 @@ resolve_estimation_method(gstudy_obj, estimation = NULL)
 A list with gstudy_obj (possibly refit) and estimation (resolved)
 }
 \description{
-Determines the appropriate estimation method based on the backend.
-Warns and refits if posterior requested with non-brms backend.
-Warns and overrides if simple requested with brms backend.
+Determines the appropriate estimation method based on the estimator.
+Warns and refits if posterior requested with non-brms estimator.
+Warns and overrides if simple requested with brms estimator.
 }
 \keyword{internal}

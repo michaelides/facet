@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -84,9 +84,9 @@ occasions—contribute to measurement error, and to optimize future
 measurement procedures accordingly.</p>
 <p>The <strong>facet</strong> package provides comprehensive tools for
 conducting G-theory analyses using variance component models. It
-supports three estimation backends: frequentist approaches using
+supports three estimation estimators: frequentist approaches using
 <strong>lme4</strong> (Restricted Maximum Likelihood) and
-<strong>mom</strong> (Method of Moments/ANOVA-based), and Bayesian
+<strong>mom</strong> (ANOVA-based Estimation/ANOVA-based), and Bayesian
 estimation using <strong>brms</strong> (No-U-Turn Sampler/Hamiltonian
 Monte Carlo via Stan). The package provides a unified interface for
 univariate and multivariate designs, with full support for G-studies,
@@ -162,7 +162,7 @@ particularly valuable in medical education contexts.</p>
 <p><strong>Modern R Packages</strong>: Contemporary implementations
 integrate G-theory with mixed-effects modeling frameworks. The
 <strong>facet</strong> package continues this tradition by providing an
-R implementation with three estimation backends (ANOVA/MOM, REML,
+R implementation with three estimation estimators (ANOVA/aov, REML,
 Bayesian) and full support for univariate and multivariate designs,
 leveraging the computational efficiency of modern tools like lme4 and
 Stan.</p>
@@ -312,8 +312,8 @@ interactions are estimable in a given dataset:</p>
 omitted.</strong> When an interaction has as many unique combinations as
 observations (i.e., one observation per cell), the interaction is
 algebraically indistinguishable from the residual error. The
-<code>lme4</code> backend will refuse to fit such a model, and the
-<code>mom</code> and <code>brms</code> backends will silently absorb
+<code>lme4</code> estimator will refuse to fit such a model, and the
+<code>mom</code> and <code>brms</code> estimators will silently absorb
 that interaction into the residual. The correct specification is to
 leave it out of the formula. In every built-in dataset that has one
 observation per fully crossed cell, the highest-order interaction is
@@ -581,7 +581,7 @@ indicator:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Long format: single Score column with Subtest indicator</span></span>
 <span><span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="fu"><a href="../reference/bf.html">bf</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">+</span> <span class="op">(</span><span class="fl">0</span><span class="op">+</span><span class="va">Subtest</span><span class="op">|</span><span class="va">r</span><span class="op">|</span><span class="va">Person</span><span class="op">)</span>, <span class="va">sigma</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span><span class="op">)</span>,</span>
-<span>       data <span class="op">=</span> <span class="va">data_long</span>, backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>       data <span class="op">=</span> <span class="va">data_long</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>       iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span></code></pre></div>
 <p>Long-format models are more flexible but require Bayesian
 estimation.</p>
@@ -594,7 +594,7 @@ estimation.</p>
 <p>G-theory variance components can be estimated using several methods,
 each with distinct advantages and limitations. The
 <strong>facet</strong> package supports three estimation approaches:
-Method of Moments (ANOVA-based), Restricted Maximum Likelihood (via
+ANOVA-based Estimation (ANOVA-based), Restricted Maximum Likelihood (via
 lme4), and Bayesian estimation (via brms/Stan).</p>
 <div class="section level3">
 <h3 id="expected-mean-squares">Expected Mean Squares<a class="anchor" aria-label="anchor" href="#expected-mean-squares"></a>
@@ -602,8 +602,8 @@ lme4), and Bayesian estimation (via brms/Stan).</p>
 <p>Understanding variance component estimation requires understanding
 Expected Mean Squares (EMS). For any ANOVA source, the EMS expresses
 what that mean square estimates in terms of population variance
-components. The Method of Moments, REML, and other estimation approaches
-all build on this framework.</p>
+components. The ANOVA-based Estimation, REML, and other estimation
+approaches all build on this framework.</p>
 <div class="section level4">
 <h4 id="deriving-ems-person-times-item-design">Deriving EMS: Person
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
@@ -938,7 +938,7 @@ simplifying the equations.</p>
 </div>
 </div>
 <div class="section level3">
-<h3 id="method-of-moments-mom">Method of Moments (MOM)<a class="anchor" aria-label="anchor" href="#method-of-moments-mom"></a>
+<h3 id="anova-based-estimation-aov">ANOVA-based Estimation (aov)<a class="anchor" aria-label="anchor" href="#anova-based-estimation-aov"></a>
 </h3>
 <div class="section level4">
 <h4 id="historical-development-of-anova-based-estimation">Historical Development of ANOVA-Based Estimation<a class="anchor" aria-label="anchor" href="#historical-development-of-anova-based-estimation"></a>
@@ -959,18 +959,18 @@ modern approaches to variance component estimation.</p>
 <p><strong>Satterthwaite (1941, 1946)</strong> developed the
 approximation for confidence intervals on variance components, treating
 linear combinations of mean squares as scaled chi-square variates. This
-approximation remains the standard for MOM confidence intervals and is
+approximation remains the standard for aov confidence intervals and is
 implemented in the <strong>facet</strong> package.</p>
 <p><strong>Brennan (2001)</strong> synthesized these methods
 specifically for G-theory, providing the rules for constructing Expected
-Mean Squares (EMS) that are implemented in the MOM backend.</p>
+Mean Squares (EMS) that are implemented in the aov estimator.</p>
 </div>
 <div class="section level4">
 <h4 id="mathematical-foundation">Mathematical Foundation<a class="anchor" aria-label="anchor" href="#mathematical-foundation"></a>
 </h4>
-<p>The Method of Moments, also known as ANOVA-based estimation, derives
-variance components from Expected Mean Squares (EMS). For a balanced
-two-facet crossed design
+<p>The ANOVA-based Estimation, also known as ANOVA-based estimation,
+derives variance components from Expected Mean Squares (EMS). For a
+balanced two-facet crossed design
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>×</mo><mi>i</mi></mrow><annotation encoding="application/x-tex">p \times i</annotation></semantics></math>),
 the ANOVA table yields:</p>
 <table class="table">
@@ -1043,7 +1043,7 @@ accounts for 37.5% of total variance.</p>
 <div class="section level4">
 <h4 id="handling-negative-estimates">Handling Negative Estimates<a class="anchor" aria-label="anchor" href="#handling-negative-estimates"></a>
 </h4>
-<p>MOM can produce negative variance estimates when sample mean squares
+<p>aov can produce negative variance estimates when sample mean squares
 do not follow their expected ordering. For example, if by sampling error
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><msub><mi>S</mi><mrow><mi>p</mi><mi>i</mi></mrow></msub><mo>&gt;</mo><mi>M</mi><msub><mi>S</mi><mi>p</mi></msub></mrow><annotation encoding="application/x-tex">MS_{pi} &gt; MS_p</annotation></semantics></math>,
 the person variance estimate would be negative.</p>
@@ -1131,14 +1131,14 @@ width, not the raw sample size.</strong></p>
 <div class="section level4">
 <h4 id="implementation-in-facet">Implementation in facet<a class="anchor" aria-label="anchor" href="#implementation-in-facet"></a>
 </h4>
-<p>The <code>backend = "mom"</code> option uses R’s <code><a href="https://rdrr.io/r/stats/aov.html" class="external-link">aov()</a></code>
+<p>The <code>estimator = "aov"</code> option uses R’s <code><a href="https://rdrr.io/r/stats/aov.html" class="external-link">aov()</a></code>
 function with <code>Error()</code> strata:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Method of moments G-study (canonical brennan formula; see</span></span>
 <span><span class="co"># "Specifying All Possible Variance Components")</span></span>
 <span><span class="va">g_mom</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>                <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
-<span>                data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"mom"</span><span class="op">)</span></span></code></pre></div>
+<span>                data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"aov"</span><span class="op">)</span></span></code></pre></div>
 <p>The implementation:</p>
 <ol style="list-style-type: decimal">
 <li>Parses the formula to identify facets</li>
@@ -1178,7 +1178,7 @@ REML estimates equal ANOVA estimates).</p>
 package implementing efficient REML estimation using sparse matrix
 methods and Cholesky decomposition, enabling analysis of complex crossed
 designs that were previously computationally infeasible.</p>
-<p>The <code>lme4</code> backend in <strong>facet</strong> leverages
+<p>The <code>lme4</code> estimator in <strong>facet</strong> leverages
 these advances, providing REML estimation with profile likelihood
 confidence intervals for variance components.</p>
 </div>
@@ -1253,7 +1253,7 @@ computationally intensive.</p>
 </ul>
 <p><strong>Limitations:</strong></p>
 <ul>
-<li>Slower than MOM for large datasets</li>
+<li>Slower than aov for large datasets</li>
 <li>Convergence issues possible for complex models</li>
 <li>Cannot handle multivariate models (use brms instead)</li>
 <li>Variance estimates near zero can be problematic</li>
@@ -1263,7 +1263,7 @@ computationally intensive.</p>
 <div class="section level4">
 <h4 id="implementation-in-facet-1">Implementation in facet<a class="anchor" aria-label="anchor" href="#implementation-in-facet-1"></a>
 </h4>
-<p>The default <code>backend = "lme4"</code> uses
+<p>The default <code>estimator = "lme4"</code> uses
 <code><a href="https://rdrr.io/pkg/lme4/man/lmer.html" class="external-link">lme4::lmer()</a></code> for estimation:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># REML G-study (default; canonical brennan formula; see</span></span>
@@ -1368,7 +1368,7 @@ Rater cell would include all two-way and three-way interactions:</p>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Rater</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">:</span><span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">:</span><span class="va">Rater</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">crossed_data</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>The <code>brennan</code> dataset is <strong>not</strong> such a
@@ -1382,18 +1382,18 @@ Variance Components”) is:</p>
 <code class="sourceCode R"><span><span class="va">g_nested</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Omitting interaction terms from a crossed design constitutes model
 mis-specification—the omitted interaction variance is absorbed by the
 included terms, producing confounded estimates. This is not a limitation
 of G-theory itself but a consequence of under-specifying the model.
-Bayesian estimation via <code>backend = "brms"</code> provides full
+Bayesian estimation via <code>estimator = "brms"</code> provides full
 posterior distributions for each variance component, including
 interactions, enabling credible intervals for G-coefficients and D-study
 projections.</p>
-<p>The <strong>facet</strong> package’s <code>backend = "brms"</code>
+<p>The <strong>facet</strong> package’s <code>estimator = "brms"</code>
 option implements these methodological advances through the Stan
 probabilistic programming language (Bürkner, 2017), providing
 researchers with tools for Bayesian G-theory that properly handle
@@ -1549,14 +1549,14 @@ estimates.</p>
 <div class="section level4">
 <h4 id="implementation-in-facet-2">Implementation in facet<a class="anchor" aria-label="anchor" href="#implementation-in-facet-2"></a>
 </h4>
-<p>The <code>backend = "brms"</code> option uses
+<p>The <code>estimator = "brms"</code> option uses
 <code><a href="https://paulbuerkner.com/brms/reference/brm.html" class="external-link">brms::brm()</a></code> which compiles models to Stan:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Bayesian G-study with default priors (canonical brennan formula; see</span></span>
 <span><span class="co"># "Specifying All Possible Variance Components")</span></span>
 <span><span class="va">g_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>                 <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
-<span>                 data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>                 data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>                 iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># With custom priors</span></span>
@@ -1570,13 +1570,13 @@ estimates.</p>
 <span><span class="op">)</span></span>
 <span><span class="va">g_custom</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>                   <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
-<span>                   data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">my_prior</span>,</span>
+<span>                   data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">my_prior</span>,</span>
 <span>                   iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Multivariate Bayesian G-study (requires a fully crossed design;</span></span>
 <span><span class="co"># see the `crossed_wide` data defined in the Multivariate G-Study section)</span></span>
 <span><span class="va">g_mv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="fu"><a href="../reference/mvbind.html">mvbind</a></span><span class="op">(</span><span class="va">Task1</span>, <span class="va">Task2</span>, <span class="va">Task3</span><span class="op">)</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">|</span><span class="va">Rater</span><span class="op">)</span>,</span>
-<span>               data <span class="op">=</span> <span class="va">crossed_wide</span>, backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>               data <span class="op">=</span> <span class="va">crossed_wide</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>               iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span></code></pre></div>
 <p>The implementation:</p>
 <ol style="list-style-type: decimal">
@@ -1631,7 +1631,7 @@ estimates.</p>
 <div class="section level4">
 <h4 id="prerequisites">Prerequisites<a class="anchor" aria-label="anchor" href="#prerequisites"></a>
 </h4>
-<p>The Bayesian backend requires additional packages:</p>
+<p>The Bayesian estimator requires additional packages:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Core package</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">facet</span><span class="op">)</span></span>
@@ -1763,7 +1763,7 @@ uncertainty quantification for reliability coefficients.</p>
 </colgroup>
 <thead><tr class="header">
 <th>Criterion</th>
-<th>MOM</th>
+<th>aov</th>
 <th>REML (lme4)</th>
 <th>Bayesian (brms)</th>
 </tr></thead>
@@ -1826,7 +1826,7 @@ uncertainty quantification for reliability coefficients.</p>
 </table>
 <p><strong>Recommendations:</strong></p>
 <ul>
-<li>Use <strong>MOM</strong> for quick exploratory analysis of balanced
+<li>Use <strong>aov</strong> for quick exploratory analysis of balanced
 designs</li>
 <li>Use <strong>REML</strong> (default) for routine univariate analysis
 with unbalanced data</li>
@@ -2027,7 +2027,7 @@ Components”):</p>
 <span><span class="co">#&gt; Generalizability Study (G Study)</span></span>
 <span><span class="co">#&gt; ================================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Backend: lme4 </span></span>
+<span><span class="co">#&gt; Estimator: lme4 </span></span>
 <span><span class="co">#&gt; Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt; Number of observations: 120 </span></span>
 <span><span class="co">#&gt; Multivariate: No </span></span>
@@ -2087,7 +2087,7 @@ display on variance or SD scale:</p>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: lme4 </span></span>
+<span><span class="co">#&gt;  Estimator: lme4 </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt;  Observations: 120 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -2127,7 +2127,7 @@ display on variance or SD scale:</p>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: lme4 </span></span>
+<span><span class="co">#&gt;  Estimator: lme4 </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt;  Observations: 120 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -2177,9 +2177,9 @@ display on variance or SD scale:</p>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 5</span></span></span>
-<span><span class="co">#&gt;   n_obs n_facets backend is_multivariate object</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>   120        3 lme4    FALSE           Person</span></span></code></pre></div>
+<span><span class="co">#&gt;   n_obs n_facets estimator is_multivariate object</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>   120        3 lme4      FALSE           Person</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="variance-component-percentages">Variance Component Percentages<a class="anchor" aria-label="anchor" href="#variance-component-percentages"></a>
@@ -2217,7 +2217,7 @@ campaign.</p>
 <div class="section level3">
 <h3 id="g-study-with-confidence-intervals">G-Study with Confidence Intervals<a class="anchor" aria-label="anchor" href="#g-study-with-confidence-intervals"></a>
 </h3>
-<p>For the <strong>lme4</strong> backend, you can request confidence
+<p>For the <strong>lme4</strong> estimator, you can request confidence
 intervals using the <code>ci_method</code> parameter.</p>
 <div class="section level4">
 <h4 id="profile-likelihood-confidence-intervals">Profile Likelihood Confidence Intervals<a class="anchor" aria-label="anchor" href="#profile-likelihood-confidence-intervals"></a>
@@ -2243,7 +2243,7 @@ include crossed Rater effects with Task:</p>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: lme4 </span></span>
+<span><span class="co">#&gt;  Estimator: lme4 </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt;  Observations: 120 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -2297,7 +2297,7 @@ include crossed Rater effects with Task:</p>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: lme4 </span></span>
+<span><span class="co">#&gt;  Estimator: lme4 </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Task) </span></span>
 <span><span class="co">#&gt;  Observations: 120 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -2379,10 +2379,10 @@ want conservative uncertainty quantification.</p>
 </div>
 </div>
 <div class="section level3">
-<h3 id="method-of-moments-backend">Method of Moments Backend<a class="anchor" aria-label="anchor" href="#method-of-moments-backend"></a>
+<h3 id="anova-based-estimation-estimator">ANOVA-based Estimation Estimator<a class="anchor" aria-label="anchor" href="#anova-based-estimation-estimator"></a>
 </h3>
-<p>The Method of Moments backend uses ANOVA-based variance component
-estimation:</p>
+<p>The ANOVA-based Estimation estimator uses ANOVA-based variance
+component estimation:</p>
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Method of moments G-study with nested design (Rater nested in Task;</span></span>
 <span><span class="co"># (1 | Rater) and (1 | Rater:Task) are equivalent here)</span></span>
@@ -2390,14 +2390,14 @@ estimation:</p>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"mom"</span></span>
+<span>  estimator <span class="op">=</span> <span class="st">"aov"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">g_mom</span><span class="op">)</span></span>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: mom </span></span>
+<span><span class="co">#&gt;  Estimator: aov </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt;  Observations: 120 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -2431,10 +2431,10 @@ estimation:</p>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Residual      2.380<span style="text-decoration: underline;">2</span> 52.341<span style="text-decoration: underline;">5</span>    1.647<span style="text-decoration: underline;">2</span>     3.113<span style="text-decoration: underline;">3</span></span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Total variance: 4.5474</span></span></code></pre></div>
-<p>MOM automatically provides asymptotic confidence intervals. This
+<p>aov automatically provides asymptotic confidence intervals. This
 approach works best with balanced designs.</p>
 <div class="section level4">
-<h4 id="nested-designs-with-mom">Nested Designs with MOM<a class="anchor" aria-label="anchor" href="#nested-designs-with-mom"></a>
+<h4 id="nested-designs-with-aov">Nested Designs with aov<a class="anchor" aria-label="anchor" href="#nested-designs-with-aov"></a>
 </h4>
 <p>For nested designs, the canonical formula uses the un-nested form
 when the nested-factor labels are already unique within the nesting
@@ -2450,14 +2450,14 @@ exactly equivalent (we use <code>(1 | ItemId)</code>):</p>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Subtest</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">ItemId</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Subtest</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">rajaratnam</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"mom"</span></span>
+<span>  estimator <span class="op">=</span> <span class="st">"aov"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">g_nested</span><span class="op">)</span></span>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: mom </span></span>
+<span><span class="co">#&gt;  Estimator: aov </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) + (1 | Person:Subtest) </span></span>
 <span><span class="co">#&gt;  Observations: 64 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -2496,8 +2496,8 @@ exactly equivalent (we use <code>(1 | ItemId)</code>):</p>
 <div class="section level3">
 <h3 id="bayesian-g-study">Bayesian G-Study<a class="anchor" aria-label="anchor" href="#bayesian-g-study"></a>
 </h3>
-<p>For Bayesian estimation, use the <strong>brms</strong> backend. This
-provides full posterior distributions for variance components.</p>
+<p>For Bayesian estimation, use the <strong>brms</strong> estimator.
+This provides full posterior distributions for variance components.</p>
 <div class="section level4">
 <h4 id="data-preparation">Data Preparation<a class="anchor" aria-label="anchor" href="#data-preparation"></a>
 </h4>
@@ -2532,7 +2532,7 @@ within each Task) and <code>(1 | Person:Task)</code>:</p>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -2626,7 +2626,7 @@ inferences (e.g., “probability that variance &gt; X”).</p>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">4</span>,        <span class="co"># Number of chains</span></span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>,       <span class="co"># Total iterations per chain</span></span>
 <span>  warmup <span class="op">=</span> <span class="fl">1000</span>,     <span class="co"># Warmup iterations</span></span>
@@ -2676,7 +2676,7 @@ inferences (e.g., “probability that variance &gt; X”).</p>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  prior <span class="op">=</span> <span class="va">my_prior</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -2691,7 +2691,7 @@ inferences (e.g., “probability that variance &gt; X”).</p>
 <span><span class="va">g_weak</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  prior <span class="op">=</span> <span class="va">prior_weak</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
@@ -2701,7 +2701,7 @@ inferences (e.g., “probability that variance &gt; X”).</p>
 <span><span class="va">g_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  prior <span class="op">=</span> <span class="va">prior_info</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
@@ -2718,7 +2718,7 @@ standard deviation parameters and shows how the posteriors respond.</p>
 <span><span class="va">g_weak_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  prior <span class="op">=</span> <span class="va">prior_weak_run</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">2</span>, iter <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">500</span>, seed <span class="op">=</span> <span class="fl">123</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
@@ -2740,7 +2740,7 @@ standard deviation parameters and shows how the posteriors respond.</p>
 <span><span class="va">g_info_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  prior <span class="op">=</span> <span class="va">prior_info_run</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">2</span>, iter <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">500</span>, seed <span class="op">=</span> <span class="fl">123</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
@@ -2780,15 +2780,15 @@ standard deviation parameters and shows how the posteriors respond.</p>
 <span><span class="co">#&gt; Chain 1: Iteration: 1500 / 2000 [ 75%]  (Sampling)</span></span>
 <span><span class="co">#&gt; Chain 2: Iteration: 2000 / 2000 [100%]  (Sampling)</span></span>
 <span><span class="co">#&gt; Chain 2: </span></span>
-<span><span class="co">#&gt; Chain 2:  Elapsed Time: 0.086 seconds (Warm-up)</span></span>
-<span><span class="co">#&gt; Chain 2:                0.147 seconds (Sampling)</span></span>
-<span><span class="co">#&gt; Chain 2:                0.233 seconds (Total)</span></span>
+<span><span class="co">#&gt; Chain 2:  Elapsed Time: 0.088 seconds (Warm-up)</span></span>
+<span><span class="co">#&gt; Chain 2:                0.144 seconds (Sampling)</span></span>
+<span><span class="co">#&gt; Chain 2:                0.232 seconds (Total)</span></span>
 <span><span class="co">#&gt; Chain 2: </span></span>
 <span><span class="co">#&gt; Chain 1: Iteration: 2000 / 2000 [100%]  (Sampling)</span></span>
 <span><span class="co">#&gt; Chain 1: </span></span>
-<span><span class="co">#&gt; Chain 1:  Elapsed Time: 0.09 seconds (Warm-up)</span></span>
-<span><span class="co">#&gt; Chain 1:                0.175 seconds (Sampling)</span></span>
-<span><span class="co">#&gt; Chain 1:                0.265 seconds (Total)</span></span>
+<span><span class="co">#&gt; Chain 1:  Elapsed Time: 0.092 seconds (Warm-up)</span></span>
+<span><span class="co">#&gt; Chain 1:                0.171 seconds (Sampling)</span></span>
+<span><span class="co">#&gt; Chain 1:                0.263 seconds (Total)</span></span>
 <span><span class="co">#&gt; Chain 1:</span></span></code></pre></div>
 <p><strong>Reading the comparison.</strong> The Person variance is the
 dominant signal, and both priors give nearly identical posteriors for it
@@ -2938,7 +2938,7 @@ for different measurement designs.</p>
 <span><span class="co">#&gt; Decision Study (D-Study)</span></span>
 <span><span class="co">#&gt; ========================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Based on G Study with lme4 backend</span></span>
+<span><span class="co">#&gt; Based on G Study with lme4 estimator</span></span>
 <span><span class="co">#&gt; Object of measurement: Person </span></span>
 <span><span class="co">#&gt; Universe components: Person </span></span>
 <span><span class="co">#&gt; Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span></span>
@@ -3074,7 +3074,7 @@ is the grand mean.</p>
 <span><span class="co">#&gt; Decision Study (D-Study)</span></span>
 <span><span class="co">#&gt; ========================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Based on G Study with lme4 backend</span></span>
+<span><span class="co">#&gt; Based on G Study with lme4 estimator</span></span>
 <span><span class="co">#&gt; Object of measurement: Person </span></span>
 <span><span class="co">#&gt; Universe components: Person </span></span>
 <span><span class="co">#&gt; Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span></span>
@@ -3334,7 +3334,7 @@ coefficients:</p>
 <span><span class="va">g_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -3383,8 +3383,8 @@ Task
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
 Rater design in which every rater rates every person on every task.</p>
 </blockquote>
-<p>For multiple outcome variables, use the <strong>brms</strong> backend
-with <code><a href="../reference/mvbind.html">mvbind()</a></code>:</p>
+<p>For multiple outcome variables, use the <strong>brms</strong>
+estimator with <code><a href="../reference/mvbind.html">mvbind()</a></code>:</p>
 <div class="sourceCode" id="cb52"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Synthetic fully crossed design: 6 persons x 3 tasks x 4 raters</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
@@ -3427,7 +3427,7 @@ with <code><a href="../reference/mvbind.html">mvbind()</a></code>:</p>
 <span><span class="va">g_mv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/mvbind.html">mvbind</a></span><span class="op">(</span><span class="va">Task1</span>, <span class="va">Task2</span>, <span class="va">Task3</span><span class="op">)</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">crossed_wide</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -3555,7 +3555,7 @@ dimension):</p>
 <span><span class="va">g_mv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/mvbind.html">mvbind</a></span><span class="op">(</span><span class="va">Task1</span>, <span class="va">Task2</span>, <span class="va">Task3</span><span class="op">)</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">crossed_wide</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -3640,11 +3640,11 @@ uncorrelated, the composite is simply the weighted sum of
 variances</p></li>
 <li><p><strong>Sample size requirements</strong>: For unbalanced designs
 (different sample sizes per dimension), you have two options. With the
-<code>mom</code> backend, pass <code>unbalanced = TRUE</code> to
+<code>mom</code> estimator, pass <code>unbalanced = TRUE</code> to
 <code><a href="../reference/gstudy.html">gstudy()</a></code> and supply a per-dimension <code>n</code> tibble
 to <code><a href="../reference/dstudy.html">dstudy()</a></code> — facet <code>g</code> and <code>phi</code>
 coefficients are then computed per-dimension with the correct divisor.
-With the <code>brms</code> backend, reshape to long format and use
+With the <code>brms</code> estimator, reshape to long format and use
 <code><a href="../reference/bf.html">bf()</a></code> syntax; this also handles nesting and
 dimension-specific residual variances</p></li>
 <li><p><strong>Posterior estimation</strong>: For Bayesian models,
@@ -3703,7 +3703,7 @@ task:</p>
 <span><span class="va">g_mv_wide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/mvbind.html">mvbind</a></span><span class="op">(</span><span class="va">Task1</span>, <span class="va">Task2</span>, <span class="va">Task3</span><span class="op">)</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">crossed_wide</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><strong>Long Format (<code>bf</code>)</strong> — When dimensions are
@@ -3725,7 +3725,7 @@ identified by a grouping variable:</p>
 <span>         <span class="op">(</span><span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">||</span> <span class="va">ItemId</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  <span class="va">sigma</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">rajaratnam</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><strong>Key Differences</strong>:</p>
@@ -3837,7 +3837,7 @@ Multivariate G-Study section:</p>
 <span><span class="va">g_wide_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/mvbind.html">mvbind</a></span><span class="op">(</span><span class="va">Task1</span>, <span class="va">Task2</span>, <span class="va">Task3</span><span class="op">)</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">crossed_wide</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">2</span>, iter <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">500</span>, seed <span class="op">=</span> <span class="fl">123</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -3851,7 +3851,7 @@ example, some persons have Task1 and Task2 but not Task3, or items are
 nested within subtests with different numbers of items per subtest —
 wide format is not viable, because <code><a href="../reference/mvbind.html">mvbind()</a></code> requires
 complete cases. You have two paths forward: (1) <strong>stay in wide
-format with the <code>mom</code> backend</strong> by passing
+format with the <code>mom</code> estimator</strong> by passing
 <code>unbalanced = TRUE</code> to <code><a href="../reference/gstudy.html">gstudy()</a></code>. Mom uses
 Henderson’s Method III, so pairwise complete cases are used for the
 correlation matrix; the per-dimension totals are preserved and surfaced
@@ -3860,7 +3860,7 @@ in <code>gstudy_obj$n_per_dim</code>. You can then pass a per-dimension
 <code>dim</code>, <code>facet</code>, <code>n</code>) and facet
 <code>g</code> and <code>phi</code> coefficients are computed
 per-dimension with the correct divisor. (2) <strong>reshape to long
-format with the <code>brms</code> backend</strong> and use
+format with the <code>brms</code> estimator</strong> and use
 <code><a href="../reference/bf.html">bf()</a></code> syntax. This also handles nesting and lets you model
 dimension-specific residual variances
 (<code>sigma ~ 0 + Subtest</code>). Use <strong>wide format with
@@ -4078,7 +4078,7 @@ estimation noise.</p>
 <span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Fit and run prmse</span></span>
-<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="fu"><a href="../reference/mvbind.html">mvbind</a></span><span class="op">(</span><span class="va">A</span>, <span class="va">B</span>, <span class="va">C</span><span class="op">)</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">item</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span>, backend <span class="op">=</span> <span class="st">"mom"</span><span class="op">)</span></span>
+<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="fu"><a href="../reference/mvbind.html">mvbind</a></span><span class="op">(</span><span class="va">A</span>, <span class="va">B</span>, <span class="va">C</span><span class="op">)</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">item</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span>, estimator <span class="op">=</span> <span class="st">"aov"</span><span class="op">)</span></span>
 <span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/dstudy.html">dstudy</a></span><span class="op">(</span><span class="va">g</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>item <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>A <span class="op">=</span> <span class="fl">1</span>, B <span class="op">=</span> <span class="fl">1</span>, C <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings</a></span><span class="op">(</span><span class="fu"><a href="../reference/prmse.html">prmse</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -4148,7 +4148,7 @@ subtests:</p>
 <span>  <span class="fu"><a href="../reference/bf.html">bf</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">+</span> <span class="op">(</span><span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">|</span> <span class="va">r</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">||</span> <span class="va">ItemId</span><span class="op">)</span>,</span>
 <span>     <span class="va">sigma</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">rajaratnam</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>,</span>
 <span>  cores <span class="op">=</span> <span class="fl">4</span>,</span>
@@ -4204,7 +4204,7 @@ object and can be accessed in several ways:</p>
 <div class="section level4">
 <h4 id="credible-intervals-for-var">Credible Intervals for VAR<a class="anchor" aria-label="anchor" href="#credible-intervals-for-var"></a>
 </h4>
-<p>When using Bayesian estimation (<code>backend = "brms"</code>), VAR
+<p>When using Bayesian estimation (<code>estimator = "brms"</code>), VAR
 results include full posterior distributions. You can compute credible
 intervals with any probability level:</p>
 <div class="sourceCode" id="cb69"><pre class="downlit sourceCode r">
@@ -4288,7 +4288,7 @@ situations:</p>
 dimensions</li>
 <li>
 <strong>Non-Bayesian estimation</strong>: VAR with uncertainty
-quantification is only available with the brms backend</li>
+quantification is only available with the brms estimator</li>
 <li>
 <strong>Missing data</strong>: If the original data is not available
 to compute observed covariances</li>
@@ -4316,7 +4316,7 @@ use long-format models:</p>
 <span>  <span class="fu"><a href="../reference/bf.html">bf</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">+</span> <span class="op">(</span><span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">|</span> <span class="va">r</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">||</span> <span class="va">ItemId</span><span class="op">)</span>,</span>
 <span>     <span class="va">sigma</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">rajaratnam</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -4621,17 +4621,17 @@ means one of your variance components has been estimated at (or very
 near) zero, and the optimizer could not move it away from the boundary.
 Three remedies: (1) <strong>drop the offending facet from the
 formula</strong> if it is theoretically unimportant; (2) <strong>switch
-to <code>backend = "mom"</code></strong> to get a positive truncated
+to <code>estimator = "aov"</code></strong> to get a positive truncated
 estimate, which is often more interpretable in practice (it acknowledges
 that the component is small but positive); (3) <strong>switch to
-<code>backend = "brms"</code> with a slightly informative prior</strong>
-such as <code>exponential(1)</code> on the SD — this regularizes the
-estimate away from exactly zero. Singular fits are not necessarily a
-problem if you can defend the model without that component, but they
-should not be silently ignored.</p>
+<code>estimator = "brms"</code> with a slightly informative
+prior</strong> such as <code>exponential(1)</code> on the SD — this
+regularizes the estimate away from exactly zero. Singular fits are not
+necessarily a problem if you can defend the model without that
+component, but they should not be silently ignored.</p>
 </div>
 <div class="section level4">
-<h4 id="negative-variance-mom">Negative Variance (MOM)<a class="anchor" aria-label="anchor" href="#negative-variance-mom"></a>
+<h4 id="negative-variance-aov">Negative Variance (aov)<a class="anchor" aria-label="anchor" href="#negative-variance-aov"></a>
 </h4>
 <p>Method of moments can produce negative estimates, which are truncated
 to zero:</p>
@@ -4739,7 +4739,7 @@ within each Task:</p>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: lme4 </span></span>
+<span><span class="co">#&gt;  Estimator: lme4 </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt;  Observations: 120 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -4852,7 +4852,7 @@ rater effect):</p>
 <span><span class="co">#&gt; === G Study Summary ===</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Design Information:</span></span>
-<span><span class="co">#&gt;  Backend: lme4 </span></span>
+<span><span class="co">#&gt;  Estimator: lme4 </span></span>
 <span><span class="co">#&gt;  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span><span class="co">#&gt;  Observations: 120 </span></span>
 <span><span class="co">#&gt;  Multivariate: No </span></span>
@@ -5148,11 +5148,11 @@ Measurement</em>, 54(1), 3-10.</li>
 <span></span>
 <span><span class="co"># Fit alternative models</span></span>
 <span><span class="va">g_simple</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
-<span>                   data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>                   data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>                   iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="va">g_full</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>                   <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
-<span>                 data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>                 data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>                 iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># LOO comparison</span></span>
@@ -5180,7 +5180,7 @@ Measurement</em>, 54(1), 3-10.</li>
 <span><span class="va">g_missing</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">data_with_missing</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -5194,7 +5194,7 @@ Measurement</em>, 54(1), 3-10.</li>
 <span>  <span class="fu"><a href="../reference/bf.html">bf</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>     family <span class="op">=</span> <span class="fu"><a href="https://paulbuerkner.com/brms/reference/brmsfamily.html" class="external-link">student</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -5209,7 +5209,7 @@ Measurement</em>, 54(1), 3-10.</li>
 <blockquote>
 <p>“Generalizability theory analyses were conducted using the
 <strong>facet</strong> package (Version X.X) for R. A G-study was
-conducted using [Method of Moments/Restricted Maximum Likelihood]
+conducted using [ANOVA-based Estimation/Restricted Maximum Likelihood]
 estimation. Variance components were estimated for [list facets]. 95%
 confidence intervals were computed using [Satterthwaite
 approximation/profile likelihood/bootstrap with X simulations].
@@ -5448,8 +5448,9 @@ larger?</p></li>
 <li><p><strong>Nested vs. Crossed</strong>: Explain the difference
 between items crossed with persons and items nested within persons. How
 does the EMS differ?</p></li>
-<li><p><strong>REML vs. MOM</strong>: When would you prefer REML
-estimation over Method of Moments? What are the trade-offs?</p></li>
+<li><p><strong>REML vs. aov</strong>: When would you prefer REML
+estimation over ANOVA-based Estimation? What are the
+trade-offs?</p></li>
 <li><p><strong>Phi-Cut</strong>: Why does the phi-cut coefficient depend
 on the distance between the cut-score and the grand mean?</p></li>
 <li><p><strong>Prior Selection</strong>: Explain why half-Cauchy priors
@@ -5468,7 +5469,7 @@ this indicate? What steps should you take?</p></li>
 with 95% CI = [0.65, 1.10]. What can you conclude about the usefulness
 of reporting this subscale separately?</p></li>
 <li><p><strong>Computational Trade-offs</strong>: When would you choose
-frequentist (MOM or REML) over Bayesian estimation? Consider
+frequentist (aov or REML) over Bayesian estimation? Consider
 computational cost, sample size, design complexity, and inferential
 goals.</p></li>
 </ol>
@@ -5560,7 +5561,7 @@ interval estimates differ?</p></li>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -5572,7 +5573,7 @@ interval estimates differ?</p></li>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"lme4"</span></span>
+<span>  estimator <span class="op">=</span> <span class="st">"lme4"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Compare estimates</span></span>
@@ -5610,7 +5611,7 @@ parameter.</p></li>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  prior <span class="op">=</span> <span class="va">custom_prior</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
@@ -5626,7 +5627,7 @@ parameter.</p></li>
 <span>  <span class="va">g_s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span></span>
 <span>    <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span>,</span>
 <span>    data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>    backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>    estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>    prior <span class="op">=</span> <span class="va">prior_s</span></span>
 <span>  <span class="op">)</span></span>
 <span>  <span class="va">g_s</span><span class="op">$</span><span class="va">variance_components</span><span class="op">$</span><span class="va">estimate</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>  <span class="co"># Person variance</span></span>
@@ -5650,7 +5651,7 @@ reliability.</p></li>
 <span>  <span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">brennan</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">4</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>,</span>
 <span>  cores <span class="op">=</span> <span class="fl">4</span>,</span>
@@ -5695,7 +5696,7 @@ results.</p></li>
 <span>         <span class="op">(</span><span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span> <span class="op">||</span> <span class="va">ItemId</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  <span class="va">sigma</span> <span class="op">~</span> <span class="fl">0</span> <span class="op">+</span> <span class="va">Subtest</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">rajaratnam</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"brms"</span>,</span>
+<span>  estimator <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span>,</span>
 <span>  cores <span class="op">=</span> <span class="fl">4</span>,</span>
@@ -5734,15 +5735,15 @@ models.</p></li>
 <span></span>
 <span><span class="va">g_weak</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>                 <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
-<span>                 data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">prior_weak</span>,</span>
+<span>                 data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">prior_weak</span>,</span>
 <span>                 iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="va">g_mod</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>                <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
-<span>                data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">prior_mod</span>,</span>
+<span>                data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">prior_mod</span>,</span>
 <span>                iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="va">g_strong</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span>
 <span>                   <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span>
-<span>                   data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">prior_strong</span>,</span>
+<span>                   data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>, prior <span class="op">=</span> <span class="va">prior_strong</span>,</span>
 <span>                   iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># b) Compare posteriors</span></span>

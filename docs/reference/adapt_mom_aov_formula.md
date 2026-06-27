@@ -1,9 +1,9 @@
-# Adapt aov Formula for the Method-of-Moments Backend
+# Adapt aov Formula for the Method-of-Moments Estimator
 
 Inspects the formula and data to detect facets that are nested within
 other facets in the data, and rewrites the aov Error() strata so the
 canonical G-study specification works without spurious rank-deficiency
-warnings. This is only used by the mom backend; lme4 and brms are
+warnings. This is only used by the mom estimator; lme4 and brms are
 unaffected.
 
 ## Usage

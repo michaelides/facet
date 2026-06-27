@@ -14,12 +14,12 @@
 \code{\link[brms:ranef]{brms::ranef}}).}
 }
 \value{
-The random effects from the fitted model. For lme4 backend, returns
-a list of matrices. For brms backend, returns a list of arrays with
+The random effects from the fitted model. For lme4 estimator, returns
+a list of matrices. For brms estimator, returns a list of arrays with
 posterior summaries.
 }
 \description{
 Extracts the random effects (BLUPs/conditional modes) from a gstudy object.
-This is a wrapper that calls the appropriate ranef method based on the backend
+This is a wrapper that calls the appropriate ranef method based on the estimator
 used to fit the model.
 }

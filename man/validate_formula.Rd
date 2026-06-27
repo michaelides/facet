@@ -4,12 +4,12 @@
 \alias{validate_formula}
 \title{Validate Formula for G-Study}
 \usage{
-validate_formula(formula, backend = "auto")
+validate_formula(formula, estimator = "auto")
 }
 \arguments{
 \item{formula}{A formula object.}
 
-\item{backend}{Character string indicating the backend to use ("auto", "lme4", "brms", or "mom").}
+\item{estimator}{Character string indicating the estimator to use ("auto", "lme4", "brms", or "aov").}
 }
 \value{
 TRUE if valid, otherwise raises an error.

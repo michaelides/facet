@@ -11,7 +11,7 @@ by modifying the number of levels for each facet."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">facet</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -124,14 +124,14 @@ the residual to be rescaled. Default is NULL (residual is not rescaled).</p></dd
 
 
 <dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
-<dd><p>Character string specifying how to calculate coefficients:</p><ul><li><p>"simple": uses point estimates from variance components (for lme4/mom backends)</p></li>
-<li><p>"posterior": uses full posterior distributions (for brms backend)
-For brms backend, posterior estimation is always used to ensure consistency
+<dd><p>Character string specifying how to calculate coefficients:</p><ul><li><p>"simple": uses point estimates from variance components (for lme4/aov estimators)</p></li>
+<li><p>"posterior": uses full posterior distributions (for brms estimator)
+For brms estimator, posterior estimation is always used to ensure consistency
 between variance component estimates and coefficient calculations. This avoids
 Jensen's inequality bias that would occur if variance estimates were computed
 as mean(SD)^2 rather than mean(SD^2).
-When estimation = "posterior" is requested with non-brms backend,
-a warning is issued and the gstudy model is refit with backend = "brms".</p></li>
+When estimation = "posterior" is requested with non-brms estimator,
+a warning is issued and the gstudy model is refit with estimator = "brms".</p></li>
 </ul></dd>
 
 
@@ -145,7 +145,7 @@ Default is NULL (no phi-cut calculation).</p></dd>
 <dt id="arg-ci">ci<a class="anchor" aria-label="anchor" href="#arg-ci"></a></dt>
 <dd><p>Character vector specifying which coefficients to compute credible intervals for.
 Options: "g", "phi", "phi-cut". Can specify multiple: <code>ci = c("g", "phi")</code>.
-Credible intervals are only available when using the brms backend.
+Credible intervals are only available when using the brms estimator.
 Default is NULL (no credible intervals computed).</p></dd>
 
 
@@ -270,7 +270,7 @@ This means composite reliability often exceeds the average of dimension-specific
 reliabilities, as the composite "borrows strength" from correlations.</p>
 <p>The <code>weights</code> parameter controls the contribution of each dimension:</p><ul><li><p>Default: <code>NULL</code> uses equal weights (1 for each dimension)</p></li>
 <li><p>Custom: Provide a numeric vector with length matching the number of dimensions</p></li>
-</ul><p>For posterior estimation with brms backend, composite coefficients are computed
+</ul><p>For posterior estimation with brms estimator, composite coefficients are computed
 for each posterior draw, properly propagating uncertainty to the final estimates.</p>
 </div>
 
@@ -297,7 +297,7 @@ for each posterior draw, properly propagating uncertainty to the final estimates
 <span class="r-out co"><span class="r-pr">#&gt;</span> Decision Study (D-Study)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ========================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Based on G Study with lme4 backend</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Based on G Study with lme4 estimator</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Object of measurement: Person </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Universe components: Person </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span>
@@ -327,7 +327,7 @@ for each posterior draw, properly propagating uncertainty to the final estimates
 <span class="r-out co"><span class="r-pr">#&gt;</span> Decision Study (D-Study)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ========================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Based on G Study with lme4 backend</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Based on G Study with lme4 estimator</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Object of measurement: Person </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Universe components: Person </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span>
@@ -358,45 +358,26 @@ for each posterior draw, properly propagating uncertainty to the final estimates
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="co"># D-study with posterior estimation (requires brms backend)</span></span></span>
+<span class="r-in"><span><span class="co"># D-study with posterior estimation (requires brms estimator)</span></span></span>
 <span class="r-in"><span><span class="va">g_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="gstudy.html">gstudy</a></span><span class="op">(</span><span class="va">Score</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Task</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Rater</span><span class="op">)</span> <span class="op">+</span></span></span>
 <span class="r-in"><span>  <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Person</span><span class="op">:</span><span class="va">Task</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">brennan</span>, backend <span class="op">=</span> <span class="st">"brms"</span>,</span></span>
+<span class="r-in"><span>  data <span class="op">=</span> <span class="va">brennan</span>, estimator <span class="op">=</span> <span class="st">"brms"</span>,</span></span>
 <span class="r-in"><span>  iter <span class="op">=</span> <span class="fl">2000</span>, cores <span class="op">=</span> <span class="fl">4</span>, refresh <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Compiling Stan program...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Trying to compile a simple C file</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> using SDK: ‘MacOSX26.5.sdk’</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I"/Users/afp18axu/Library/R/arm64/4.6/library/Rcpp/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/unsupported"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/BH/include" -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/src/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppParallel/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -c foo.c -o foo.o</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> In file included from &lt;built-in&gt;:1:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Dense:1:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Core:19:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   679 | #include &lt;cmath&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       |          ^~~~~~~</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 error generated.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> make: *** [foo.o] Error 1</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Start sampling</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>There were 39 divergent transitions after warmup. See</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>There were 41 divergent transitions after warmup. See</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> to find out why this is a problem and how to eliminate them.</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Examine the pairs() plot to diagnose sampling problems</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> Running the chains for more iterations may help. See</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> https://mc-stan.org/misc/warnings.html#tail-ess</span>
 <span class="r-in"><span><span class="va">d_post</span> <span class="op">&lt;-</span> <span class="fu">dstudy</span><span class="op">(</span><span class="va">g_brms</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Task <span class="op">=</span> <span class="fl">3</span>, Rater <span class="op">=</span> <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Low tail effective sample size (ESS &lt; 400) detected for: Task. The g and phi coefficients cannot be trusted.</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># D-study with credible intervals (requires brms backend)</span></span></span>
+<span class="r-in"><span><span class="co"># D-study with credible intervals (requires brms estimator)</span></span></span>
 <span class="r-in"><span><span class="va">d_ci</span> <span class="op">&lt;-</span> <span class="fu">dstudy</span><span class="op">(</span><span class="va">g_brms</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Task <span class="op">=</span> <span class="fl">3</span>, Rater <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, ci <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"g"</span>, <span class="st">"phi"</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Low tail effective sample size (ESS &lt; 400) detected for: Task. The g and phi coefficients cannot be trusted.</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">d_ci</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Decision Study (D-Study)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ========================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Based on G Study with brms backend</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Based on G Study with brms estimator</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Object of measurement: Person </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Universe components: Person </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span>
@@ -410,22 +391,21 @@ for each posterior draw, properly propagating uncertainty to the final estimates
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 5 × 6</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> Person      Score       0.689<span style="text-decoration: underline;">1</span>       9.606<span style="text-decoration: underline;">2</span>     0.689<span style="text-decoration: underline;">1</span>    26.926<span style="text-decoration: underline;">1</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> Task        Score       2.289<span style="text-decoration: underline;">9</span>      31.921<span style="text-decoration: underline;">7</span>     0.763<span style="text-decoration: underline;">3</span>    29.825<span style="text-decoration: underline;">4</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> Rater       Score       0.968<span style="text-decoration: underline;">8</span>      13.505<span style="text-decoration: underline;">3</span>     0.242<span style="text-decoration: underline;">2</span>     9.463<span style="text-decoration: underline;">8</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">4</span> Person:Task Score       0.698<span style="text-decoration: underline;">4</span>       9.735<span style="text-decoration: underline;">8</span>     0.232<span style="text-decoration: underline;">8</span>     9.096<span style="text-decoration: underline;">5</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">5</span> Residual    Score       2.527<span style="text-decoration: underline;">3</span>      35.231<span style="text-decoration: underline;">1</span>     0.631<span style="text-decoration: underline;">8</span>    24.688<span style="text-decoration: underline;">1</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> Person      Score       0.700<span style="text-decoration: underline;">8</span>       9.813<span style="text-decoration: underline;">8</span>     0.700<span style="text-decoration: underline;">8</span>    27.392<span style="text-decoration: underline;">7</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> Task        Score       2.289<span style="text-decoration: underline;">4</span>      32.059<span style="text-decoration: underline;">9</span>     0.763<span style="text-decoration: underline;">1</span>    29.829<span style="text-decoration: underline;">2</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> Rater       Score       0.951<span style="text-decoration: underline;">6</span>      13.325<span style="text-decoration: underline;">9</span>     0.237<span style="text-decoration: underline;">9</span>     9.299 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">4</span> Person:Task Score       0.680<span style="text-decoration: underline;">5</span>       9.529<span style="text-decoration: underline;">5</span>     0.226<span style="text-decoration: underline;">8</span>     8.866<span style="text-decoration: underline;">4</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">5</span> Residual    Score       2.518<span style="text-decoration: underline;">7</span>      35.271      0.629<span style="text-decoration: underline;">7</span>    24.612<span style="text-decoration: underline;">6</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 9</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     uni sigma2_delta sigma2_delta_abs     g   phi    g_LL  g_UL  phi_LL phi_UL</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>            <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 0.689        0.865             1.87 0.358 0.254 0.008<span style="text-decoration: underline;">27</span> 0.763 0.003<span style="text-decoration: underline;">91</span>  0.655</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 0.701        0.857             1.86 0.369 0.267 0.003<span style="text-decoration: underline;">52</span> 0.751 0.001<span style="text-decoration: underline;">86</span>  0.660</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Custom probability levels (90% credible interval)</span></span></span>
 <span class="r-in"><span><span class="va">d_ci_90</span> <span class="op">&lt;-</span> <span class="fu">dstudy</span><span class="op">(</span><span class="va">g_brms</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Task <span class="op">=</span> <span class="fl">3</span>, Rater <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  ci <span class="op">=</span> <span class="st">"g"</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.95</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Low tail effective sample size (ESS &lt; 400) detected for: Task. The g and phi coefficients cannot be trusted.</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

@@ -37,8 +37,8 @@ A ggplot object (invisibly).
 }
 \description{
 Creates a caterpillar (dot plot with error bars) to display random effects
-from a gstudy object. Works with both lme4 and brms backends, providing a
-unified interface regardless of backend used.
+from a gstudy object. Works with both lme4 and brms estimators, providing a
+unified interface regardless of estimator used.
 }
 \examples{
 # Fit a G-study with lme4 (default) using the brennan dataset
@@ -58,7 +58,7 @@ plot_ranef(g, which = "Person")
 g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
   data = brennan,
-  backend = "brms",
+  estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 

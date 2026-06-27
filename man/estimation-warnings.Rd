@@ -4,7 +4,7 @@
 \alias{estimation-warnings}
 \title{Estimation Issue Detection Functions}
 \description{
-Functions to detect estimation issues from different backends (lme4, mom, brms)
+Functions to detect estimation issues from different estimators (lme4, mom, brms)
 and issue appropriate warnings in dstudy.
 }
 \keyword{internal}

@@ -14,6 +14,6 @@ A matrix-like object for brms formulas.
 }
 \description{
 This function is a wrapper around \code{\link[brms:mvbind]{brms::mvbind()}} to allow specifying
-multivariate models via the brms backend in gstudy.
+multivariate models via the brms estimator in gstudy.
 See \code{\link[brms:mvbind]{brms::mvbind()}} for full documentation.
 }

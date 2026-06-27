@@ -9,7 +9,7 @@ extract_variance_draws_from_gstudy(gstudy_obj, n_draws = 1000)
 \arguments{
 \item{gstudy_obj}{A gstudy object}
 
-\item{n_draws}{Number of pseudo-draws to generate for mom backend}
+\item{n_draws}{Number of pseudo-draws to generate for aov estimator}
 }
 \description{
 Extract Variance Draws from G-Study for Viable Recalculation

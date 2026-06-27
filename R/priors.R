@@ -1,7 +1,7 @@
 #' Prior Wrapper Functions for brms
 #'
 #' These functions are wrappers around brms prior functions to allow
-#' specifying priors for Bayesian models fit via the brms backend in gstudy.
+#' specifying priors for Bayesian models fit via the brms estimator in gstudy.
 #'
 #' @name prior-functions
 NULL
@@ -9,7 +9,7 @@ NULL
 #' Define Priors for brms Models
 #'
 #' This function is a wrapper around [brms::set_prior()] to allow
-#' specifying priors for Bayesian models fit via the brms backend in gstudy.
+#' specifying priors for Bayesian models fit via the brms estimator in gstudy.
 #' See [brms::set_prior()] for full documentation on parameter specifications.
 #'
 #' @param prior A character string defining a distribution in Stan language.
@@ -44,7 +44,7 @@ NULL
 #' g <- gstudy(score ~ (1 | person) + (1 | item),
 #'   data = mydata,
 #'   prior = prior,
-#'   backend = "brms",
+#'   estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000
 #' )
 #' }
@@ -119,7 +119,7 @@ default_prior <- function(object, ...) {
 #' @examples
 #' \dontrun{
 #' prior <- prior(normal(0, 1), class = sd)
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 prior <- function(prior, ...) {
@@ -148,7 +148,7 @@ prior <- function(prior, ...) {
 #' @examples
 #' \dontrun{
 #' prior <- prior_(~ normal(0, 1), class = "sd")
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 prior_ <- function(prior, ...) {
@@ -177,7 +177,7 @@ prior_ <- function(prior, ...) {
 #' @examples
 #' \dontrun{
 #' prior <- prior_string("normal(0, 1)", class = "sd", group = "person")
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, backend = "brms",
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = prior, estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 prior_string <- function(prior, ...) {
@@ -205,7 +205,7 @@ prior_string <- function(prior, ...) {
 #' # Start with empty prior and add custom priors
 #' my_prior <- empty_prior()
 #' my_prior <- rbind(my_prior, set_prior("normal(0, 1)", class = "sd", group = "person"))
-#' g <- gstudy(score ~ (1 | person), data = mydata, prior = my_prior, backend = "brms",
+#' g <- gstudy(score ~ (1 | person), data = mydata, prior = my_prior, estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000)
 #' }
 empty_prior <- function() {

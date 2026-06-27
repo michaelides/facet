@@ -1,12 +1,12 @@
-# Convert Formula to Backend-Specific Format
+# Convert Formula to Estimator-Specific Format
 
-Converts a G-study formula to the format required by a specific backend.
-For lme4, this removes any brms-specific syntax.
+Converts a G-study formula to the format required by a specific
+estimator. For lme4, this removes any brms-specific syntax.
 
 ## Usage
 
 ``` r
-convert_formula(formula, backend)
+convert_formula(formula, estimator)
 ```
 
 ## Arguments
@@ -15,10 +15,10 @@ convert_formula(formula, backend)
 
   A formula object.
 
-- backend:
+- estimator:
 
-  Character string indicating the target backend.
+  Character string indicating the target estimator.
 
 ## Value
 
-A formula object in the backend-specific format.
+A formula object in the estimator-specific format.

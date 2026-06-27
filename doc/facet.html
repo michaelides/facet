@@ -396,7 +396,7 @@ cell.</p>
 <span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt; Generalizability Study (G Study)</span></span>
 <span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; ================================</span></span>
 <span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; Backend: lme4 </span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; Estimator: lme4 </span></span>
 <span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) </span></span>
 <span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; Number of observations: 120 </span></span>
 <span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; Multivariate: No </span></span>
@@ -471,7 +471,7 @@ impacts reliability.</p>
 <span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; Decision Study (D-Study)</span></span>
 <span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; ========================</span></span>
 <span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; Based on G Study with lme4 backend</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; Based on G Study with lme4 estimator</span></span>
 <span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; Object of measurement: Person </span></span>
 <span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; Universe components: Person </span></span>
 <span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) </span></span>
@@ -513,7 +513,7 @@ that achieves the reliability you need.</p>
 <code>vignette(&quot;introduction&quot;)</code>, which covers:</p>
 <ul>
 <li>Historical foundations of generalizability theory</li>
-<li>All three estimation backends (MOM, REML, Bayesian)</li>
+<li>All three estimation estimators (aov, REML, Bayesian)</li>
 <li>Univariate and multivariate G-studies and D-studies</li>
 <li>Value Added Ratios and composite score optimization</li>
 <li>Advanced topics, reporting guidelines, and exercises</li>

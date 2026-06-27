@@ -226,11 +226,11 @@ parse_g_formula <- function(formula) {
 #' have a response variable and at least one random effect term.
 #'
 #' @param formula A formula object.
-#' @param backend Character string indicating the backend to use ("auto", "lme4", "brms", or "mom").
+#' @param estimator Character string indicating the estimator to use ("auto", "lme4", "brms", or "aov").
 #' @return TRUE if valid, otherwise raises an error.
 #'
 #' @keywords internal
-validate_formula <- function(formula, backend = "auto") {
+validate_formula <- function(formula, estimator = "auto") {
   valid_classes <- c("formula", "brmsformula", "mvbrmsformula", "bform")
   if (!any(sapply(valid_classes, function(cls) inherits(formula, cls)))) {
     stop("formula must be a formula or brmsformula object", call. = FALSE)
@@ -251,10 +251,10 @@ validate_formula <- function(formula, backend = "auto") {
   }
 
   is_mv <- is_multivariate(formula)
-  if (is_mv && backend == "lme4") {
+  if (is_mv && estimator == "lme4") {
     stop(
-      "Multivariate formulas (containing mvbind or set_rescor) require brms backend.\n",
-      "Use: backend = 'brms'",
+      "Multivariate formulas (containing mvbind or set_rescor) require brms estimator.\n",
+      "Use: estimator = 'brms'",
       call. = FALSE
     )
   }
@@ -293,18 +293,18 @@ detect_facets <- function(formula, data = NULL) {
   facets
 }
 
-#' Convert Formula to Backend-Specific Format
+#' Convert Formula to Estimator-Specific Format
 #'
-#' Converts a G-study formula to the format required by a specific backend.
+#' Converts a G-study formula to the format required by a specific estimator.
 #' For lme4, this removes any brms-specific syntax.
 #'
 #' @param formula A formula object.
-#' @param backend Character string indicating the target backend.
-#' @return A formula object in the backend-specific format.
+#' @param estimator Character string indicating the target estimator.
+#' @return A formula object in the estimator-specific format.
 #'
 #' @keywords internal
-convert_formula <- function(formula, backend) {
-  if (backend == "lme4") {
+convert_formula <- function(formula, estimator) {
+  if (estimator == "lme4") {
     # Check if formula is a brmsformula
     if (inherits(formula, "brmsformula")) {
       # Extract the base formula
@@ -315,7 +315,7 @@ convert_formula <- function(formula, backend) {
     if (is_multivariate(formula)) {
       warning(
         "Multivariate formulas cannot be converted to lme4 format. ",
-        "Using brms backend instead.",
+        "Using brms estimator instead.",
         call. = FALSE
       )
     }
@@ -592,8 +592,8 @@ parse_residual_facets <- function(formula, data = NULL) {
   paste(residual_facets, collapse = ":")
 }
 
-validate_interaction_levels <- function(formula, data, backend = "lme4") {
-  if (backend != "lme4") {
+validate_interaction_levels <- function(formula, data, estimator = "lme4") {
+  if (estimator != "lme4") {
     return(invisible(NULL))
   }
 
@@ -642,7 +642,7 @@ validate_interaction_levels <- function(formula, data, backend = "lme4") {
       "Solutions:\n",
       " 1. Remove the problematic interaction term from your model\n",
       " 2. Use method = \"mom\" for ANOVA-based estimation which handles this differently\n",
-      " 3. Use backend = \"brms\" for Bayesian estimation\n\n",
+      " 3. Use estimator = \"brms\" for Bayesian estimation\n\n",
       "Note: In a fully crossed design where all facets are crossed with each other, ",
       "the highest-order interaction is typically confounded with the residual and should not be included.",
       call. = FALSE

@@ -78,7 +78,7 @@ print(d_obj)
 For comprehensive documentation, see `vignette("introduction")`, which covers:
 
 - Historical foundations of generalizability theory
-- All three estimation backends (MOM, REML, Bayesian)
+- All three estimation estimators (aov, REML, Bayesian)
 - Univariate and multivariate G-studies and D-studies
 - Value Added Ratios and composite score optimization
 - Advanced topics, reporting guidelines, and exercises

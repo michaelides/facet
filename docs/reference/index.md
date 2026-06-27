@@ -8,6 +8,8 @@
   : Extract Variance-Covariance Matrices from gstudy Objects
 - [`alpha_example`](https://github.com/yourorg/facet/reference/alpha_example.md)
   : Example Dataset for Cronbach's Alpha
+- [`aovfit`](https://github.com/yourorg/facet/reference/aovfit.md) :
+  ANOVA-based Estimation Fit Object
 - [`bf()`](https://github.com/yourorg/facet/reference/bf.md) : Set up
   brms formulas
 - [`brennan`](https://github.com/yourorg/facet/reference/brennan.md) :
@@ -22,10 +24,10 @@
   : Create an Empty Prior Object
 - [`extract_draws.gstudy()`](https://github.com/yourorg/facet/reference/extract_draws.gstudy.md)
   : Extract Draws from gstudy Objects
-- [`extract_vc_mom()`](https://github.com/yourorg/facet/reference/extract_vc_mom.md)
-  : Extract Variance Components from Method of Moments Fit
-- [`fit_mom()`](https://github.com/yourorg/facet/reference/fit_mom.md) :
-  Fit a Model Using Method of Moments
+- [`extract_vc_aov()`](https://github.com/yourorg/facet/reference/extract_vc_aov.md)
+  : Extract Variance Components from ANOVA-based Estimation Fit
+- [`fit_aov()`](https://github.com/yourorg/facet/reference/fit_aov.md) :
+  Fit a Model Using ANOVA-based Estimation
 - [`glance(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/glance.dstudy.md)
   : Glance Method for dstudy Objects
 - [`glance(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/glance.gstudy.md)
@@ -45,8 +47,6 @@
   Extract Latent Scores from G-Study Objects
 - [`mgt-methods`](https://github.com/yourorg/facet/reference/mgt-methods.md)
   : S3 Methods for mgt Classes
-- [`momfit`](https://github.com/yourorg/facet/reference/momfit.md) :
-  Method of Moments Fit Object
 - [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md) :
   Bind response variables for multivariate models
 - [`pairs(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/pairs.gstudy.md)
@@ -89,14 +89,14 @@
   : Simulate Data for Generalizability Theory Analysis
 - [`simulate_gtheory_legacy()`](https://github.com/yourorg/facet/reference/simulate_gtheory_legacy.md)
   : Simulate Data with Individual SD Parameters (Legacy Style)
+- [`summary(`*`<aovfit>`*`)`](https://github.com/yourorg/facet/reference/summary.aovfit.md)
+  : Summary Method for aovfit Objects
 - [`summary(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/summary.dstudy.md)
   : Summary Method for dstudy Objects
 - [`summary(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/summary.gstudy.md)
   : Summary Method for gstudy Objects
 - [`summary(`*`<mgstudy>`*`)`](https://github.com/yourorg/facet/reference/summary.mgstudy.md)
   : Summary Method for mgstudy Objects
-- [`summary(`*`<momfit>`*`)`](https://github.com/yourorg/facet/reference/summary.momfit.md)
-  : Summary Method for momfit Objects
 - [`tidy(`*`<dstudy>`*`)`](https://github.com/yourorg/facet/reference/tidy.dstudy.md)
   : Tidy Method for dstudy Objects
 - [`tidy(`*`<gstudy>`*`)`](https://github.com/yourorg/facet/reference/tidy.gstudy.md)

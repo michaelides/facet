@@ -2,7 +2,7 @@
 
 Estimate variance components for a generalizability theory analysis
 using mixed effects models. Supports frequentist (lme4), Bayesian
-(brms), and method of moments (mom) backends.
+(brms), and method of moments (aov) estimators.
 
 ## Usage
 
@@ -10,7 +10,7 @@ using mixed effects models. Supports frequentist (lme4), Bayesian
 gstudy(
   formula,
   data,
-  backend = c("auto", "lme4", "brms", "mom"),
+  estimator = c("auto", "lme4", "brms", "aov"),
   facets = NULL,
   nested = NULL,
   unbalanced = FALSE,
@@ -36,11 +36,11 @@ gstudy(
 
   A data frame containing the variables in the formula.
 
-- backend:
+- estimator:
 
-  Character string specifying the backend to use. One of "auto"
-  (default, chooses based on formula type), "lme4", "brms", or "mom".
-  "mom" uses the method of moments (ANOVA-based) for variance component
+  Character string specifying the estimator to use. One of "auto"
+  (default, chooses based on formula type), "lme4", "brms", or "aov".
+  "aov" uses the method of moments (ANOVA-based) for variance component
   estimation.
 
 - facets:
@@ -54,37 +54,37 @@ gstudy(
   facets and values are nesting facets. For example,
   `list(task = "rater")` means task is nested within rater. If NULL
   (default), nesting is auto-detected from the data structure. For the
-  mom backend, this is used by
-  [`adapt_mom_aov_formula()`](https://github.com/yourorg/facet/reference/adapt_mom_aov_formula.md)
+  aov estimator, this is used by
+  [`adapt_aov_formula()`](https://github.com/yourorg/facet/reference/adapt_aov_formula.md)
   to rewrite the aov Error() decomposition so designs with nested facets
   (e.g. the brennan dataset, where Rater is nested within Task) fit
   without spurious "Error() model is singular" warnings from
   [`stats::aov()`](https://rdrr.io/r/stats/aov.html). The lme4 and brms
-  backends do not require this adaptation.
+  estimators do not require this adaptation.
 
 - unbalanced:
 
   Logical indicating whether to enable unbalanced multivariate
   estimation. Default is FALSE. When TRUE:
 
-  - For **mom backend**: Each dimension is analyzed with its available
+  - For **aov estimator**: Each dimension is analyzed with its available
     data using Henderson's Method III for variance component estimation.
     Correlations are computed using pairwise complete cases.
 
-  - For **brms backend**: Not implemented. Use long-format specification
-    with
+  - For **brms estimator**: Not implemented. Use long-format
+    specification with
     `bf(Score ~ 0 + Dimension + (0+Dimension|Facet), sigma ~ 0 + Dimension)`
     for sparse multivariate data.
 
-  - For **lme4 backend**: Not applicable (lme4 does not support
+  - For **lme4 estimator**: Not applicable (lme4 does not support
     multivariate models).
 
 - ci_method:
 
   Character string specifying the method for confidence intervals for
-  the lme4 backend. One of "none" (default, no CIs), "profile" (more
+  the lme4 estimator. One of "none" (default, no CIs), "profile" (more
   accurate, slower), or "boot" (bootstrap, most accurate, slowest). Only
-  applicable for lme4 backend; brms and mom provide CIs automatically.
+  applicable for lme4 estimator; brms and mom provide CIs automatically.
 
 - nsim:
 
@@ -100,13 +100,13 @@ gstudy(
 
   A brmsprior object or list of priors created by
   [`set_prior()`](https://github.com/yourorg/facet/reference/set_prior.md)
-  or related functions. Only applicable when using brms backend. Use
+  or related functions. Only applicable when using brms estimator. Use
   [`default_prior()`](https://github.com/yourorg/facet/reference/default_prior.md)
   to see available parameters for priors.
 
 - ...:
 
-  Additional arguments passed to the backend fitting function (e.g.,
+  Additional arguments passed to the estimator fitting function (e.g.,
   `lmer()` or `brm()`) and to `confint.merMod` for confidence intervals.
 
 ## Value
@@ -115,7 +115,7 @@ An object of class "gstudy" containing:
 
 - model:
 
-  The fitted model object from the backend
+  The fitted model object from the estimator
 
 - variance_components:
 
@@ -134,9 +134,9 @@ An object of class "gstudy" containing:
   Comprehensive sample size information including main effects,
   interactions, residual, and nested effects
 
-- backend:
+- estimator:
 
-  The backend used for fitting
+  The estimator used for fitting
 
 - is_multivariate:
 
@@ -206,7 +206,7 @@ g_prof <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
 g_mom <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
 data = brennan,
-backend = "mom"
+estimator = "aov"
 )
 
 # \donttest{
@@ -214,26 +214,12 @@ backend = "mom"
 g_bayes <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
   data = brennan,
-  backend = "brms",
+  estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 #> Compiling Stan program...
-#> Trying to compile a simple C file
-#> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c
-#> using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
-#> using SDK: ‘MacOSX26.5.sdk’
-#> clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I"/Users/afp18axu/Library/R/arm64/4.6/library/Rcpp/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/unsupported"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/BH/include" -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/src/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppParallel/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -c foo.c -o foo.o
-#> In file included from <built-in>:1:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Dense:1:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Core:19:
-#> /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found
-#>   679 | #include <cmath>
-#>       |          ^~~~~~~
-#> 1 error generated.
-#> make: *** [foo.o] Error 1
 #> Start sampling
-#> Warning: There were 13 divergent transitions after warmup. See
+#> Warning: There were 32 divergent transitions after warmup. See
 #> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #> to find out why this is a problem and how to eliminate them.
 #> Warning: Examine the pairs() plot to diagnose sampling problems
@@ -244,32 +230,16 @@ g_bayes_prior <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
   data = brennan,
   prior = my_prior,
-  backend = "brms",
+  estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 #> Compiling Stan program...
-#> Trying to compile a simple C file
-#> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c
-#> using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
-#> using SDK: ‘MacOSX26.5.sdk’
-#> clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I"/Users/afp18axu/Library/R/arm64/4.6/library/Rcpp/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/unsupported"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/BH/include" -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/src/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppParallel/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -c foo.c -o foo.o
-#> In file included from <built-in>:1:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Dense:1:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Core:19:
-#> /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found
-#>   679 | #include <cmath>
-#>       |          ^~~~~~~
-#> 1 error generated.
-#> make: *** [foo.o] Error 1
 #> Start sampling
-#> Warning: There were 33 divergent transitions after warmup. See
+#>  
+#> Warning: There were 13 divergent transitions after warmup. See
 #> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #> to find out why this is a problem and how to eliminate them.
 #> Warning: Examine the pairs() plot to diagnose sampling problems
-#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
-#> Running the chains for more iterations may help. See
-#> https://mc-stan.org/misc/warnings.html#tail-ess
 
 # Multivariate G-study (automatically uses brms)
 # Formatting data for multivariate example

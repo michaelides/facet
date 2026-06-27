@@ -50,9 +50,9 @@ validate_dstudy_inputs <- function(gstudy_obj, weights = NULL) {
 
 #' Resolve Estimation Method
 #'
-#' Determines the appropriate estimation method based on the backend.
-#' Warns and refits if posterior requested with non-brms backend.
-#' Warns and overrides if simple requested with brms backend.
+#' Determines the appropriate estimation method based on the estimator.
+#' Warns and refits if posterior requested with non-brms estimator.
+#' Warns and overrides if simple requested with brms estimator.
 #'
 #' @param gstudy_obj A gstudy or mgstudy object
 #' @param estimation Requested estimation method (NULL, "simple", or "posterior")
@@ -62,7 +62,7 @@ resolve_estimation_method <- function(gstudy_obj, estimation = NULL) {
   check_estimation_issues(gstudy_obj)
 
   if (is.null(estimation)) {
-    if (gstudy_obj$backend == "brms") {
+    if (gstudy_obj$estimator == "brms") {
       estimation <- "posterior"
     } else {
       estimation <- "simple"
@@ -71,22 +71,22 @@ resolve_estimation_method <- function(gstudy_obj, estimation = NULL) {
     estimation <- match.arg(estimation, c("simple", "posterior"))
   }
 
-  if (estimation == "posterior" && gstudy_obj$backend != "brms") {
+  if (estimation == "posterior" && gstudy_obj$estimator != "brms") {
     warning(
-      "estimation = 'posterior' requires backend = 'brms'. ",
-      "Refitting gstudy model with backend = 'brms'.",
+      "estimation = 'posterior' requires estimator = 'brms'. ",
+      "Refitting gstudy model with estimator = 'brms'.",
       call. = FALSE
     )
     gstudy_obj <- gstudy(
       formula = gstudy_obj$formula,
       data = gstudy_obj$data,
-      backend = "brms"
+      estimator = "brms"
     )
   }
 
-  if (estimation == "simple" && gstudy_obj$backend == "brms") {
+  if (estimation == "simple" && gstudy_obj$estimator == "brms") {
     warning(
-      "estimation = 'simple' is not recommended for brms backend. ",
+      "estimation = 'simple' is not recommended for brms estimator. ",
       "The variance estimates displayed in the variance components table ",
       "are computed from squared posterior draws (mean(SD^2)), which properly ",
       "accounts for uncertainty. Using estimation = 'posterior' ensures ",
@@ -105,7 +105,7 @@ resolve_estimation_method <- function(gstudy_obj, estimation = NULL) {
 #' Validate Cut Score and Credible Interval Parameters
 #'
 #' Extracts grand mean if cut_score provided, validates ci parameter
-#' against backend, validates probs, and warns if phi-cut CI requested
+#' against estimator, validates probs, and warns if phi-cut CI requested
 #' without cut_score.
 #'
 #' @param gstudy_obj A gstudy or mgstudy object
@@ -123,10 +123,10 @@ validate_cut_score_ci <- function(gstudy_obj, cut_score = NULL, ci = NULL,
 
   if (!is.null(ci)) {
     ci <- match.arg(ci, c("g", "phi", "phi-cut"), several.ok = TRUE)
-    if (gstudy_obj$backend != "brms") {
+    if (gstudy_obj$estimator != "brms") {
       warning(
-        "Credible intervals for 'mom' and 'lme4' backends are not yet implemented. ",
-        "Consider using backend = 'brms' for uncertainty quantification.",
+        "Credible intervals for 'aov' and 'lme4' estimators are not yet implemented. ",
+        "Consider using estimator = 'brms' for uncertainty quantification.",
         call. = FALSE
       )
       ci <- NULL

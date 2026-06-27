@@ -25,7 +25,7 @@ calculate_coefficients_posterior(
 )
 }
 \arguments{
-\item{gstudy_obj}{A gstudy object fitted with backend = "brms".}
+\item{gstudy_obj}{A gstudy object fitted with estimator = "brms".}
 
 \item{n}{Named list of sample sizes for each facet.}
 

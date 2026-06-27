@@ -16,5 +16,5 @@ The result of pairs.brmsfit.
 }
 \description{
 Wrapper for pairs.brmsfit to visualize parameter pairs from a gstudy
-object that was fit with the brms backend.
+object that was fit with the brms estimator.
 }

@@ -144,7 +144,7 @@ test_that("detect_facets returns unique facets", {
 # convert_formula tests
 # =============================================================================
 
-test_that("convert_formula returns a formula for lme4 backend", {
+test_that("convert_formula returns a formula for lme4 estimator", {
   f <- score ~ (1 | person)
   result <- convert_formula(f, "lme4")
   expect_s3_class(result, "formula")
@@ -156,7 +156,7 @@ test_that("convert_formula preserves formula structure for lme4", {
   expect_equal(result, f)
 })
 
-test_that("convert_formula handles brms backend", {
+test_that("convert_formula handles brms estimator", {
   f <- score ~ (1 | person)
   result <- convert_formula(f, "brms")
   expect_s3_class(result, "formula")
@@ -356,7 +356,7 @@ test_that("validate_interaction_levels errors when interaction has same levels a
   )
 })
 
-test_that("validate_interaction_levels does not error for non-lme4 backends", {
+test_that("validate_interaction_levels does not error for non-lme4 estimators", {
   data <- data.frame(
     score = rnorm(20),
     person = factor(rep(1:10, 2)),

@@ -18,33 +18,33 @@ test_that("gstudy returns a gstudy object", {
   expect_s3_class(result, "gstudy")
 })
 
-test_that("gstudy validates backend argument", {
+test_that("gstudy validates estimator argument", {
   expect_error(
-    gstudy(score ~ (1 | person), data = test_data, backend = "invalid"),
+    gstudy(score ~ (1 | person), data = test_data, estimator = "invalid"),
     "should be one of"
   )
 })
 
-test_that("gstudy works with lme4 backend", {
+test_that("gstudy works with lme4 estimator", {
   skip_if_not_installed("lme4")
   result <- gstudy(
     score ~ (1 | person) + (1 | rater), 
     data = test_data, 
-    backend = "lme4"
+    estimator = "lme4"
   )
   expect_s3_class(result, "gstudy")
-  expect_equal(result$backend, "lme4")
+  expect_equal(result$estimator, "lme4")
 })
 
-test_that("gstudy works with auto backend selection", {
+test_that("gstudy works with auto estimator selection", {
   skip_if_not_installed("lme4")
   result <- gstudy(
     score ~ (1 | person) + (1 | rater), 
     data = test_data, 
-    backend = "auto"
+    estimator = "auto"
   )
   expect_s3_class(result, "gstudy")
-  expect_true(result$backend %in% c("lme4", "brms"))
+  expect_true(result$estimator %in% c("lme4", "brms"))
 })
 
 # =============================================================================
@@ -97,10 +97,10 @@ test_that("gstudy stores number of observations", {
   expect_equal(result$n_obs, nrow(test_data))
 })
 
-test_that("gstudy stores backend used", {
+test_that("gstudy stores estimator used", {
   skip_if_not_installed("lme4")
-  result <- gstudy(score ~ (1 | person), data = test_data, backend = "lme4")
-  expect_equal(result$backend, "lme4")
+  result <- gstudy(score ~ (1 | person), data = test_data, estimator = "lme4")
+  expect_equal(result$estimator, "lme4")
 })
 
 test_that("gstudy stores is_multivariate flag", {
@@ -121,13 +121,13 @@ expect_equal(result$object, "person")
 
 test_that("gstudy correctly identifies object of measurement with double-bar syntax", {
 skip_if_not_installed("brms")
-result <- gstudy(score ~ (1 | cor_p | person) + (1 | rater), data = test_data, backend = "brms")
+result <- gstudy(score ~ (1 | cor_p | person) + (1 | rater), data = test_data, estimator = "brms")
 expect_equal(result$object, "person")
 })
 
 test_that("gstudy extracts correct facets with double-bar syntax", {
 skip_if_not_installed("brms")
-result <- gstudy(score ~ (1 | cor_p | person) + (1 | rater), data = test_data, backend = "brms")
+result <- gstudy(score ~ (1 | cor_p | person) + (1 | rater), data = test_data, estimator = "brms")
 expect_true("person" %in% result$facets)
 expect_true("rater" %in% result$facets)
 expect_false("cor_p" %in% result$facets)
@@ -167,22 +167,22 @@ test_that("is.gstudy returns FALSE for non-gstudy objects", {
 # VarCorr.gstudy tests
 # =============================================================================
 
-test_that("VarCorr.gstudy works with lme4 backend", {
+test_that("VarCorr.gstudy works with lme4 estimator", {
   skip_if_not_installed("lme4")
-  result <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "lme4")
+  result <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "lme4")
   vc <- VarCorr.gstudy(result)
   expect_type(vc, "list")
   expect_true("person" %in% vc$Name[vc$Name != ""])
 })
 
-test_that("VarCorr.gstudy works with univariate brms backend", {
+test_that("VarCorr.gstudy works with univariate brms estimator", {
   skip_if_not_installed("brms")
-  result <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", chains = 1, iter = 500)
+  result <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", chains = 1, iter = 500)
   vc <- VarCorr.gstudy(result)
   expect_type(vc, "list")
 })
 
-test_that("VarCorr.gstudy works with multivariate brms backend", {
+test_that("VarCorr.gstudy works with multivariate brms estimator", {
   skip_if_not_installed("brms")
   test_data_mv <- data.frame(
     score1 = rnorm(100),
@@ -191,7 +191,7 @@ test_that("VarCorr.gstudy works with multivariate brms backend", {
     item = factor(rep(1:10, each = 10))
   )
   result <- gstudy(mvbind(score1, score2) ~ (1 | person) + (1 | item), 
-                   data = test_data_mv, backend = "brms", chains = 1, iter = 500)
+                   data = test_data_mv, estimator = "brms", chains = 1, iter = 500)
   vc <- VarCorr.gstudy(result)
   expect_type(vc, "list")
   expect_true(length(vc) == 2)
@@ -203,9 +203,9 @@ test_that("VarCorr.gstudy fails with non-gstudy object", {
   expect_error(VarCorr.gstudy("not a gstudy"), "must be a gstudy object")
 })
 
-test_that("VarCorr.gstudy works with univariate mom backend", {
+test_that("VarCorr.gstudy works with univariate aov estimator", {
   result <- gstudy(score ~ (1 | person) + (1 | item), 
-                   data = test_data, backend = "mom")
+                   data = test_data, estimator = "aov")
   vc <- VarCorr.gstudy(result)
   expect_s3_class(vc, "data.frame")
   expect_true("person" %in% vc$Group)
@@ -215,7 +215,7 @@ test_that("VarCorr.gstudy works with univariate mom backend", {
   expect_true("Var." %in% names(vc))
 })
 
-test_that("VarCorr.gstudy works with multivariate mom backend", {
+test_that("VarCorr.gstudy works with multivariate aov estimator", {
   test_data_mv <- data.frame(
     score1 = rnorm(100),
     score2 = rnorm(100),
@@ -223,7 +223,7 @@ test_that("VarCorr.gstudy works with multivariate mom backend", {
     item = factor(rep(1:10, each = 10))
   )
   result <- gstudy(mvbind(score1, score2) ~ (1 | person) + (1 | item), 
-                   data = test_data_mv, backend = "mom")
+                   data = test_data_mv, estimator = "aov")
   vc <- VarCorr.gstudy(result)
   expect_type(vc, "list")
   expect_true("score1" %in% names(vc))
@@ -237,9 +237,9 @@ test_that("VarCorr.gstudy works with multivariate mom backend", {
 # ranef.gstudy tests
 # =============================================================================
 
-test_that("ranef.gstudy works with univariate mom backend", {
+test_that("ranef.gstudy works with univariate aov estimator", {
   result <- gstudy(score ~ (1 | person) + (1 | item), 
-                   data = test_data, backend = "mom")
+                   data = test_data, estimator = "aov")
   re <- ranef.gstudy(result)
   expect_type(re, "list")
   expect_true("person" %in% names(re))
@@ -248,7 +248,7 @@ test_that("ranef.gstudy works with univariate mom backend", {
   expect_type(re[["person"]], "double")
 })
 
-test_that("ranef.gstudy works with multivariate mom backend", {
+test_that("ranef.gstudy works with multivariate aov estimator", {
   test_data_mv <- data.frame(
     score1 = rnorm(100),
     score2 = rnorm(100),
@@ -256,7 +256,7 @@ test_that("ranef.gstudy works with multivariate mom backend", {
     item = factor(rep(1:10, each = 10))
   )
   result <- gstudy(mvbind(score1, score2) ~ (1 | person) + (1 | item),
-    data = test_data_mv, backend = "mom")
+    data = test_data_mv, estimator = "aov")
   re <- ranef.gstudy(result)
   expect_type(re, "list")
   expect_true("score1" %in% names(re))
@@ -296,7 +296,7 @@ expect_true(detection$is_long)
 # Unbalanced multivariate tests
 # =============================================================================
 
-test_that("unbalanced = TRUE with mom backend works for multivariate", {
+test_that("unbalanced = TRUE with aov estimator works for multivariate", {
   skip_if_not_installed("brms")
   
   # Create test data with unbalanced design
@@ -314,7 +314,7 @@ test_that("unbalanced = TRUE with mom backend works for multivariate", {
   
   # Should NOT warn when unbalanced = TRUE
   expect_no_warning(
-    result <- gstudy(formula, test_data, backend = "mom", unbalanced = TRUE)
+    result <- gstudy(formula, test_data, estimator = "aov", unbalanced = TRUE)
   )
   
   expect_s3_class(result, "mgstudy")
@@ -326,12 +326,12 @@ test_that("unbalanced = TRUE warns for univariate models", {
   skip_if_not_installed("lme4")
   
   expect_warning(
-    gstudy(score ~ (1 | person), data = test_data, backend = "mom", unbalanced = TRUE),
+    gstudy(score ~ (1 | person), data = test_data, estimator = "aov", unbalanced = TRUE),
     "only applicable to multivariate"
   )
 })
 
-test_that("unbalanced = TRUE warns for brms backend", {
+test_that("unbalanced = TRUE warns for brms estimator", {
   skip_if_not_installed("brms")
   
   test_data <- data.frame(
@@ -342,7 +342,7 @@ test_that("unbalanced = TRUE warns for brms backend", {
   
   expect_warning(
     gstudy(brms::mvbind(y1, y2) ~ (1 | person), data = test_data, 
-           backend = "brms", unbalanced = TRUE),
+           estimator = "brms", unbalanced = TRUE),
     "not implemented for brms"
   )
 })
@@ -358,7 +358,7 @@ test_that("unbalanced = TRUE errors for lme4 multivariate", {
   
   expect_error(
     gstudy(brms::mvbind(y1, y2) ~ (1 | person), data = test_data,
-           backend = "lme4", unbalanced = TRUE),
+           estimator = "lme4", unbalanced = TRUE),
     "Multivariate models are not supported by lme4"
   )
 })
@@ -390,7 +390,7 @@ test_that("check_multivariate_balance respects unbalanced flag", {
   expect_true(grepl("Henderson", result2$info_message))
 })
 
-test_that("fit_mom_multivariate_unbalanced returns correct structure", {
+test_that("fit_aov_multivariate_unbalanced returns correct structure", {
   skip_if_not_installed("brms")
   
   test_data <- data.frame(
@@ -405,9 +405,9 @@ test_that("fit_mom_multivariate_unbalanced returns correct structure", {
   
   formula <- brms::mvbind(y1, y2) ~ (1 | person) + (1 | rater)
   
-  result <- fit_mom(formula, test_data, unbalanced = TRUE)
+  result <- fit_aov(formula, test_data, unbalanced = TRUE)
   
-  expect_s3_class(result, "momfit")
+  expect_s3_class(result, "aovfit")
   expect_true(result$is_unbalanced)
   expect_true(!is.null(result$n_per_dim))
   expect_true(!is.null(result$variance_components))

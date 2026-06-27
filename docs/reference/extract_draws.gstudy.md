@@ -1,7 +1,7 @@
 # Extract Draws from gstudy Objects
 
 Extract posterior draws from a gstudy object that was fit with the brms
-backend. This is a wrapper around brms::as_draws_matrix.
+estimator. This is a wrapper around brms::as_draws_matrix.
 
 ## Usage
 

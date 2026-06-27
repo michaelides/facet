@@ -1,6 +1,6 @@
 #' Estimation Issue Detection Functions
 #'
-#' Functions to detect estimation issues from different backends (lme4, mom, brms)
+#' Functions to detect estimation issues from different estimators (lme4, mom, brms)
 #' and issue appropriate warnings in dstudy.
 #'
 #' @name estimation-warnings
@@ -42,18 +42,18 @@ detect_lme4_issues <- function(model) {
   issues
 }
 
-#' Detect Method of Moments Estimation Issues
+#' Detect ANOVA-based Estimation Estimation Issues
 #'
 #' Checks for truncated variance estimates (when MS < residual MS, indicating
 #' negative variance estimates that were truncated to zero).
 #'
-#' @param model A momfit object from fit_mom().
+#' @param model A aovfit object from fit_aov().
 #' @return A list with components:
 #'   \item{truncated_variance}{Logical indicating if variance was truncated}
 #'   \item{truncated_components}{Character vector of components with truncated variance}
 #'
 #' @keywords internal
-detect_mom_issues <- function(model) {
+detect_aov_issues <- function(model) {
   issues <- list()
 
   # Get variance components from the model
@@ -169,9 +169,9 @@ check_estimation_issues <- function(gstudy_obj) {
     return(invisible(NULL))
   }
 
-  backend <- gstudy_obj$backend
+  estimator <- gstudy_obj$estimator
 
-  if (backend == "lme4") {
+  if (estimator == "lme4") {
     # Check convergence
     if (!is.null(issues$convergence) && isTRUE(issues$convergence)) {
       warning(
@@ -190,7 +190,7 @@ check_estimation_issues <- function(gstudy_obj) {
       )
     }
 
-  } else if (backend == "mom") {
+  } else if (estimator == "aov") {
     # Check truncated variance
     if (!is.null(issues$truncated_variance) && isTRUE(issues$truncated_variance)) {
       components_str <- paste(issues$truncated_components, collapse = ", ")
@@ -201,7 +201,7 @@ check_estimation_issues <- function(gstudy_obj) {
       )
     }
 
-  } else if (backend == "brms") {
+  } else if (estimator == "brms") {
     # Get threshold for ESS warnings
     n_chains <- 4
     if (!is.null(gstudy_obj$model$fit) && !is.null(gstudy_obj$model$fit@sim)) {

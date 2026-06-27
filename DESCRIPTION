@@ -1,13 +1,14 @@
 Package: facet
 Title: facet: framework for Generalizability Theory
-Version: 0.0.6
+Version: 0.0.8
 Authors@R: c(
     person("George", "Michaelides", email = "g.michaelides@uea.ac.uk", role = c("aut", "cre")),
     person("Duncan", "Jackson", email = "duncan.jackson@kcl.ac.uk", role = "aut")
   )
 Description: Conduct generalizability theory analyses using variance component
-    models estimated with various methods (including ANOVA method of moments,
-    REML with lme4, and NUTS with brms). Provides functions for G-studies
+    models estimated with various methods (including the aov estimator for
+    ANOVA-based estimation, also known as the method of moments;
+    REML with lme4; and NUTS with brms). Provides functions for G-studies
     (estimating variance components) and D-studies (computing generalizability
     and dependability coefficients).
 License: GPL-3
@@ -42,8 +43,8 @@ Roxygen: list(markdown = TRUE)
 Collate:
     facet-package.R
     classes.R
-    backends.R
-    backend-mom.R
+    estimators.R
+    estimator-aov.R
     brms-helpers.R
     formula-helpers.R
     coefficient-helpers.R

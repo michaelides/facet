@@ -98,16 +98,16 @@ dstudy(
   Character string specifying how to calculate coefficients:
 
   - "simple": uses point estimates from variance components (for
-    lme4/mom backends)
+    lme4/aov estimators)
 
-  - "posterior": uses full posterior distributions (for brms backend)
-    For brms backend, posterior estimation is always used to ensure
+  - "posterior": uses full posterior distributions (for brms estimator)
+    For brms estimator, posterior estimation is always used to ensure
     consistency between variance component estimates and coefficient
     calculations. This avoids Jensen's inequality bias that would occur
     if variance estimates were computed as mean(SD)^2 rather than
     mean(SD^2). When estimation = "posterior" is requested with non-brms
-    backend, a warning is issued and the gstudy model is refit with
-    backend = "brms".
+    estimator, a warning is issued and the gstudy model is refit with
+    estimator = "brms".
 
 - cut_score:
 
@@ -122,7 +122,7 @@ dstudy(
   Character vector specifying which coefficients to compute credible
   intervals for. Options: "g", "phi", "phi-cut". Can specify multiple:
   `ci = c("g", "phi")`. Credible intervals are only available when using
-  the brms backend. Default is NULL (no credible intervals computed).
+  the brms estimator. Default is NULL (no credible intervals computed).
 
 - probs:
 
@@ -291,7 +291,7 @@ The `weights` parameter controls the contribution of each dimension:
 - Custom: Provide a numeric vector with length matching the number of
   dimensions
 
-For posterior estimation with brms backend, composite coefficients are
+For posterior estimation with brms estimator, composite coefficients are
 computed for each posterior draw, properly propagating uncertainty to
 the final estimates.
 
@@ -319,7 +319,7 @@ print(d)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G Study with lme4 backend
+#> Based on G Study with lme4 estimator
 #> Object of measurement: Person 
 #> Universe components: Person 
 #> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
@@ -349,7 +349,7 @@ print(d_sweep)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G Study with lme4 backend
+#> Based on G Study with lme4 estimator
 #> Object of measurement: Person 
 #> Universe components: Person 
 #> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
@@ -380,45 +380,26 @@ d_agg <- dstudy(g, n = list(Task = 3, Rater = 4),
 )
 
 # \donttest{
-# D-study with posterior estimation (requires brms backend)
+# D-study with posterior estimation (requires brms estimator)
 g_brms <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
   (1 | Person:Task),
-  data = brennan, backend = "brms",
+  data = brennan, estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000)
 #> Compiling Stan program...
-#> Trying to compile a simple C file
-#> Running /Library/Frameworks/R.framework/Resources/bin/R CMD SHLIB foo.c
-#> using C compiler: ‘Apple clang version 21.0.0 (clang-2100.1.1.101)’
-#> using SDK: ‘MacOSX26.5.sdk’
-#> clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I"/Users/afp18axu/Library/R/arm64/4.6/library/Rcpp/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/unsupported"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/BH/include" -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/src/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/RcppParallel/include/"  -I"/Users/afp18axu/Library/R/arm64/4.6/library/rstan/include" -DEIGEN_NO_DEBUG  -DBOOST_DISABLE_ASSERTS  -DBOOST_PENDING_INTEGER_LOG2_HPP  -DSTAN_THREADS  -DUSE_STANC3 -DSTRICT_R_HEADERS  -DBOOST_PHOENIX_NO_VARIADIC_EXPRESSION  -D_HAS_AUTO_PTR_ETC=0  -include '/Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp'  -D_REENTRANT -DRCPP_PARALLEL_USE_TBB=1   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -c foo.c -o foo.o
-#> In file included from <built-in>:1:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/StanHeaders/include/stan/math/prim/fun/Eigen.hpp:22:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Dense:1:
-#> In file included from /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/Core:19:
-#> /Users/afp18axu/Library/R/arm64/4.6/library/RcppEigen/include/Eigen/src/Core/util/Macros.h:679:10: fatal error: 'cmath' file not found
-#>   679 | #include <cmath>
-#>       |          ^~~~~~~
-#> 1 error generated.
-#> make: *** [foo.o] Error 1
 #> Start sampling
-#> Warning: There were 39 divergent transitions after warmup. See
+#> Warning: There were 41 divergent transitions after warmup. See
 #> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 #> to find out why this is a problem and how to eliminate them.
 #> Warning: Examine the pairs() plot to diagnose sampling problems
-#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
-#> Running the chains for more iterations may help. See
-#> https://mc-stan.org/misc/warnings.html#tail-ess
 d_post <- dstudy(g_brms, n = list(Task = 3, Rater = 4))
-#> Warning: Low tail effective sample size (ESS < 400) detected for: Task. The g and phi coefficients cannot be trusted.
 
-# D-study with credible intervals (requires brms backend)
+# D-study with credible intervals (requires brms estimator)
 d_ci <- dstudy(g_brms, n = list(Task = 3, Rater = 4), ci = c("g", "phi"))
-#> Warning: Low tail effective sample size (ESS < 400) detected for: Task. The g and phi coefficients cannot be trusted.
 print(d_ci)
 #> Decision Study (D-Study)
 #> ========================
 #> 
-#> Based on G Study with brms backend
+#> Based on G Study with brms estimator
 #> Object of measurement: Person 
 #> Universe components: Person 
 #> Error components for relative error (sigma2_delta): Person:Task, Person:Rater (Residual) 
@@ -432,21 +413,20 @@ print(d_ci)
 #> # A tibble: 5 × 6
 #>   component   dim   var_unscaled pct_unscaled var_scaled pct_scaled
 #>   <chr>       <chr>        <dbl>        <dbl>      <dbl>      <dbl>
-#> 1 Person      Score       0.6891       9.6062     0.6891    26.9261
-#> 2 Task        Score       2.2899      31.9217     0.7633    29.8254
-#> 3 Rater       Score       0.9688      13.5053     0.2422     9.4638
-#> 4 Person:Task Score       0.6984       9.7358     0.2328     9.0965
-#> 5 Residual    Score       2.5273      35.2311     0.6318    24.6881
+#> 1 Person      Score       0.7008       9.8138     0.7008    27.3927
+#> 2 Task        Score       2.2894      32.0599     0.7631    29.8292
+#> 3 Rater       Score       0.9516      13.3259     0.2379     9.299 
+#> 4 Person:Task Score       0.6805       9.5295     0.2268     8.8664
+#> 5 Residual    Score       2.5187      35.271      0.6297    24.6126
 #> 
 #> Coefficients:
 #> # A tibble: 1 × 9
 #>     uni sigma2_delta sigma2_delta_abs     g   phi    g_LL  g_UL  phi_LL phi_UL
 #>   <dbl>        <dbl>            <dbl> <dbl> <dbl>   <dbl> <dbl>   <dbl>  <dbl>
-#> 1 0.689        0.865             1.87 0.358 0.254 0.00827 0.763 0.00391  0.655
+#> 1 0.701        0.857             1.86 0.369 0.267 0.00352 0.751 0.00186  0.660
 
 # Custom probability levels (90% credible interval)
 d_ci_90 <- dstudy(g_brms, n = list(Task = 3, Rater = 4),
   ci = "g", probs = c(0.05, 0.95))
-#> Warning: Low tail effective sample size (ESS < 400) detected for: Task. The g and phi coefficients cannot be trusted.
 # }
 ```

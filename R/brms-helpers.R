@@ -1,7 +1,7 @@
 #' Wrapper Functions for brms Formula Components
 #'
 #' These functions are wrappers around brms formula components to allow
-#' specifying complex models (like multivariate ones) via the brms backend in gstudy.
+#' specifying complex models (like multivariate ones) via the brms estimator in gstudy.
 #'
 #' @name brms-formula-helpers
 NULL
@@ -9,7 +9,7 @@ NULL
 #' Set up brms formulas
 #'
 #' This function is a wrapper around [brms::bf()] to allow specifying
-#' formulas for Bayesian models fit via the brms backend in gstudy.
+#' formulas for Bayesian models fit via the brms estimator in gstudy.
 #' See [brms::bf()] for full documentation.
 #'
 #' @param formula A formula object.
@@ -26,7 +26,7 @@ bf <- function(formula, ...) {
 #' Bind response variables for multivariate models
 #'
 #' This function is a wrapper around [brms::mvbind()] to allow specifying
-#' multivariate models via the brms backend in gstudy.
+#' multivariate models via the brms estimator in gstudy.
 #' See [brms::mvbind()] for full documentation.
 #'
 #' @param ... Unquoted names of variables to bind.
@@ -42,7 +42,7 @@ mvbind <- function(...) {
 #' Set residual correlation between response variables
 #'
 #' This function is a wrapper around [brms::set_rescor()] to allow specifying
-#' residual correlations in multivariate models fit via the brms backend.
+#' residual correlations in multivariate models fit via the brms estimator.
 #' See [brms::set_rescor()] for full documentation.
 #'
 #' @param rescor Logical; whether to estimate residual correlations.

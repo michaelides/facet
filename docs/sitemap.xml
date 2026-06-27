@@ -9,8 +9,11 @@
 <url><loc>https://github.com/yourorg/facet/index.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/VarCorr.gstudy.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/VarCorr.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/adapt_aov_formula.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/adapt_mom_aov_formula.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/alpha_example.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/aov-estimator.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/aovfit.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/apply_per_dim.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/backends.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/bf.html</loc></url>
@@ -22,6 +25,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/build_facet_name_mapping.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/build_gstudy_draws_multivariate.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/build_gstudy_draws_univariate.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/build_sample_size_info_per_dim_from_aov.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/build_sample_size_info_per_dim_from_mom.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/build_source_resid_map.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/calculate_coefficients.html</loc></url>
@@ -49,6 +53,10 @@
 <url><loc>https://github.com/yourorg/facet/reference/composite-coefficients.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_absolute_error.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_absolute_error_draws.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/compute_aov_correlations_unbalanced.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/compute_aov_multivariate_correlations.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/compute_aov_variance_components.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/compute_aov_vc_from_results.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_component_scale_factor.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_composite_error_variance.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/compute_mom_correlations_unbalanced.html</loc></url>
@@ -70,6 +78,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/compute_weighted_variance.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/convert_formula.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/default_prior.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/detect_aov_issues.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/detect_brms_issues.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/detect_crossing_patterns_from_data.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/detect_facets.html</loc></url>
@@ -81,9 +90,11 @@
 <url><loc>https://github.com/yourorg/facet/reference/dstudy.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/empty_prior.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/estimation-warnings.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/estimators.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_anova_from_aovlist.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_correlations_brms.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_covariance_draws.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/extract_covariances_aov.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_covariances_brms.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_covariances_brms_long_format.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_covariances_mom.html</loc></url>
@@ -106,6 +117,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/extract_variance_draws_from_gstudy.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_variance_matrices.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_vc.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/extract_vc_aov.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_vc_brms.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_vc_brms_long_format.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/extract_vc_lme4.html</loc></url>
@@ -113,6 +125,9 @@
 <url><loc>https://github.com/yourorg/facet/reference/facet-package.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/find_residual_item.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/find_residual_ms.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/fit_aov.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/fit_aov_multivariate.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/fit_aov_multivariate_unbalanced.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/fit_brms.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/fit_lme4.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/fit_mom.html</loc></url>
@@ -122,6 +137,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/format_nested_info.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/format_sample_size_info.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/formula-helpers.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/generate_aov_variance_and_covariance_draws.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/generate_correlated_effects.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/generate_design_structure.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/generate_mom_variance_and_covariance_draws.html</loc></url>
@@ -151,6 +167,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/mgt-classes.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/mgt-methods.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/mom-backend.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/mom-estimator.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/momfit.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/mvbind.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/needs_per_dim_vc_loop.html</loc></url>
@@ -192,6 +209,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/sample-sizes.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/scale_variance_draws.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/select_backend.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/select_estimator.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/set_prior.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/set_rescor.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/simulate_gtheory_data.html</loc></url>
@@ -202,6 +220,7 @@
 <url><loc>https://github.com/yourorg/facet/reference/summarize_cov.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/summarize_vc.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/summarize_vc_dstudy.html</loc></url>
+<url><loc>https://github.com/yourorg/facet/reference/summary.aovfit.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/summary.dstudy.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/summary.gstudy.html</loc></url>
 <url><loc>https://github.com/yourorg/facet/reference/summary.mgstudy.html</loc></url>

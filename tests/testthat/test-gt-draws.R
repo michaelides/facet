@@ -15,7 +15,7 @@ test_that("gt_draws.gstudy returns correct structure for univariate model", {
   skip_if_not_installed("brms")
 
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", refresh = 0)
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", refresh = 0)
 
   result <- gt_draws(g)
 
@@ -40,7 +40,7 @@ test_that("gt_draws.gstudy filters by components", {
   skip_if_not_installed("brms")
 
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", refresh = 0)
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", refresh = 0)
 
   result <- gt_draws(g, components = c("person", "Residual"))
 
@@ -55,7 +55,7 @@ test_that("gt_draws.dstudy extracts coefficient draws for univariate", {
   skip_if_not_installed("brms")
 
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", refresh = 0)
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", refresh = 0)
   d <- dstudy(g, n = list(item = 5), estimation = "posterior")
 
   result <- gt_draws(d, what = "coefficients")
@@ -75,7 +75,7 @@ test_that("gt_draws.dstudy coefficient means match summary", {
   skip_if_not_installed("brms")
 
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", refresh = 0)
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", refresh = 0)
   d <- dstudy(g, n = list(item = 5), estimation = "posterior")
 
   result <- gt_draws(d, what = "coefficients")
@@ -87,18 +87,18 @@ test_that("gt_draws.dstudy coefficient means match summary", {
 # Test: gt_draws.dstudy error for non-posterior
 test_that("gt_draws.dstudy errors for non-posterior estimation", {
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "lme4")
   d <- dstudy(g, n = list(item = 5), estimation = "simple")
 
   expect_error(gt_draws(d), "estimation = 'posterior'")
 })
 
 # Test: gt_draws.gstudy errors for non-brms
-test_that("gt_draws.gstudy errors for non-brms backend", {
+test_that("gt_draws.gstudy errors for non-brms estimator", {
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "lme4")
 
-  expect_error(gt_draws(g), "brms backend")
+  expect_error(gt_draws(g), "brms estimator")
 })
 
 # Test: gt_draws.gstudy variance values are positive
@@ -106,7 +106,7 @@ test_that("gt_draws.gstudy variance draws are positive", {
   skip_if_not_installed("brms")
 
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", refresh = 0)
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", refresh = 0)
 
   result <- gt_draws(g)
 
@@ -120,7 +120,7 @@ test_that("gt_draws.gstudy g and phi are between 0 and 1", {
   skip_if_not_installed("brms")
 
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", refresh = 0)
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", refresh = 0)
 
   result <- gt_draws(g)
 
@@ -133,7 +133,7 @@ test_that("gt_draws.dstudy filters by coefficients", {
   skip_if_not_installed("brms")
 
   test_data <- create_test_data()
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms", refresh = 0)
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms", refresh = 0)
   d <- dstudy(g, n = list(item = 5), estimation = "posterior")
 
   result <- gt_draws(d, what = "coefficients", coefficients = c("g", "phi"))
@@ -160,7 +160,7 @@ test_that("gt_draws.gstudy returns named list for multivariate model", {
   )
 
   g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
-              data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
+              data = rajl, estimator = "brms", cores = 4, refresh = 0, silent = 2)
 
   result <- gt_draws(g)
 
@@ -195,7 +195,7 @@ test_that("gt_draws.gstudy dims filter returns named list", {
   )
 
   g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
-              data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
+              data = rajl, estimator = "brms", cores = 4, refresh = 0, silent = 2)
 
   result <- gt_draws(g, dims = "test1")
 
@@ -220,7 +220,7 @@ test_that("gt_draws.dstudy returns named list for multivariate model", {
   )
 
   g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
-              data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
+              data = rajl, estimator = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
 
@@ -257,7 +257,7 @@ test_that("gt_draws.dstudy what = 'all' includes VAR columns merged", {
   )
 
   g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
-              data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
+              data = rajl, estimator = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
 
@@ -293,7 +293,7 @@ test_that("gt_draws.dstudy composite has correct structure", {
   )
 
   g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
-              data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
+              data = rajl, estimator = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
 
@@ -324,7 +324,7 @@ test_that("gt_draws.dstudy what = 'variance' returns gstudy draws", {
   )
 
   g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
-              data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
+              data = rajl, estimator = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
 
@@ -356,7 +356,7 @@ test_that("gt_draws.dstudy what = 'all' has no duplicate names", {
   )
 
   g <- gstudy(bf(mvbind(test1, test2, test3) ~ (1|pr|Person) + (1|ItemId)) + set_rescor(FALSE),
-              data = rajl, backend = "brms", cores = 4, refresh = 0, silent = 2)
+              data = rajl, estimator = "brms", cores = 4, refresh = 0, silent = 2)
 
   d <- dstudy(g, silent = TRUE)
 

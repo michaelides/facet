@@ -1,6 +1,6 @@
 # Extract Variance Components from a Fitted Model
 
-Generic function that dispatches to the appropriate backend-specific
+Generic function that dispatches to the appropriate estimator-specific
 extractor.
 
 ## Usage
@@ -8,7 +8,7 @@ extractor.
 ``` r
 extract_variance_components(
   model,
-  backend,
+  estimator,
   ci_method = "none",
   nsim = 1000,
   boot.type = "perc",
@@ -23,13 +23,13 @@ extract_variance_components(
 
   A fitted model object.
 
-- backend:
+- estimator:
 
-  Character string indicating the backend used.
+  Character string indicating the estimator used.
 
 - ci_method:
 
-  Character string specifying the CI method for lme4 backend. One of
+  Character string specifying the CI method for lme4 estimator. One of
   "none", "profile", or "boot". Default is "none".
 
 - nsim:
@@ -70,7 +70,7 @@ A tibble of variance components with columns:
 
   Percentage of total variance
 
-For lme4 with ci_method != "none" or brms backend, also includes:
+For lme4 with ci_method != "none" or brms estimator, also includes:
 
 - lower:
 
@@ -80,7 +80,7 @@ For lme4 with ci_method != "none" or brms backend, also includes:
 
   Upper confidence interval bound
 
-For brms backend, also includes:
+For brms estimator, also includes:
 
 - error:
 

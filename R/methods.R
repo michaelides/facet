@@ -21,7 +21,7 @@ print.gstudy <- function(x, digits = 4, scale = c("variance", "sd"), ...) {
   cat("Generalizability Study (G Study)\n")
   cat("================================\n\n")
 
-  cat("Backend:", x$backend, "\n")
+  cat("Estimator:", x$estimator, "\n")
   cat("Formula:", deparse(x$formula), "\n")
   cat("Number of observations:", x$n_obs, "\n")
   cat("Multivariate:", if (x$is_multivariate) "Yes" else "No", "\n\n")
@@ -102,8 +102,8 @@ print_correlations <- function(correlations, digits = 4, format = c("long", "mat
   if (type == "covariance" && !is.null(model)) {
     if (inherits(model, "brmsfit")) {
       covariances <- extract_covariances_brms(model)
-    } else if (inherits(model, "momfit")) {
-      covariances <- extract_covariances_mom(model)
+    } else if (inherits(model, "aovfit")) {
+      covariances <- extract_covariances_aov(model)
     } else {
       warning("Covariance extraction not supported for this model type.", call. = FALSE)
       return(invisible(NULL))
@@ -213,7 +213,7 @@ print.mgstudy <- function(x, digits = 4, scale = c("variance", "sd"),
     cat("(Long-Format - Unbalanced)\n")
     cat("=============================================\n\n")
 
-    cat("Backend:", x$backend, "\n")
+    cat("Estimator:", x$estimator, "\n")
     cat("Dimension Variable:", x$dimension_var, "\n")
     cat("Number of observations:", x$n_obs, "\n")
     cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n\n")
@@ -222,7 +222,7 @@ print.mgstudy <- function(x, digits = 4, scale = c("variance", "sd"),
     cat("(Unbalanced - Different sample sizes per dimension)\n")
     cat("=============================================\n\n")
 
-    cat("Backend:", x$backend, "\n")
+    cat("Estimator:", x$estimator, "\n")
     cat("Formula:", deparse(x$formula), "\n")
     cat("Number of observations:", x$n_obs, "\n")
     cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n")
@@ -237,7 +237,7 @@ print.mgstudy <- function(x, digits = 4, scale = c("variance", "sd"),
     cat("Multivariate Generalizability Study (MG Study)\n")
     cat("=============================================\n\n")
 
-    cat("Backend:", x$backend, "\n")
+    cat("Estimator:", x$estimator, "\n")
     cat("Formula:", deparse(x$formula), "\n")
     cat("Number of observations:", x$n_obs, "\n")
     cat("Dimensions:", paste(x$dimensions, collapse = ", "), "\n\n")
@@ -302,8 +302,8 @@ print.mgstudy <- function(x, digits = 4, scale = c("variance", "sd"),
     if (type == "covariance" && !is.null(x$model)) {
       if (inherits(x$model, "brmsfit")) {
         covariances <- extract_covariances_brms(x$model)
-      } else if (inherits(x$model, "momfit")) {
-        covariances <- extract_covariances_mom(x$model)
+      } else if (inherits(x$model, "aovfit")) {
+        covariances <- extract_covariances_aov(x$model)
       } else {
         covariances <- NULL
       }
@@ -380,7 +380,7 @@ print.dstudy <- function(x, digits = 4, scale = c("variance", "sd"), sem = FALSE
   cat("Decision Study (D-Study)\n")
   cat("========================\n\n")
 
-  cat("Based on G Study with", x$gstudy$backend, "backend\n")
+  cat("Based on G Study with", x$gstudy$estimator, "estimator\n")
   cat("Object of measurement:", x$object, "\n")
 
   # Display universe components
@@ -544,7 +544,7 @@ summary.gstudy <- function(object, scale = c("variance", "sd"), digits = 4, ...)
   cat("=== G Study Summary ===\n\n")
 
   cat("Design Information:\n")
-  cat(" Backend:", object$backend, "\n")
+  cat(" Estimator:", object$estimator, "\n")
   cat(" Formula:", deparse(object$formula), "\n")
   cat(" Observations:", object$n_obs, "\n")
   cat(" Multivariate:", if (object$is_multivariate) "Yes" else "No", "\n\n")
@@ -645,7 +645,7 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 4,
     cat("(Long-Format - Unbalanced)\n\n")
 
     cat("Design Information:\n")
-    cat(" Backend:", object$backend, "\n")
+    cat(" Estimator:", object$estimator, "\n")
     cat(" Dimension Variable:", object$dimension_var, "\n")
     cat(" Observations:", object$n_obs, "\n")
     cat(" Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
@@ -653,7 +653,7 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 4,
     cat("=== Multivariate G Study Summary ===\n\n")
 
     cat("Design Information:\n")
-    cat(" Backend:", object$backend, "\n")
+    cat(" Estimator:", object$estimator, "\n")
     cat(" Formula:", deparse(object$formula), "\n")
     cat(" Observations:", object$n_obs, "\n")
     cat(" Dimensions:", paste(object$dimensions, collapse = ", "), "\n\n")
@@ -719,8 +719,8 @@ summary.mgstudy <- function(object, scale = c("variance", "sd"), digits = 4,
     if (type == "covariance" && !is.null(object$model)) {
       if (inherits(object$model, "brmsfit")) {
         covariances <- extract_covariances_brms(object$model)
-      } else if (inherits(object$model, "momfit")) {
-        covariances <- extract_covariances_mom(object$model)
+      } else if (inherits(object$model, "aovfit")) {
+        covariances <- extract_covariances_aov(object$model)
       } else {
         covariances <- NULL
       }
@@ -1243,7 +1243,7 @@ glance.gstudy <- function(x, ...) {
   tibble::tibble(
     n_obs = x$n_obs,
     n_facets = length(x$facets),
-    backend = x$backend,
+    estimator = x$estimator,
     is_multivariate = x$is_multivariate,
     object = x$object
   )
@@ -1252,18 +1252,22 @@ glance.gstudy <- function(x, ...) {
 #' Glance Method for dstudy Objects
 #'
 #' Returns the unscaled variance component estimates from a D-study as a
-#' tibble. For univariate D-studies the result is a one-row tibble with
-#' one column per variance component, named \code{var_unscaled_<component>}.
-#' For multivariate D-studies the result is a multi-row tibble with one
-#' row per variance component and one column per dimension. Covariances
-#' are not included; "Composite" rows from posterior estimation are
-#' dropped. Numeric values are rounded to \code{digits} decimal places
-#' (default 4).
+#' tibble, together with the G and Phi reliability coefficients. For
+#' univariate D-studies the result is a one-row tibble with one column
+#' per variance component (named \code{var_unscaled_<component>}) plus
+#' scalar \code{g} and \code{phi} columns. For multivariate D-studies the
+#' result is a multi-row tibble with one row per variance component and
+#' one column per dimension, plus \code{g} and \code{phi} list-columns
+#' (each element is a named numeric vector with one value per dimension).
+#' Covariances are not included; "Composite" rows from posterior
+#' estimation are dropped. Numeric values are rounded to \code{digits}
+#' decimal places (default 4).
 #'
 #' @param x A dstudy object.
 #' @param digits Number of decimal places for rounding numeric values (default 4).
 #' @param ... Additional arguments (ignored).
-#' @return A tibble of unscaled variance component estimates.
+#' @return A tibble of unscaled variance component estimates with G and
+#'   Phi reliability coefficients.
 #' @export
 #' @rdname glance.dstudy
 glance.dstudy <- function(x, digits = 4, ...) {
@@ -1298,10 +1302,27 @@ glance.dstudy <- function(x, digits = 4, ...) {
       c <- match(vc$dim[i], names(out))
       out[[c]][r] <- round(vc[[var_col]][i], digits)
     }
+    coef <- x$coefficients
+    g_vec <- phi_vec <- stats::setNames(rep(NA_real_, length(dims)), dims)
+    if (!is.null(coef) && "g" %in% names(coef)) {
+      g_vec[as.character(coef$dim)] <- round(coef$g, digits)
+    }
+    if (!is.null(coef) && "phi" %in% names(coef)) {
+      phi_vec[as.character(coef$dim)] <- round(coef$phi, digits)
+    }
+    out$g <- list(g_vec)
+    out$phi <- list(phi_vec)
     tibble::as_tibble(out)
   } else {
     out <- as.list(round(vc[[var_col]], digits))
     names(out) <- paste0("var_unscaled_", vc$component)
+    coef <- x$coefficients
+    if (!is.null(coef) && "g" %in% names(coef)) {
+      out$g <- round(coef$g, digits)
+    }
+    if (!is.null(coef) && "phi" %in% names(coef)) {
+      out$phi <- round(coef$phi, digits)
+    }
     tibble::as_tibble(out)
   }
 }
@@ -1321,7 +1342,7 @@ glance.mgstudy <- function(x, ...) {
     n_facets = length(x$facets),
     n_dimensions = length(x$dimensions),
     dimensions = list(x$dimensions),
-    backend = x$backend,
+    estimator = x$estimator,
     is_multivariate = x$is_multivariate,
     object = x$object
   )
@@ -1343,15 +1364,15 @@ VarCorr <- function(x, ...) {
 #' Extract Variance-Covariance Matrices from gstudy Objects
 #'
 #' Extracts the variance-covariance matrices of random effects from a gstudy object.
-#' This is a wrapper that calls the appropriate VarCorr method based on the backend
+#' This is a wrapper that calls the appropriate VarCorr method based on the estimator
 #' used to fit the model.
 #'
 #' @param x A gstudy object.
 #' @param ... Additional arguments passed to the underlying VarCorr method
 #' (e.g., \code{\link[lme4:VarCorr]{lme4::VarCorr}} or
 #' \code{\link[brms:VarCorr]{brms::VarCorr}}).
-#' @return For lme4 backend, returns a list of variance-covariance matrices
-#' for each random effect term. For brms backend, returns a list with
+#' @return For lme4 estimator, returns a list of variance-covariance matrices
+#' for each random effect term. For brms estimator, returns a list with
 #' posterior summaries.
 #' @method VarCorr gstudy
 #' @export
@@ -1362,9 +1383,9 @@ VarCorr.gstudy <- function(x, ...) {
 
   model <- x$model
 
-  if (x$backend == "lme4") {
+  if (x$estimator == "lme4") {
     lme4::VarCorr(model, ...)
-  } else if (x$backend == "brms") {
+  } else if (x$estimator == "brms") {
     if (x$is_multivariate) {
       resp_names <- NULL
       if (!is.null(model$formula) && inherits(model$formula, "mvbrmsformula")) {
@@ -1388,8 +1409,8 @@ VarCorr.gstudy <- function(x, ...) {
     } else {
       brms::VarCorr(model, ...)
     }
-  } else if (x$backend == "mom") {
-    # VarCorr for method of moments backend
+  } else if (x$estimator == "aov") {
+    # VarCorr for method of moments estimator
     model <- x$model
 
     # Extract variance components
@@ -1481,7 +1502,7 @@ VarCorr.gstudy <- function(x, ...) {
       return(result)
     }
   } else {
-    stop("Unknown backend: ", x$backend, call. = FALSE)
+    stop("Unknown estimator: ", x$estimator, call. = FALSE)
   }
 }
 
@@ -1505,15 +1526,15 @@ ranef <- function(object, ...) {
 #' Extract Random Effects from gstudy Objects
 #'
 #' Extracts the random effects (BLUPs/conditional modes) from a gstudy object.
-#' This is a wrapper that calls the appropriate ranef method based on the backend
+#' This is a wrapper that calls the appropriate ranef method based on the estimator
 #' used to fit the model.
 #'
 #' @param object A gstudy object.
 #' @param ... Additional arguments passed to the underlying ranef method
 #' (e.g., \code{\link[lme4:ranef.merMod]{lme4::ranef}} or
 #' \code{\link[brms:ranef]{brms::ranef}}).
-#' @return The random effects from the fitted model. For lme4 backend, returns
-#' a list of matrices. For brms backend, returns a list of arrays with
+#' @return The random effects from the fitted model. For lme4 estimator, returns
+#' a list of matrices. For brms estimator, returns a list of arrays with
 #' posterior summaries.
 #' @method ranef gstudy
 #' @export
@@ -1524,11 +1545,11 @@ ranef.gstudy <- function(object, ...) {
 
   model <- object$model
 
-  if (object$backend == "lme4") {
+  if (object$estimator == "lme4") {
     lme4::ranef(model, ...)
-  } else if (object$backend == "brms") {
+  } else if (object$estimator == "brms") {
     brms::ranef(model, ...)
-  } else if (object$backend == "mom") {
+  } else if (object$estimator == "aov") {
     # Empirical BLUPs for method of moments
     model <- object$model
     data <- object$data
@@ -1646,7 +1667,7 @@ ranef.gstudy <- function(object, ...) {
       return(result)
     }
   } else {
-    stop("Unknown backend: ", object$backend, call. = FALSE)
+    stop("Unknown estimator: ", object$estimator, call. = FALSE)
   }
 }
 
@@ -1657,7 +1678,7 @@ ranef.mgstudy <- ranef.gstudy
 #' Pairs Method for gstudy Objects
 #'
 #' Wrapper for pairs.brmsfit to visualize parameter pairs from a gstudy
-#' object that was fit with the brms backend.
+#' object that was fit with the brms estimator.
 #'
 #' @param x A gstudy object.
 #' @param ... Additional arguments passed to pairs.brmsfit.
@@ -1665,8 +1686,8 @@ ranef.mgstudy <- ranef.gstudy
 #' @export
 #' @rdname pairs.gstudy
 pairs.gstudy <- function(x, ...) {
-  if (x$backend != "brms") {
-    stop("pairs.gstudy only works with gstudy objects fit with the brms backend", call. = FALSE)
+  if (x$estimator != "brms") {
+    stop("pairs.gstudy only works with gstudy objects fit with the brms estimator", call. = FALSE)
   }
 
   if (!inherits(x$model, "brmsfit")) {
@@ -1678,7 +1699,7 @@ pairs.gstudy <- function(x, ...) {
 
 #' Extract Draws from gstudy Objects
 #'
-#' Extract posterior draws from a gstudy object that was fit with the brms backend.
+#' Extract posterior draws from a gstudy object that was fit with the brms estimator.
 #' This is a wrapper around brms::as_draws_matrix.
 #'
 #' @param object A gstudy object.
@@ -1691,8 +1712,8 @@ extract_draws.gstudy <- function(object, ...) {
     stop("object must be a gstudy object", call. = FALSE)
   }
 
-  if (object$backend != "brms") {
-    stop("extract_draws.gstudy only works with gstudy objects fit with the brms backend", call. = FALSE)
+  if (object$estimator != "brms") {
+    stop("extract_draws.gstudy only works with gstudy objects fit with the brms estimator", call. = FALSE)
   }
 
   if (!inherits(object$model, "brmsfit")) {
@@ -1711,21 +1732,21 @@ extract_grand_mean <- function(gstudy_obj) {
 #' @export
 extract_grand_mean.gstudy <- function(gstudy_obj) {
   model <- gstudy_obj$model
-  backend <- gstudy_obj$backend
+  estimator <- gstudy_obj$estimator
 
-  if (backend == "lme4") {
+  if (estimator == "lme4") {
     fe <- lme4::fixef(model)
     if ("(Intercept)" %in% names(fe)) {
       return("(Intercept)" = fe["(Intercept)"])
     } else if ("Intercept" %in% names(fe)) {
       return(Intercept = fe["Intercept"])
     }
-  } else if (backend == "brms") {
+  } else if (estimator == "brms") {
     fe <- brms::fixef(model)
     if ("Intercept" %in% rownames(fe)) {
       return(Intercept = fe["Intercept", "Estimate"])
     }
-  } else if (backend == "mom") {
+  } else if (estimator == "aov") {
     response <- gstudy_obj$response
     if (is.null(response)) {
       formula <- gstudy_obj$formula
@@ -1743,11 +1764,11 @@ extract_grand_mean.gstudy <- function(gstudy_obj) {
 extract_grand_mean.mgstudy <- function(gstudy_obj) {
   model <- gstudy_obj$model
   dimensions <- gstudy_obj$dimensions
-  backend <- gstudy_obj$backend
+  estimator <- gstudy_obj$estimator
 
   mu_y <- list()
 
-  if (backend == "brms") {
+  if (estimator == "brms") {
     fe <- brms::fixef(model)
     for (d in dimensions) {
       param_name <- paste0(d, "_Intercept")
@@ -1757,12 +1778,12 @@ extract_grand_mean.mgstudy <- function(gstudy_obj) {
         mu_y[[d]] <- mean(gstudy_obj$data[[d]], na.rm = TRUE)
       }
     }
-  } else if (backend == "mom") {
+  } else if (estimator == "aov") {
     for (d in dimensions) {
       mu_y[[d]] <- mean(gstudy_obj$data[[d]], na.rm = TRUE)
     }
   } else {
-    stop("Multivariate models require brms or mom backend", call. = FALSE)
+    stop("Multivariate models require brms or aov estimator", call. = FALSE)
   }
 
   return(mu_y)

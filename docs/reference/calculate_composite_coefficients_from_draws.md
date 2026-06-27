@@ -2,7 +2,7 @@
 
 Computes composite reliability coefficients from posterior draws of
 variance components and covariances. This ensures proper uncertainty
-propagation for multivariate D-studies with brms backend.
+propagation for multivariate D-studies with brms estimator.
 
 ## Usage
 

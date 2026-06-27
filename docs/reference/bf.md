@@ -3,7 +3,7 @@
 This function is a wrapper around
 [`brms::bf()`](https://paulbuerkner.com/brms/reference/brmsformula.html)
 to allow specifying formulas for Bayesian models fit via the brms
-backend in gstudy. See
+estimator in gstudy. See
 [`brms::bf()`](https://paulbuerkner.com/brms/reference/brmsformula.html)
 for full documentation.
 

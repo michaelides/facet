@@ -14,7 +14,7 @@ extract_variance_draws(gstudy_obj, draws)
 
 - gstudy_obj:
 
-  A gstudy object with brms backend.
+  A gstudy object with brms estimator.
 
 - draws:
 

@@ -1,4 +1,4 @@
 # Posterior Coefficient Functions
 
 Functions for computing coefficients from posterior draws
-(Bayesian/MOM). Used when gstudy backend is 'brms' or 'mom'.
+(Bayesian/aov). Used when gstudy estimator is 'brms' or 'mom'.

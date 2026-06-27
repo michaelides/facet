@@ -319,7 +319,7 @@ Designs</a></li>
 Design</a></li>
 <li><a href="#ems-for-nested-designs" id="toc-ems-for-nested-designs">EMS for Nested Designs</a></li>
 </ul></li>
-<li><a href="#method-of-moments-mom" id="toc-method-of-moments-mom">Method of Moments (MOM)</a>
+<li><a href="#anova-based-estimation-aov" id="toc-anova-based-estimation-aov">ANOVA-based Estimation (aov)</a>
 <ul>
 <li><a href="#historical-development-of-anova-based-estimation" id="toc-historical-development-of-anova-based-estimation">Historical
 Development of ANOVA-Based Estimation</a></li>
@@ -400,9 +400,10 @@ Intervals</a></li>
 <li><a href="#profile-likelihood-vs-bootstrap-a-side-by-side-comparison" id="toc-profile-likelihood-vs-bootstrap-a-side-by-side-comparison">Profile
 Likelihood vs Bootstrap: A Side-by-Side Comparison</a></li>
 </ul></li>
-<li><a href="#method-of-moments-backend" id="toc-method-of-moments-backend">Method of Moments Backend</a>
+<li><a href="#anova-based-estimation-estimator" id="toc-anova-based-estimation-estimator">ANOVA-based Estimation
+Estimator</a>
 <ul>
-<li><a href="#nested-designs-with-mom" id="toc-nested-designs-with-mom">Nested Designs with MOM</a></li>
+<li><a href="#nested-designs-with-aov" id="toc-nested-designs-with-aov">Nested Designs with aov</a></li>
 </ul></li>
 <li><a href="#bayesian-g-study" id="toc-bayesian-g-study">Bayesian
 G-Study</a>
@@ -525,7 +526,7 @@ Components</a></li>
 <li><a href="#handling-estimation-issues" id="toc-handling-estimation-issues">Handling Estimation Issues</a>
 <ul>
 <li><a href="#convergence-warnings-lme4" id="toc-convergence-warnings-lme4">Convergence Warnings (lme4)</a></li>
-<li><a href="#negative-variance-mom" id="toc-negative-variance-mom">Negative Variance (MOM)</a></li>
+<li><a href="#negative-variance-aov" id="toc-negative-variance-aov">Negative Variance (aov)</a></li>
 <li><a href="#convergence-diagnostics-bayesian" id="toc-convergence-diagnostics-bayesian">Convergence Diagnostics
 (Bayesian)</a></li>
 </ul></li>
@@ -639,9 +640,9 @@ occasions—contribute to measurement error, and to optimize future
 measurement procedures accordingly.</p>
 <p>The <strong>facet</strong> package provides comprehensive tools for
 conducting G-theory analyses using variance component models. It
-supports three estimation backends: frequentist approaches using
+supports three estimation estimators: frequentist approaches using
 <strong>lme4</strong> (Restricted Maximum Likelihood) and
-<strong>mom</strong> (Method of Moments/ANOVA-based), and Bayesian
+<strong>mom</strong> (ANOVA-based Estimation/ANOVA-based), and Bayesian
 estimation using <strong>brms</strong> (No-U-Turn Sampler/Hamiltonian
 Monte Carlo via Stan). The package provides a unified interface for
 univariate and multivariate designs, with full support for G-studies,
@@ -714,7 +715,7 @@ particularly valuable in medical education contexts.</p>
 <p><strong>Modern R Packages</strong>: Contemporary implementations
 integrate G-theory with mixed-effects modeling frameworks. The
 <strong>facet</strong> package continues this tradition by providing an
-R implementation with three estimation backends (ANOVA/MOM, REML,
+R implementation with three estimation estimators (ANOVA/aov, REML,
 Bayesian) and full support for univariate and multivariate designs,
 leveraging the computational efficiency of modern tools like lme4 and
 Stan.</p>
@@ -821,8 +822,8 @@ interactions are estimable in a given dataset:</p>
 omitted.</strong> When an interaction has as many unique combinations as
 observations (i.e., one observation per cell), the interaction is
 algebraically indistinguishable from the residual error. The
-<code>lme4</code> backend will refuse to fit such a model, and the
-<code>mom</code> and <code>brms</code> backends will silently absorb
+<code>lme4</code> estimator will refuse to fit such a model, and the
+<code>mom</code> and <code>brms</code> estimators will silently absorb
 that interaction into the residual. The correct specification is to
 leave it out of the formula. In every built-in dataset that has one
 observation per fully crossed cell, the highest-order interaction is
@@ -1048,7 +1049,7 @@ dimension (unbalanced designs). A single score column with a dimension
 indicator:</p>
 <pre class="r"><code># Long format: single Score column with Subtest indicator
 gstudy(bf(Score ~ 0 + Subtest + (0+Subtest|r|Person), sigma ~ 0 + Subtest),
-       data = data_long, backend = &quot;brms&quot;,
+       data = data_long, estimator = &quot;brms&quot;,
        iter = 2000, cores = 4, refresh = 1000)</code></pre>
 <p>Long-format models are more flexible but require Bayesian
 estimation.</p>
@@ -1060,15 +1061,15 @@ estimation.</p>
 <p>G-theory variance components can be estimated using several methods,
 each with distinct advantages and limitations. The
 <strong>facet</strong> package supports three estimation approaches:
-Method of Moments (ANOVA-based), Restricted Maximum Likelihood (via
+ANOVA-based Estimation (ANOVA-based), Restricted Maximum Likelihood (via
 lme4), and Bayesian estimation (via brms/Stan).</p>
 <div id="expected-mean-squares" class="section level2">
 <h2>Expected Mean Squares</h2>
 <p>Understanding variance component estimation requires understanding
 Expected Mean Squares (EMS). For any ANOVA source, the EMS expresses
 what that mean square estimates in terms of population variance
-components. The Method of Moments, REML, and other estimation approaches
-all build on this framework.</p>
+components. The ANOVA-based Estimation, REML, and other estimation
+approaches all build on this framework.</p>
 <div id="deriving-ems-person-times-item-design" class="section level3">
 <h3>Deriving EMS: Person <span class="math inline">\(\times\)</span>
 Item Design</h3>
@@ -1363,8 +1364,8 @@ n_i\sigma^2_{pi:s}\)</span></td>
 simplifying the equations.</p>
 </div>
 </div>
-<div id="method-of-moments-mom" class="section level2">
-<h2>Method of Moments (MOM)</h2>
+<div id="anova-based-estimation-aov" class="section level2">
+<h2>ANOVA-based Estimation (aov)</h2>
 <div id="historical-development-of-anova-based-estimation" class="section level3">
 <h3>Historical Development of ANOVA-Based Estimation</h3>
 <p>The method of moments approach to variance component estimation has
@@ -1383,17 +1384,17 @@ modern approaches to variance component estimation.</p>
 <p><strong>Satterthwaite (1941, 1946)</strong> developed the
 approximation for confidence intervals on variance components, treating
 linear combinations of mean squares as scaled chi-square variates. This
-approximation remains the standard for MOM confidence intervals and is
+approximation remains the standard for aov confidence intervals and is
 implemented in the <strong>facet</strong> package.</p>
 <p><strong>Brennan (2001)</strong> synthesized these methods
 specifically for G-theory, providing the rules for constructing Expected
-Mean Squares (EMS) that are implemented in the MOM backend.</p>
+Mean Squares (EMS) that are implemented in the aov estimator.</p>
 </div>
 <div id="mathematical-foundation" class="section level3">
 <h3>Mathematical Foundation</h3>
-<p>The Method of Moments, also known as ANOVA-based estimation, derives
-variance components from Expected Mean Squares (EMS). For a balanced
-two-facet crossed design (<span class="math inline">\(p \times
+<p>The ANOVA-based Estimation, also known as ANOVA-based estimation,
+derives variance components from Expected Mean Squares (EMS). For a
+balanced two-facet crossed design (<span class="math inline">\(p \times
 i\)</span>), the ANOVA table yields:</p>
 <table>
 <colgroup>
@@ -1464,7 +1465,7 @@ variance.</p>
 </div>
 <div id="handling-negative-estimates" class="section level3">
 <h3>Handling Negative Estimates</h3>
-<p>MOM can produce negative variance estimates when sample mean squares
+<p>aov can produce negative variance estimates when sample mean squares
 do not follow their expected ordering. For example, if by sampling error
 <span class="math inline">\(MS_{pi} &gt; MS_p\)</span>, the person
 variance estimate would be negative.</p>
@@ -1542,13 +1543,13 @@ size.</strong></p>
 </div>
 <div id="implementation-in-facet" class="section level3">
 <h3>Implementation in facet</h3>
-<p>The <code>backend = &quot;mom&quot;</code> option uses R’s <code>aov()</code>
+<p>The <code>estimator = &quot;aov&quot;</code> option uses R’s <code>aov()</code>
 function with <code>Error()</code> strata:</p>
 <pre class="r"><code># Method of moments G-study (canonical brennan formula; see
 # &quot;Specifying All Possible Variance Components&quot;)
 g_mom &lt;- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
                 (1|Person:Task),
-                data = brennan, backend = &quot;mom&quot;)</code></pre>
+                data = brennan, estimator = &quot;aov&quot;)</code></pre>
 <p>The implementation:</p>
 <ol style="list-style-type: decimal">
 <li>Parses the formula to identify facets</li>
@@ -1586,7 +1587,7 @@ REML estimates equal ANOVA estimates).</p>
 package implementing efficient REML estimation using sparse matrix
 methods and Cholesky decomposition, enabling analysis of complex crossed
 designs that were previously computationally infeasible.</p>
-<p>The <code>lme4</code> backend in <strong>facet</strong> leverages
+<p>The <code>lme4</code> estimator in <strong>facet</strong> leverages
 these advances, providing REML estimation with profile likelihood
 confidence intervals for variance components.</p>
 </div>
@@ -1656,7 +1657,7 @@ computationally intensive.</p>
 </ul>
 <p><strong>Limitations:</strong></p>
 <ul>
-<li>Slower than MOM for large datasets</li>
+<li>Slower than aov for large datasets</li>
 <li>Convergence issues possible for complex models</li>
 <li>Cannot handle multivariate models (use brms instead)</li>
 <li>Variance estimates near zero can be problematic</li>
@@ -1665,7 +1666,7 @@ computationally intensive.</p>
 </div>
 <div id="implementation-in-facet-1" class="section level3">
 <h3>Implementation in facet</h3>
-<p>The default <code>backend = &quot;lme4&quot;</code> uses
+<p>The default <code>estimator = &quot;lme4&quot;</code> uses
 <code>lme4::lmer()</code> for estimation:</p>
 <pre class="r"><code># REML G-study (default; canonical brennan formula; see
 # &quot;Specifying All Possible Variance Components&quot;)
@@ -1752,7 +1753,7 @@ g_crossed &lt;- gstudy(
     (1 | Person:Task) + (1 | Person:Rater) + (1 | Task:Rater) +
     (1 | Person:Task:Rater),
   data = crossed_data,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )</code></pre>
 <p>The <code>brennan</code> dataset is <strong>not</strong> such a
@@ -1765,18 +1766,18 @@ is:</p>
 <pre class="r"><code>g_nested &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )</code></pre>
 <p>Omitting interaction terms from a crossed design constitutes model
 mis-specification—the omitted interaction variance is absorbed by the
 included terms, producing confounded estimates. This is not a limitation
 of G-theory itself but a consequence of under-specifying the model.
-Bayesian estimation via <code>backend = &quot;brms&quot;</code> provides full
+Bayesian estimation via <code>estimator = &quot;brms&quot;</code> provides full
 posterior distributions for each variance component, including
 interactions, enabling credible intervals for G-coefficients and D-study
 projections.</p>
-<p>The <strong>facet</strong> package’s <code>backend = &quot;brms&quot;</code>
+<p>The <strong>facet</strong> package’s <code>estimator = &quot;brms&quot;</code>
 option implements these methodological advances through the Stan
 probabilistic programming language (Bürkner, 2017), providing
 researchers with tools for Bayesian G-theory that properly handle
@@ -1908,13 +1909,13 @@ estimates.</p>
 </div>
 <div id="implementation-in-facet-2" class="section level3">
 <h3>Implementation in facet</h3>
-<p>The <code>backend = &quot;brms&quot;</code> option uses
+<p>The <code>estimator = &quot;brms&quot;</code> option uses
 <code>brms::brm()</code> which compiles models to Stan:</p>
 <pre class="r"><code># Bayesian G-study with default priors (canonical brennan formula; see
 # &quot;Specifying All Possible Variance Components&quot;)
 g_brms &lt;- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
                  (1|Person:Task),
-                 data = brennan, backend = &quot;brms&quot;,
+                 data = brennan, estimator = &quot;brms&quot;,
                  iter = 2000, cores = 4, refresh = 1000)
 
 # With custom priors
@@ -1928,13 +1929,13 @@ my_prior &lt;- c(
 )
 g_custom &lt;- gstudy(Score ~ (1|Person) + (1|Task) + (1|Rater) +
                    (1|Person:Task),
-                   data = brennan, backend = &quot;brms&quot;, prior = my_prior,
+                   data = brennan, estimator = &quot;brms&quot;, prior = my_prior,
                    iter = 2000, cores = 4, refresh = 1000)
 
 # Multivariate Bayesian G-study (requires a fully crossed design;
 # see the `crossed_wide` data defined in the Multivariate G-Study section)
 g_mv &lt;- gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater),
-               data = crossed_wide, backend = &quot;brms&quot;,
+               data = crossed_wide, estimator = &quot;brms&quot;,
                iter = 2000, cores = 4, refresh = 1000)</code></pre>
 <p>The implementation:</p>
 <ol style="list-style-type: decimal">
@@ -1989,7 +1990,7 @@ g_mv &lt;- gstudy(mvbind(Task1, Task2, Task3) ~ (1|Person) + (1|Rater),
 </div>
 <div id="prerequisites" class="section level3">
 <h3>Prerequisites</h3>
-<p>The Bayesian backend requires additional packages:</p>
+<p>The Bayesian estimator requires additional packages:</p>
 <pre class="r"><code># Core package
 library(facet)
 
@@ -2110,7 +2111,7 @@ prior_mean &lt;- set_prior(&quot;normal(5, 2)&quot;, class = &quot;Intercept&quo
 <thead>
 <tr class="header">
 <th>Criterion</th>
-<th>MOM</th>
+<th>aov</th>
 <th>REML (lme4)</th>
 <th>Bayesian (brms)</th>
 </tr>
@@ -2174,7 +2175,7 @@ prior_mean &lt;- set_prior(&quot;normal(5, 2)&quot;, class = &quot;Intercept&quo
 </table>
 <p><strong>Recommendations:</strong></p>
 <ul>
-<li>Use <strong>MOM</strong> for quick exploratory analysis of balanced
+<li>Use <strong>aov</strong> for quick exploratory analysis of balanced
 designs</li>
 <li>Use <strong>REML</strong> (default) for routine univariate analysis
 with unbalanced data</li>
@@ -2533,7 +2534,7 @@ campaign.</p>
 </div>
 <div id="g-study-with-confidence-intervals" class="section level2">
 <h2>G-Study with Confidence Intervals</h2>
-<p>For the <strong>lme4</strong> backend, you can request confidence
+<p>For the <strong>lme4</strong> estimator, you can request confidence
 intervals using the <code>ci_method</code> parameter.</p>
 <div id="profile-likelihood-confidence-intervals" class="section level3">
 <h3>Profile Likelihood Confidence Intervals</h3>
@@ -2688,24 +2689,24 @@ want to defend a “variance is plausibly zero” claim, or when reviewers
 want conservative uncertainty quantification.</p>
 </div>
 </div>
-<div id="method-of-moments-backend" class="section level2">
-<h2>Method of Moments Backend</h2>
-<p>The Method of Moments backend uses ANOVA-based variance component
-estimation:</p>
+<div id="anova-based-estimation-estimator" class="section level2">
+<h2>ANOVA-based Estimation Estimator</h2>
+<p>The ANOVA-based Estimation estimator uses ANOVA-based variance
+component estimation:</p>
 <pre class="r"><code># Method of moments G-study with nested design (Rater nested in Task;
 # (1 | Rater) and (1 | Rater:Task) are equivalent here)
 g_mom &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;mom&quot;
+  estimator = &quot;aov&quot;
 )
 
 summary(g_mom)
 #&gt; === G Study Summary ===
 #&gt; 
 #&gt; Design Information:
-#&gt;  Backend: mom 
+#&gt;  Estimator: aov 
 #&gt;  Formula: Score ~ (1 | Person) + (1 | Task) + (1 | Rater) + (1 | Person:Task) 
 #&gt;  Observations: 120 
 #&gt;  Multivariate: No 
@@ -2739,10 +2740,10 @@ summary(g_mom)
 #&gt; 5 Residual      2.3802 52.3415    1.6472     3.1133
 #&gt; 
 #&gt; Total variance: 4.5474</code></pre>
-<p>MOM automatically provides asymptotic confidence intervals. This
+<p>aov automatically provides asymptotic confidence intervals. This
 approach works best with balanced designs.</p>
-<div id="nested-designs-with-mom" class="section level3">
-<h3>Nested Designs with MOM</h3>
+<div id="nested-designs-with-aov" class="section level3">
+<h3>Nested Designs with aov</h3>
 <p>For nested designs, the canonical formula uses the un-nested form
 when the nested-factor labels are already unique within the nesting
 factor. For <code>rajaratnam</code>, items are uniquely labelled within
@@ -2756,14 +2757,14 @@ g_nested &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) +
     (1 | Person:Subtest),
   data = rajaratnam,
-  backend = &quot;mom&quot;
+  estimator = &quot;aov&quot;
 )
 
 summary(g_nested)
 #&gt; === G Study Summary ===
 #&gt; 
 #&gt; Design Information:
-#&gt;  Backend: mom 
+#&gt;  Estimator: aov 
 #&gt;  Formula: Score ~ (1 | Person) + (1 | Subtest) + (1 | ItemId) + (1 | Person:Subtest) 
 #&gt;  Observations: 64 
 #&gt;  Multivariate: No 
@@ -2801,8 +2802,8 @@ summary(g_nested)
 </div>
 <div id="bayesian-g-study" class="section level2">
 <h2>Bayesian G-Study</h2>
-<p>For Bayesian estimation, use the <strong>brms</strong> backend. This
-provides full posterior distributions for variance components.</p>
+<p>For Bayesian estimation, use the <strong>brms</strong> estimator.
+This provides full posterior distributions for variance components.</p>
 <div id="data-preparation" class="section level3">
 <h3>Data Preparation</h3>
 <p>The <code>brennan</code> dataset provides a crossed design with
@@ -2833,7 +2834,7 @@ g_bayes &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )
 
@@ -2921,7 +2922,7 @@ inferences (e.g., “probability that variance &gt; X”).</p>
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   chains = 4,        # Number of chains
   iter = 2000,       # Total iterations per chain
   warmup = 1000,     # Warmup iterations
@@ -2969,7 +2970,7 @@ g_custom &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   prior = my_prior,
   iter = 2000, cores = 4, refresh = 1000
 )</code></pre>
@@ -2982,7 +2983,7 @@ prior_weak &lt;- set_prior(&quot;cauchy(0, 5)&quot;, class = &quot;sd&quot;)
 g_weak &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   prior = prior_weak,
   iter = 2000, cores = 4, refresh = 1000
 )
@@ -2992,7 +2993,7 @@ prior_info &lt;- set_prior(&quot;exponential(1)&quot;, class = &quot;sd&quot;)
 g_info &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   prior = prior_info,
   iter = 2000, cores = 4, refresh = 1000
 )
@@ -3008,7 +3009,7 @@ prior_weak_run &lt;- set_prior(&quot;cauchy(0, 5)&quot;, class = &quot;sd&quot;)
 g_weak_run &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   prior = prior_weak_run,
   chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
@@ -3017,7 +3018,7 @@ prior_info_run &lt;- set_prior(&quot;exponential(1)&quot;, class = &quot;sd&quot
 g_info_run &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   prior = prior_info_run,
   chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
@@ -3030,14 +3031,14 @@ bind_rows(
   select(prior, component, var, lower, upper) %&gt;%
   mutate(across(c(var, lower, upper), ~ sprintf(&quot;%.3f&quot;, .x)))
 #&gt; # A tibble: 6 × 5
-#&gt;   prior          component var   lower upper 
-#&gt;   &lt;chr&gt;          &lt;chr&gt;     &lt;chr&gt; &lt;chr&gt; &lt;chr&gt; 
-#&gt; 1 cauchy(0, 5)   Person    0.907 0.104 2.858 
-#&gt; 2 cauchy(0, 5)   Task      2.885 0.114 16.738
-#&gt; 3 cauchy(0, 5)   Residual  3.392 2.590 4.432 
-#&gt; 4 exponential(1) Person    0.692 0.065 2.284 
-#&gt; 5 exponential(1) Task      0.973 0.067 4.245 
-#&gt; 6 exponential(1) Residual  3.424 2.622 4.481</code></pre>
+#&gt;   prior    component var   lower upper
+#&gt;   &lt;chr&gt;    &lt;chr&gt;     &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;
+#&gt; 1 cauchy(… Person    0.907 0.104 2.858
+#&gt; 2 cauchy(… Task      2.885 0.114 16.7…
+#&gt; 3 cauchy(… Residual  3.392 2.590 4.432
+#&gt; 4 exponen… Person    0.692 0.065 2.284
+#&gt; 5 exponen… Task      0.973 0.067 4.245
+#&gt; 6 exponen… Residual  3.424 2.622 4.481</code></pre>
 <p><strong>Reading the comparison.</strong> The Person variance is the
 dominant signal, and both priors give nearly identical posteriors for it
 — the data overwhelm the prior when the signal is strong. The Task
@@ -3535,7 +3536,7 @@ coefficients:</p>
 g_brms &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )
 
@@ -3576,8 +3577,8 @@ row. To illustrate <code>mvbind()</code> properly, the examples below
 use a small synthetic <strong>fully crossed</strong> Person <span class="math inline">\(\times\)</span> Task <span class="math inline">\(\times\)</span> Rater design in which every rater
 rates every person on every task.</p>
 </blockquote>
-<p>For multiple outcome variables, use the <strong>brms</strong> backend
-with <code>mvbind()</code>:</p>
+<p>For multiple outcome variables, use the <strong>brms</strong>
+estimator with <code>mvbind()</code>:</p>
 <pre class="r"><code># Synthetic fully crossed design: 6 persons x 3 tasks x 4 raters
 set.seed(42)
 n_p &lt;- 6; n_t &lt;- 3; n_r &lt;- 4
@@ -3619,7 +3620,7 @@ head(crossed_wide)
 g_mv &lt;- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )
 
@@ -3734,7 +3735,7 @@ dimension):</p>
 g_mv &lt;- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )
 
@@ -3812,11 +3813,11 @@ uncorrelated, the composite is simply the weighted sum of
 variances</p></li>
 <li><p><strong>Sample size requirements</strong>: For unbalanced designs
 (different sample sizes per dimension), you have two options. With the
-<code>mom</code> backend, pass <code>unbalanced = TRUE</code> to
+<code>mom</code> estimator, pass <code>unbalanced = TRUE</code> to
 <code>gstudy()</code> and supply a per-dimension <code>n</code> tibble
 to <code>dstudy()</code> — facet <code>g</code> and <code>phi</code>
 coefficients are then computed per-dimension with the correct divisor.
-With the <code>brms</code> backend, reshape to long format and use
+With the <code>brms</code> estimator, reshape to long format and use
 <code>bf()</code> syntax; this also handles nesting and
 dimension-specific residual variances</p></li>
 <li><p><strong>Posterior estimation</strong>: For Bayesian models,
@@ -3868,7 +3869,7 @@ head(crossed_wide)
 g_mv_wide &lt;- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )</code></pre>
 <p><strong>Long Format (<code>bf</code>)</strong> — When dimensions are
@@ -3889,7 +3890,7 @@ g_mv_long &lt;- gstudy(
          (0 + Subtest || ItemId)),
   sigma ~ 0 + Subtest,
   data = rajaratnam,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )</code></pre>
 <p><strong>Key Differences</strong>:</p>
@@ -3994,7 +3995,7 @@ crossed_wide &lt;- crossed_data %&gt;%
 g_wide_run &lt;- gstudy(
   mvbind(Task1, Task2, Task3) ~ (1 | Person) + (1 | Rater),
   data = crossed_wide,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   chains = 2, iter = 2000, warmup = 500, seed = 123, cores = 4, refresh = 1000
 )
 
@@ -4008,7 +4009,7 @@ example, some persons have Task1 and Task2 but not Task3, or items are
 nested within subtests with different numbers of items per subtest —
 wide format is not viable, because <code>mvbind()</code> requires
 complete cases. You have two paths forward: (1) <strong>stay in wide
-format with the <code>mom</code> backend</strong> by passing
+format with the <code>mom</code> estimator</strong> by passing
 <code>unbalanced = TRUE</code> to <code>gstudy()</code>. Mom uses
 Henderson’s Method III, so pairwise complete cases are used for the
 correlation matrix; the per-dimension totals are preserved and surfaced
@@ -4017,7 +4018,7 @@ in <code>gstudy_obj$n_per_dim</code>. You can then pass a per-dimension
 <code>dim</code>, <code>facet</code>, <code>n</code>) and facet
 <code>g</code> and <code>phi</code> coefficients are computed
 per-dimension with the correct divisor. (2) <strong>reshape to long
-format with the <code>brms</code> backend</strong> and use
+format with the <code>brms</code> estimator</strong> and use
 <code>bf()</code> syntax. This also handles nesting and lets you model
 dimension-specific residual variances
 (<code>sigma ~ 0 + Subtest</code>). Use <strong>wide format with
@@ -4211,7 +4212,7 @@ data &lt;- do.call(rbind, lapply(seq_len(n_persons), function(p) {
 }))
 
 # Fit and run prmse
-g &lt;- gstudy(mvbind(A, B, C) ~ (1 | person) + (1 | item), data = data, backend = &quot;mom&quot;)
+g &lt;- gstudy(mvbind(A, B, C) ~ (1 | person) + (1 | item), data = data, estimator = &quot;aov&quot;)
 d &lt;- dstudy(g, n = list(item = 10), weights = c(A = 1, B = 1, C = 1))
 result &lt;- suppressWarnings(prmse(d))
 
@@ -4276,7 +4277,7 @@ g_mv &lt;- gstudy(
   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
      sigma ~ 0 + Subtest),
   data = rajaratnam,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   chains = 2,
   iter = 2000,
   cores = 4,
@@ -4329,7 +4330,7 @@ dim(d_mv[[&quot;var&quot;]]$prmse_c_rel_draws) # [n_draws, n_dims]</code></pre>
 </div>
 <div id="credible-intervals-for-var" class="section level3">
 <h3>Credible Intervals for VAR</h3>
-<p>When using Bayesian estimation (<code>backend = &quot;brms&quot;</code>), VAR
+<p>When using Bayesian estimation (<code>estimator = &quot;brms&quot;</code>), VAR
 results include full posterior distributions. You can compute credible
 intervals with any probability level:</p>
 <pre class="r"><code># Default 95% credible intervals
@@ -4404,7 +4405,7 @@ situations:</p>
 <li><strong>Univariate models</strong>: VAR requires multiple
 dimensions</li>
 <li><strong>Non-Bayesian estimation</strong>: VAR with uncertainty
-quantification is only available with the brms backend</li>
+quantification is only available with the brms estimator</li>
 <li><strong>Missing data</strong>: If the original data is not available
 to compute observed covariances</li>
 </ol>
@@ -4428,7 +4429,7 @@ g_long &lt;- gstudy(
   bf(Score ~ 0 + Subtest + (0 + Subtest | r | Person) + (0 + Subtest || ItemId),
      sigma ~ 0 + Subtest),
   data = rajaratnam,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )
 
@@ -4651,17 +4652,17 @@ means one of your variance components has been estimated at (or very
 near) zero, and the optimizer could not move it away from the boundary.
 Three remedies: (1) <strong>drop the offending facet from the
 formula</strong> if it is theoretically unimportant; (2) <strong>switch
-to <code>backend = &quot;mom&quot;</code></strong> to get a positive truncated
+to <code>estimator = &quot;aov&quot;</code></strong> to get a positive truncated
 estimate, which is often more interpretable in practice (it acknowledges
 that the component is small but positive); (3) <strong>switch to
-<code>backend = &quot;brms&quot;</code> with a slightly informative prior</strong>
-such as <code>exponential(1)</code> on the SD — this regularizes the
-estimate away from exactly zero. Singular fits are not necessarily a
-problem if you can defend the model without that component, but they
-should not be silently ignored.</p>
+<code>estimator = &quot;brms&quot;</code> with a slightly informative
+prior</strong> such as <code>exponential(1)</code> on the SD — this
+regularizes the estimate away from exactly zero. Singular fits are not
+necessarily a problem if you can defend the model without that
+component, but they should not be silently ignored.</p>
 </div>
-<div id="negative-variance-mom" class="section level3">
-<h3>Negative Variance (MOM)</h3>
+<div id="negative-variance-aov" class="section level3">
+<h3>Negative Variance (aov)</h3>
 <p>Method of moments can produce negative estimates, which are truncated
 to zero:</p>
 <pre class="r"><code># Check if any components were truncated
@@ -5152,11 +5153,11 @@ library(loo)
 
 # Fit alternative models
 g_simple &lt;- gstudy(Score ~ (1 | Person) + (1 | Task),
-                   data = brennan, backend = &quot;brms&quot;,
+                   data = brennan, estimator = &quot;brms&quot;,
                    iter = 2000, cores = 4, refresh = 1000)
 g_full &lt;- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
                    (1 | Person:Task),
-                 data = brennan, backend = &quot;brms&quot;,
+                 data = brennan, estimator = &quot;brms&quot;,
                  iter = 2000, cores = 4, refresh = 1000)
 
 # LOO comparison
@@ -5180,7 +5181,7 @@ bayes_factor(g_full$model, g_simple$model)</code></pre>
 g_missing &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task),
   data = data_with_missing,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )</code></pre>
 </div>
@@ -5192,7 +5193,7 @@ g_robust &lt;- gstudy(
   bf(Score ~ (1 | Person) + (1 | Task),
      family = student()),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )</code></pre>
 </div>
@@ -5205,7 +5206,7 @@ g_robust &lt;- gstudy(
 <blockquote>
 <p>“Generalizability theory analyses were conducted using the
 <strong>facet</strong> package (Version X.X) for R. A G-study was
-conducted using [Method of Moments/Restricted Maximum Likelihood]
+conducted using [ANOVA-based Estimation/Restricted Maximum Likelihood]
 estimation. Variance components were estimated for [list facets]. 95%
 confidence intervals were computed using [Satterthwaite
 approximation/profile likelihood/bootstrap with X simulations].
@@ -5428,8 +5429,9 @@ error? Why is absolute error always larger?</p></li>
 <li><p><strong>Nested vs. Crossed</strong>: Explain the difference
 between items crossed with persons and items nested within persons. How
 does the EMS differ?</p></li>
-<li><p><strong>REML vs. MOM</strong>: When would you prefer REML
-estimation over Method of Moments? What are the trade-offs?</p></li>
+<li><p><strong>REML vs. aov</strong>: When would you prefer REML
+estimation over ANOVA-based Estimation? What are the
+trade-offs?</p></li>
 <li><p><strong>Phi-Cut</strong>: Why does the phi-cut coefficient depend
 on the distance between the cut-score and the grand mean?</p></li>
 <li><p><strong>Prior Selection</strong>: Explain why half-Cauchy priors
@@ -5448,7 +5450,7 @@ this indicate? What steps should you take?</p></li>
 with 95% CI = [0.65, 1.10]. What can you conclude about the usefulness
 of reporting this subscale separately?</p></li>
 <li><p><strong>Computational Trade-offs</strong>: When would you choose
-frequentist (MOM or REML) over Bayesian estimation? Consider
+frequentist (aov or REML) over Bayesian estimation? Consider
 computational cost, sample size, design complexity, and inferential
 goals.</p></li>
 </ol>
@@ -5515,7 +5517,7 @@ g_bayes &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   iter = 2000, cores = 4, refresh = 1000
 )
 
@@ -5527,7 +5529,7 @@ g_reml &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;lme4&quot;
+  estimator = &quot;lme4&quot;
 )
 
 # Compare estimates
@@ -5563,7 +5565,7 @@ g_custom &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   prior = custom_prior,
   iter = 2000, cores = 4, refresh = 1000
 )
@@ -5579,7 +5581,7 @@ results &lt;- lapply(scales, function(s) {
   g_s &lt;- gstudy(
     Score ~ (1 | Person) + (1 | Task),
     data = brennan,
-    backend = &quot;brms&quot;,
+    estimator = &quot;brms&quot;,
     prior = prior_s
   )
   g_s$variance_components$estimate[1]  # Person variance
@@ -5601,7 +5603,7 @@ g_ex3 &lt;- gstudy(
   Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
     (1 | Person:Task),
   data = brennan,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   chains = 4,
   iter = 2000,
   cores = 4,
@@ -5644,7 +5646,7 @@ g_mv_ex4 &lt;- gstudy(
          (0 + Subtest || ItemId)),
   sigma ~ 0 + Subtest,
   data = rajaratnam,
-  backend = &quot;brms&quot;,
+  estimator = &quot;brms&quot;,
   chains = 2,
   iter = 2000,
   cores = 4,
@@ -5681,15 +5683,15 @@ prior_strong &lt;- set_prior(&quot;exponential(2)&quot;, class = &quot;sd&quot;)
 
 g_weak &lt;- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
                  (1 | Person:Task),
-                 data = brennan, backend = &quot;brms&quot;, prior = prior_weak,
+                 data = brennan, estimator = &quot;brms&quot;, prior = prior_weak,
                  iter = 2000, cores = 4, refresh = 1000)
 g_mod &lt;- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
                 (1 | Person:Task),
-                data = brennan, backend = &quot;brms&quot;, prior = prior_mod,
+                data = brennan, estimator = &quot;brms&quot;, prior = prior_mod,
                 iter = 2000, cores = 4, refresh = 1000)
 g_strong &lt;- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
                    (1 | Person:Task),
-                   data = brennan, backend = &quot;brms&quot;, prior = prior_strong,
+                   data = brennan, estimator = &quot;brms&quot;, prior = prior_strong,
                    iter = 2000, cores = 4, refresh = 1000)
 
 # b) Compare posteriors

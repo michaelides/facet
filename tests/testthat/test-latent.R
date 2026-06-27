@@ -79,24 +79,24 @@ test_that("latent adds object to universe if missing", {
 })
 
 # =============================================================================
-# Backend tests
+# Estimator tests
 # =============================================================================
 
-test_that("latent works with lme4 backend", {
+test_that("latent works with lme4 estimator", {
   skip_if_not_installed("lme4")
   g <- gstudy(score ~ (1 | person) + (1 | rater),
               data = test_data_latent,
-              backend = "lme4")
+              estimator = "lme4")
   result <- latent(g)
 
   expect_s3_class(result, "data.frame")
   expect_true("latent" %in% names(result))
 })
 
-test_that("latent works with mom backend", {
+test_that("latent works with mom estimator", {
   g <- gstudy(score ~ (1 | person) + (1 | rater),
     data = test_data_latent,
-    backend = "mom"
+    estimator = "mom"
   )
   result <- latent(g)
 
@@ -104,13 +104,13 @@ test_that("latent works with mom backend", {
   expect_true("latent" %in% names(result))
 })
 
-test_that("latent works with univariate brms backend", {
+test_that("latent works with univariate brms estimator", {
   skip_if_not_installed("brms")
   skip_on_cran()
 
   g <- gstudy(score ~ (1 | person) + (1 | rater),
     data = test_data_latent,
-    backend = "brms",
+    estimator = "brms",
     chains = 1,
     iter = 500
   )
@@ -142,7 +142,7 @@ test_that("latent works with mgstudy objects", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   result <- latent(g)
@@ -164,7 +164,7 @@ test_that("latent returns correct structure for mom multivariate", {
   g <- gstudy(
     mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "mom"
+    estimator = "mom"
   )
 
   result <- latent(g)
@@ -189,7 +189,7 @@ test_that("latent returns wide format for mgstudy", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = test_data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
 
   result <- latent(g)
@@ -226,7 +226,7 @@ test_that("latent handles interaction in universe", {
   expect_true("latent" %in% names(result))
 })
 
-test_that("latent handles interaction in universe with brms backend", {
+test_that("latent handles interaction in universe with brms estimator", {
   skip_if_not_installed("brms")
   skip_on_cran()
 
@@ -241,7 +241,7 @@ test_that("latent handles interaction in universe with brms backend", {
   g <- gstudy(
     score ~ (1 | person) + (1 | rater) + (1 | person:rater),
     data = test_data_interaction,
-    backend = "brms",
+    estimator = "brms",
     chains = 1,
     iter = 500
   )

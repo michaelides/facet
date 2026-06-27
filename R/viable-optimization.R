@@ -30,10 +30,10 @@ extract_variance_matrices <- function(dstudy_obj, use_posterior_mean = TRUE) {
     stop("Optimization requires at least 2 dimensions", call. = FALSE)
   }
 
-  is_mom <- inherits(gstudy_obj$model, "momfit")
+  is_aov <- inherits(gstudy_obj$model, "aovfit")
 
-  if (is_mom) {
-    mom_draws <- generate_mom_variance_and_covariance_draws(gstudy_obj)
+  if (is_aov) {
+    mom_draws <- generate_aov_variance_and_covariance_draws(gstudy_obj)
     vc_draws <- mom_draws$vc_draws
     cov_draws <- mom_draws$cov_draws
     n_draws <- mom_draws$n_draws

@@ -47,7 +47,7 @@ A brmsprior object; a data frame containing the prior specifications.
 }
 \description{
 This function is a wrapper around \code{\link[brms:set_prior]{brms::set_prior()}} to allow
-specifying priors for Bayesian models fit via the brms backend in gstudy.
+specifying priors for Bayesian models fit via the brms estimator in gstudy.
 See \code{\link[brms:set_prior]{brms::set_prior()}} for full documentation on parameter specifications.
 }
 \examples{
@@ -59,7 +59,7 @@ prior <- set_prior("normal(0, 1)", class = "sd", group = "person")
 g <- gstudy(score ~ (1 | person) + (1 | item),
   data = mydata,
   prior = prior,
-  backend = "brms",
+  estimator = "brms",
   iter = 2000, cores = 4, refresh = 1000
 )
 }

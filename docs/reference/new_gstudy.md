@@ -13,7 +13,7 @@ new_gstudy(
   variance_components,
   facets,
   object,
-  backend,
+  estimator,
   is_multivariate,
   formula,
   data
@@ -38,9 +38,9 @@ new_gstudy(
 
   Character string naming the object of measurement.
 
-- backend:
+- estimator:
 
-  Character string indicating the backend used.
+  Character string indicating the estimator used.
 
 - is_multivariate:
 

@@ -45,7 +45,7 @@ gt_draws <- function(object, ...) {
 #' @examples
 #' \dontrun{
 #' # Univariate gstudy
-#' g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, backend = "brms",
+#' g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000)
 #' draws <- gt_draws(g)
 #'
@@ -54,7 +54,7 @@ gt_draws <- function(object, ...) {
 #'
 #' # Multivariate gstudy - returns named list
 #' mg <- gstudy(cbind(score1, score2) ~ (1 | person) + (1 | item),
-#'   data = my_data, backend = "brms", iter = 2000, cores = 4, refresh = 1000)
+#'   data = my_data, estimator = "brms", iter = 2000, cores = 4, refresh = 1000)
 #' draws <- gt_draws(mg)
 #' draws$score1  # Access dimension-specific draws
 #' draws$score2
@@ -67,8 +67,8 @@ gt_draws.gstudy <- function(object, components = NULL, dims = NULL, n = NULL, ..
     stop("object must be a gstudy or mgstudy object", call. = FALSE)
   }
 
-  if (object$backend != "brms") {
-    stop("gt_draws() only works with gstudy objects fit with the brms backend",
+  if (object$estimator != "brms") {
+    stop("gt_draws() only works with gstudy objects fit with the brms estimator",
       call. = FALSE)
   }
 
@@ -153,7 +153,7 @@ gt_draws.mgstudy <- function(object, components = NULL, dims = NULL, n = NULL, .
 #' @examples
 #' \dontrun{
 #' # D-study with posterior estimation
-#' g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, backend = "brms",
+#' g <- gstudy(score ~ (1 | person) + (1 | item), data = my_data, estimator = "brms",
 #'   iter = 2000, cores = 4, refresh = 1000)
 #' d <- dstudy(g, n = list(item = 10), estimation = "posterior")
 #'
@@ -165,7 +165,7 @@ gt_draws.mgstudy <- function(object, components = NULL, dims = NULL, n = NULL, .
 #'
 #' # Multivariate - returns named list
 #' mg <- gstudy(cbind(score1, score2) ~ (1 | person) + (1 | item),
-#'   data = my_data, backend = "brms", iter = 2000, cores = 4, refresh = 1000)
+#'   data = my_data, estimator = "brms", iter = 2000, cores = 4, refresh = 1000)
 #' md <- dstudy(mg, n = list(item = 10), estimation = "posterior")
 #' draws <- gt_draws(md)
 #' draws$score1  # Per-dimension draws with VAR columns

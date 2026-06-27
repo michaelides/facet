@@ -2,8 +2,8 @@
 
 This function is a wrapper around
 [`brms::mvbind()`](https://paulbuerkner.com/brms/reference/mvbind.html)
-to allow specifying multivariate models via the brms backend in gstudy.
-See
+to allow specifying multivariate models via the brms estimator in
+gstudy. See
 [`brms::mvbind()`](https://paulbuerkner.com/brms/reference/mvbind.html)
 for full documentation.
 

@@ -17,9 +17,10 @@ Generalizability Theory (G-theory) analyses using variance component
 models. It provides a bridge between classical test theory and standard
 linear mixed-effects models, offering:
 
-- **Multiple backends**: Frequentist approaches using **mom** (Method of
-  Moments/ANOVA) and **lme4** (Restricted Maximum Likelihood); Bayesian
-  approachs using **brms** (NUTS / Hamiltonian Monte Carlo)
+- **Multiple estimators**: Frequentist approaches using **aov**
+  (ANOVA-based estimation / method of moments) and **lme4** (Restricted
+  Maximum Likelihood); Bayesian approaches using **brms** (NUTS /
+  Hamiltonian Monte Carlo)
 - **Univariate and multivariate analyses** using
   [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md)
 - **Built-in datasets**: Includes classic G-theory datasets like
@@ -105,8 +106,9 @@ plot_ranef(g, which = "Person")
 
 ### Analysis Capabilities
 
-- **Automatic backend selection** — intelligently chooses between lme4,
-  brms, and method of moments based on your formula structure
+- **Automatic estimator selection** — intelligently chooses between
+  lme4, brms, and aov (ANOVA-based estimation, the method of moments)
+  based on your formula structure
 - **Univariate and multivariate G-studies** — analyze multiple outcomes
   simultaneously using
   [`mvbind()`](https://github.com/yourorg/facet/reference/mvbind.md)
@@ -119,15 +121,15 @@ plot_ranef(g, which = "Person")
 
 ### Variance Component Analysis
 
-- **Confidence/credible intervals** — all backends provide interval
-  estimates: brms offers Bayesian credible intervals, lme4/mom provide
+- **Confidence/credible intervals** — all estimators provide interval
+  estimates: brms offers Bayesian credible intervals, lme4/aov provide
   bootstrap or analytical intervals
 - **Flexible display scales** — view variance components as variances or
   standard deviations using the `scale` argument
 - **Proportion of variance** — each component expressed as percentage of
   total variance for easy interpretation
 
-### Bayesian Features (brms backend)
+### Bayesian Features (brms estimator)
 
 - **Full Posterior Control** — full access to MCMC samples and
   convergence diagnostics (Rhat, ESS)
@@ -144,7 +146,7 @@ plot_ranef(g, which = "Person")
 - **Rich Visualization** — built-in `ggplot2`-based plotting for
   G-studies, D-studies, and random effects
 
-## Backends
+## Estimators
 
 ### lme4 (Default)
 
@@ -157,10 +159,13 @@ plot_ranef(g, which = "Person")
 - Required for multivariate models and custom priors
 - Provides full posterior distributions
 
-### Method of Moments (MOM)
+### aov (ANOVA-based Estimation)
 
-- Fast closed-form solution for balanced designs
-- Analytical confidence intervals without bootstrapping
+- Fast closed-form solution for balanced designs (Henderson Type I sums
+  of squares)
+- Falls back to Henderson Type III sums of squares for unbalanced
+  designs
+- Analytical confidence intervals (Satterthwaite) without bootstrapping
 - Useful for large balanced datasets where lme4 might be slow
 
 ## Output Structure

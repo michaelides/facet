@@ -1440,12 +1440,12 @@ extract_covariance_draws <- function(model, dimensions) {
   result
 }
 
-#' Extract Covariances from MOM Multivariate Model
+#' Extract Covariances from aov Multivariate Model
 #'
 #' Extracts residual covariances and random effect covariances from a
-#' multivariate method-of-moments model.
+#' multivariate aov model.
 #'
-#' @param model A momfit object from a multivariate model.
+#' @param model A aovfit object from a multivariate model.
 #'
 #' @return A list with:
 #'   \item{residual_cov}{Tibble with residual covariances (dim1, dim2, estimate, se, lower, upper)}
@@ -1454,9 +1454,9 @@ extract_covariance_draws <- function(model, dimensions) {
 #'   \item{random_effect_cov_matrix}{Named list of matrices for random effect covariances}
 #'
 #' @keywords internal
-extract_covariances_mom <- function(model) {
-  if (!inherits(model, "momfit")) {
-    stop("model must be a momfit object", call. = FALSE)
+extract_covariances_aov <- function(model) {
+  if (!inherits(model, "aovfit")) {
+    stop("model must be a aovfit object", call. = FALSE)
   }
 
   if (!isTRUE(model$is_multivariate) || length(model$responses) <= 1) {

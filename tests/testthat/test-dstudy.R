@@ -645,25 +645,25 @@ test_that("dstudy accepts simple estimation explicitly", {
   expect_null(result$posterior)
 })
 
-test_that("dstudy warns and refits when posterior requested with non-brms backend", {
+test_that("dstudy warns and refits when posterior requested with non-brms estimator", {
   skip_if_not_installed("lme4")
   skip_if_not_installed("brms")
 
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "lme4")
 
   expect_warning(
     result <- dstudy(g, n = list(rater = 3), estimation = "posterior"),
-    "estimation = 'posterior' requires backend = 'brms'"
+    "estimation = 'posterior' requires estimator = 'brms'"
   )
 
   expect_equal(result$estimation, "posterior")
-  expect_equal(result$gstudy$backend, "brms")
+  expect_equal(result$gstudy$estimator, "brms")
 })
 
 test_that("dstudy posterior estimation returns posterior distributions", {
   skip_if_not_installed("brms")
 
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = 3), estimation = "posterior")
 
   expect_equal(result$estimation, "posterior")
@@ -680,7 +680,7 @@ test_that("dstudy posterior estimation returns posterior distributions", {
 test_that("dstudy posterior distributions are numeric vectors", {
   skip_if_not_installed("brms")
 
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = 3), estimation = "posterior")
 
   for (name in c("uni", "sigma2_delta", "sigma2_delta_abs",
@@ -693,7 +693,7 @@ test_that("dstudy posterior distributions are numeric vectors", {
 test_that("dstudy posterior coefficients are means of distributions", {
   skip_if_not_installed("brms")
 
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = 3), estimation = "posterior")
 
   expect_equal(result$coefficients$uni, mean(result$posterior$uni))
@@ -704,7 +704,7 @@ test_that("dstudy posterior coefficients are means of distributions", {
 test_that("dstudy posterior g is between 0 and 1", {
   skip_if_not_installed("brms")
 
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = 3), estimation = "posterior")
 
   expect_true(all(result$posterior$g >= 0, na.rm = TRUE))
@@ -714,7 +714,7 @@ test_that("dstudy posterior g is between 0 and 1", {
 test_that("dstudy posterior with sweep returns list of posteriors", {
   skip_if_not_installed("brms")
 
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = c(2, 3)), estimation = "posterior")
 
   expect_true(result$is_sweep)
@@ -727,10 +727,10 @@ test_that("dstudy posterior with sweep returns list of posteriors", {
   }
 })
 
-test_that("dstudy posterior estimation works with brms backend without warning", {
+test_that("dstudy posterior estimation works with brms estimator without warning", {
   skip_if_not_installed("brms")
 
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
 
   expect_warning(
     result <- dstudy(g, n = list(rater = 3), estimation = "posterior"),
@@ -1155,7 +1155,7 @@ test_that("dstudy with posterior estimation and n provided produces only scaled 
     person = factor(rep(1:20, 5)),
     item = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms")
 
   suppressWarnings({
     d <- dstudy(g, n = list(item = 10))
@@ -1174,7 +1174,7 @@ test_that("dstudy with posterior estimation and no n provided produces both unsc
     person = factor(rep(1:20, 5)),
     item = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | item), data = test_data, estimator = "brms")
 
   suppressWarnings({
     d <- dstudy(g)
@@ -1240,7 +1240,7 @@ test_that("dstudy accepts ci parameter", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   expect_no_error(dstudy(g, n = list(rater = 3), ci = "g"))
   expect_no_error(dstudy(g, n = list(rater = 3), ci = c("g", "phi")))
 })
@@ -1252,21 +1252,21 @@ test_that("dstudy accepts probs parameter", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   expect_no_error(dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.05, 0.95)))
 })
 
-test_that("dstudy warns when ci requested with non-brms backend", {
+test_that("dstudy warns when ci requested with non-brms estimator", {
   skip_if_not_installed("lme4")
   test_data <- data.frame(
     score = rnorm(100),
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "lme4")
   expect_warning(
     dstudy(g, n = list(rater = 3), ci = "g"),
-    "Credible intervals for 'mom' and 'lme4' backends are not yet implemented"
+    "Credible intervals for 'mom' and 'lme4' estimators are not yet implemented"
   )
 })
 
@@ -1277,7 +1277,7 @@ test_that("dstudy validates ci parameter values", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "lme4")
   expect_error(
     dstudy(g, n = list(rater = 3), ci = "invalid"),
     "'arg' should be one of"
@@ -1291,7 +1291,7 @@ test_that("dstudy validates probs parameter", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   expect_error(
     dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.1)),
     "'probs' must have exactly 2 elements"
@@ -1302,14 +1302,14 @@ test_that("dstudy validates probs parameter", {
   )
 })
 
-test_that("dstudy with brms backend produces CI columns", {
+test_that("dstudy with brms estimator produces CI columns", {
   skip_if_not_installed("brms")
   test_data <- data.frame(
     score = rnorm(100),
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = 3), ci = c("g", "phi"))
   expect_true("g_LL" %in% names(result$coefficients))
   expect_true("g_UL" %in% names(result$coefficients))
@@ -1324,7 +1324,7 @@ test_that("dstudy CI values are in correct order (LL < UL)", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = 3), ci = c("g", "phi"))
   expect_true(result$coefficients$g_LL < result$coefficients$g_UL)
   expect_true(result$coefficients$phi_LL < result$coefficients$phi_UL)
@@ -1337,7 +1337,7 @@ test_that("dstudy CI uses custom probs", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result_95 <- dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.025, 0.975))
   result_90 <- dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.05, 0.95))
   width_95 <- result_95$coefficients$g_UL - result_95$coefficients$g_LL
@@ -1352,7 +1352,7 @@ test_that("dstudy sweep with ci produces CI columns", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = c(2, 3)), ci = "g")
   expect_true(result$is_sweep)
   expect_true("g_LL" %in% names(result$coefficients))
@@ -1367,7 +1367,7 @@ test_that("dstudy stores ci and probs in result", {
     person = factor(rep(1:20, 5)),
     rater = factor(rep(1:5, each = 20))
   )
-  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, backend = "brms")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data, estimator = "brms")
   result <- dstudy(g, n = list(rater = 3), ci = "g", probs = c(0.05, 0.95))
   expect_equal(result$ci, "g")
   expect_equal(result$probs, c(0.05, 0.95))
@@ -1391,7 +1391,7 @@ test_that("dstudy stores NULL ci when not specified", {
 
 test_that("dstudy handles long_format_multivariate per-dimension sample sizes", {
   mock_g <- list(
-    backend = "brms",
+    estimator = "brms",
     long_format_multivariate = TRUE,
     dimension_var = "Subtest",
     dimensions = c("A", "B"),
@@ -1452,7 +1452,7 @@ test_that("dstudy computes composite coefficients for multivariate designs", {
   gstudy_result <- gstudy(
     formula = mvbind(A, B) ~ (1 | person) + (1 | item),
     data = data_wide,
-    backend = "mom"
+    estimator = "mom"
   )
 
   dstudy_result <- dstudy(gstudy_result, n = list(person = 10, item = 5))
@@ -1498,7 +1498,7 @@ test_that("dstudy computes composite variance components for multivariate poster
   gstudy_result <- gstudy(
     formula = mvbind(A, B) ~ (1 | person) + (1 | item),
     data = data_wide,
-    backend = "brms",
+    estimator = "brms",
     cores = 2,
     chains = 2,
     iter = 1000
@@ -1554,7 +1554,7 @@ test_that("composite coefficients are computed from posterior draws, not point e
   gstudy_result <- gstudy(
     formula = mvbind(A, B) ~ (1 | person) + (1 | item),
     data = data_wide,
-    backend = "brms",
+    estimator = "brms",
     cores = 2, chains = 2, iter = 1000
   )
   
@@ -1570,7 +1570,7 @@ test_that("composite coefficients are computed from posterior draws, not point e
   expect_true(nrow(composite_row) == 1)
   
   expect_true(!is.null(dstudy_result$composite_posterior), 
-              "composite_posterior should exist for brms backend")
+              "composite_posterior should exist for brms estimator")
   
   post <- dstudy_result$composite_posterior
   
@@ -1625,7 +1625,7 @@ test_that("composite coefficients include credible intervals when ci requested",
   gstudy_result <- gstudy(
     formula = mvbind(A, B) ~ (1 | person),
     data = data_wide,
-    backend = "brms",
+    estimator = "brms",
     cores = 2, chains = 2, iter = 800
   )
   
@@ -1663,7 +1663,7 @@ test_that("VAR is stored in var element for long-format multivariate models", {
     bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
        sigma ~ 0 + Subtest),
     data = rajaratnam,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -1704,7 +1704,7 @@ test_that("VAR is stored in var element for long-format multivariate models", {
   expect_true(all(d[["var"]]$var_abs > 0))
 })
 
-test_that("VAR is stored in var element for wide-format multivariate models (brms backend)", {
+test_that("VAR is stored in var element for wide-format multivariate models (brms estimator)", {
   skip_if_not_installed("brms")
   skip_on_cran()
 
@@ -1722,7 +1722,7 @@ test_that("VAR is stored in var element for wide-format multivariate models (brm
   gu <- gstudy(
     mvbind(A, B) ~ (1 | person),
     data = data,
-    backend = "brms",
+    estimator = "brms",
     chains = 2,
     iter = 500,
     refresh = 0
@@ -1763,7 +1763,7 @@ test_that("prmse returns correct structure", {
   bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
     sigma ~ 0 + Subtest),
   data = rajaratnam,
-  backend = "brms",
+  estimator = "brms",
   chains = 2,
   iter = 500,
   refresh = 0
@@ -1793,7 +1793,7 @@ test_that("prmse returns correct structure", {
   expect_true(all(var_df$var_abs > 0))
 })
 
-test_that("prmse with ci returns CI columns for brms backend", {
+test_that("prmse with ci returns CI columns for brms estimator", {
   skip_if_not_installed("brms")
   skip_on_cran()
 
@@ -1803,7 +1803,7 @@ test_that("prmse with ci returns CI columns for brms backend", {
   bf(Score ~ 0 + Subtest + (0+Subtest|r|Person) + (0+Subtest||ItemId),
     sigma ~ 0 + Subtest),
   data = rajaratnam,
-  backend = "brms",
+  estimator = "brms",
   chains = 2,
   iter = 500,
   refresh = 0
@@ -1859,16 +1859,16 @@ test_that("prmse returns G and Phi for univariate models", {
   expect_equal(result$prmse_abs, d$coefficients$phi)
 })
 
-test_that("prmse warns that CIs only available for brms backend", {
+test_that("prmse warns that CIs only available for brms estimator", {
   data(brennan)
   g <- gstudy(Score ~ (1 | Person) + (1 | Task) + (1 | Rater) +
                 (1 | Person:Task), data = brennan)
   d <- dstudy(g, n = list(Task = 3, Rater = 4))
 
-  # Should warn when ci is specified for mom backend
+  # Should warn when ci is specified for mom estimator
   expect_warning(
     prmse(d, ci = "prmse"),
-    "Credible intervals are only available for brms backend"
+    "Credible intervals are only available for brms estimator"
   )
 
   # Result should not have CI columns
@@ -1985,9 +1985,13 @@ test_that("glance.dstudy columns follow var_unscaled_<component> pattern", {
 
   result <- glance(d)
 
-  expect_true(all(grepl("^var_unscaled_", names(result))))
+  var_cols <- names(result)[grepl("^var_unscaled_", names(result))]
+  expect_true(length(var_cols) > 0)
+  expect_true(all(grepl("^var_unscaled_", var_cols)))
   expect_true("var_unscaled_person" %in% names(result))
   expect_true("var_unscaled_rater" %in% names(result))
+  expect_true("g" %in% names(result))
+  expect_true("phi" %in% names(result))
 })
 
 test_that("glance.dstudy values match variance_components$var_unscaled", {
@@ -2019,7 +2023,7 @@ test_that("glance.dstudy returns multi-row tibble for multivariate dstudy", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   d <- dstudy(g, n = list(rater = 3))
 
@@ -2045,7 +2049,7 @@ test_that("glance.dstudy multivariate columns are dimension names", {
   g <- gstudy(
     brms::mvbind(score1, score2) ~ (1 | person) + (1 | rater),
     data = data_mv,
-    backend = "brms"
+    estimator = "brms"
   )
   d <- dstudy(g, n = list(rater = 3))
 
@@ -2074,10 +2078,12 @@ test_that("glance.dstudy drops Composite rows from multivariate posterior dstudy
 
   expect_false("Composite" %in% result$component)
   expect_equal(nrow(result), 1)
-  expect_equal(ncol(result), 3)
+  expect_equal(ncol(result), 5)
   expect_true("component" %in% names(result))
   expect_true("score1" %in% names(result))
   expect_true("score2" %in% names(result))
+  expect_true("g" %in% names(result))
+  expect_true("phi" %in% names(result))
 })
 
 test_that("glance.dstudy does not include covariance columns", {
@@ -2115,6 +2121,66 @@ test_that("glance.dstudy round-trips var_unscaled values for univariate", {
     expect_equal(result_list[[col_name]], vc$var_unscaled[vc$component == comp],
       tolerance = 1e-12)
   }
+})
+
+test_that("glance.dstudy includes scalar g and phi for univariate dstudy", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+
+  expect_true("g" %in% names(result))
+  expect_true("phi" %in% names(result))
+  expect_type(result$g, "double")
+  expect_type(result$phi, "double")
+  expect_length(result$g, 1)
+  expect_length(result$phi, 1)
+  expect_true(result$g >= 0 && result$g <= 1)
+  expect_true(result$phi >= 0 && result$phi <= 1)
+})
+
+test_that("glance.dstudy g and phi values match tidy(d)$g and tidy(d)$phi", {
+  skip_if_not_installed("lme4")
+  g <- gstudy(score ~ (1 | person) + (1 | rater), data = test_data)
+  d <- dstudy(g, n = list(rater = 3))
+
+  result <- glance(d)
+  td <- tidy(d)
+
+  expect_equal(result$g, td$g, tolerance = 1e-12)
+  expect_equal(result$phi, td$phi, tolerance = 1e-12)
+})
+
+test_that("glance.dstudy g and phi are list-columns for multivariate dstudy", {
+  mock_d <- list(
+    variance_components = tibble::tibble(
+      component = c("person", "person", "person"),
+      dim = c("score1", "score2", "Composite"),
+      var_unscaled = c(0.4, 0.5, 0.45)
+    ),
+    coefficients = tibble::tibble(
+      dim = c("score1", "score2"),
+      g = c(0.8, 0.7),
+      phi = c(0.75, 0.65)
+    ),
+    object = "person",
+    is_sweep = FALSE
+  )
+  class(mock_d) <- "dstudy"
+
+  result <- glance(mock_d)
+
+  expect_true("g" %in% names(result))
+  expect_true("phi" %in% names(result))
+  expect_type(result$g, "list")
+  expect_type(result$phi, "list")
+  expect_length(result$g, 1)
+  expect_length(result$phi, 1)
+  expect_named(result$g[[1]], c("score1", "score2"))
+  expect_named(result$phi[[1]], c("score1", "score2"))
+  expect_equal(unname(result$g[[1]]["score1"]), 0.8, tolerance = 1e-12)
+  expect_equal(unname(result$phi[[1]]["score2"]), 0.65, tolerance = 1e-12)
 })
 
 # =============================================================================

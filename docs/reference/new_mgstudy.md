@@ -13,7 +13,7 @@ new_mgstudy(
   variance_components,
   facets,
   object,
-  backend,
+  estimator,
   formula,
   data,
   dimensions
@@ -38,9 +38,9 @@ new_mgstudy(
 
   Character string naming the object of measurement.
 
-- backend:
+- estimator:
 
-  Character string indicating the backend used.
+  Character string indicating the estimator used.
 
 - formula:
 
